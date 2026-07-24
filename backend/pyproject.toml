@@ -49,6 +49,11 @@ packages = ["src/econometrica"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+# pytest-asyncio 1.x removed the overridable `event_loop` fixture. The session
+# engine fixture and the tests that use it must share one loop, so both default
+# scopes are pinned to the session.
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
 filterwarnings = ["ignore::FutureWarning", "ignore::DeprecationWarning"]
 
 [tool.ruff]
