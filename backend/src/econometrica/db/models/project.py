@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import CheckConstraint, String, Text
+from sqlalchemy import CheckConstraint, String, Text, false, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -23,14 +23,22 @@ class Project(TimestampedBase):
 
     # Capability toggles. A chat may override web search and MCP; the code
     # sandbox is deliberately project-scoped only.
-    web_search_enabled: Mapped[bool] = mapped_column(default=False)
-    mcp_enabled: Mapped[bool] = mapped_column(default=False)
-    code_sandbox_enabled: Mapped[bool] = mapped_column(default=False)
+    #
+    # Each NOT NULL column pairs its Python-side ``default`` with a matching
+    # ``server_default`` so that inserts which bypass the ORM still land valid
+    # rows. The two must always express the same value.
+    web_search_enabled: Mapped[bool] = mapped_column(default=False, server_default=false())
+    mcp_enabled: Mapped[bool] = mapped_column(default=False, server_default=false())
+    code_sandbox_enabled: Mapped[bool] = mapped_column(default=False, server_default=false())
 
-    validation_tier: Mapped[str] = mapped_column(String(20), default="critic")
+    validation_tier: Mapped[str] = mapped_column(
+        String(20), default="critic", server_default="critic"
+    )
 
     # ``{"planner": {"provider": ..., "model": ...}, ...}``
-    model_assignments: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+    model_assignments: Mapped[dict[str, Any]] = mapped_column(
+        JSONB, default=dict, server_default=text("'{}'::jsonb")
+    )
 
     chats: Mapped[list["Chat"]] = relationship(
         back_populates="project",
