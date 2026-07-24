@@ -1,0 +1,97 @@
+@import "tailwindcss";
+
+/* Self-hosted variable fonts. No CDN link — the app must work offline. Only the
+   subset matching the rendered text is fetched, courtesy of unicode-range. */
+@import "@fontsource-variable/inter/wght.css";
+@import "@fontsource-variable/jetbrains-mono/wght.css";
+
+@theme {
+  /* Fontsource ships the variable cuts under a "… Variable" family name; the
+     static family is kept next in line for anyone who has it installed. */
+  --font-sans: "Inter Variable", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, monospace;
+
+  --color-accent: oklch(0.55 0.14 250);
+  --color-positive: oklch(0.62 0.14 155);
+  --color-negative: oklch(0.58 0.19 25);
+
+  /* A compact type scale. The UI is dense; text below `sm` is chrome. */
+  --text-2xs: 0.6875rem;
+  --text-2xs--line-height: 1rem;
+}
+
+/* `inline` matters: it makes the generated utilities reference --surface-1 and
+   friends directly rather than a :root-resolved copy, so the values below stay
+   live under the [data-theme] override. */
+@theme inline {
+  --color-surface-0: var(--surface-0);
+  --color-surface-1: var(--surface-1);
+  --color-surface-2: var(--surface-2);
+  --color-border: var(--border);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+}
+
+:root {
+  --surface-0: oklch(1 0 0);
+  --surface-1: oklch(0.985 0 0);
+  --surface-2: oklch(0.96 0 0);
+  --border: oklch(0.9 0 0);
+  --text-primary: oklch(0.2 0 0);
+  --text-secondary: oklch(0.5 0 0);
+}
+
+:root[data-theme="dark"] {
+  --surface-0: oklch(0.16 0.005 250);
+  --surface-1: oklch(0.19 0.005 250);
+  --surface-2: oklch(0.23 0.005 250);
+  --border: oklch(0.3 0.005 250);
+  --text-primary: oklch(0.95 0 0);
+  --text-secondary: oklch(0.68 0 0);
+}
+
+@layer base {
+  /* Tailwind v4 defaults borders to currentColor; the token is what we mean. */
+  *,
+  ::before,
+  ::after {
+    border-color: var(--border);
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    background-color: var(--surface-0);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    font-feature-settings: "cv05" 1, "ss03" 1; /* single-storey l, rounded quotes */
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Tabular numerals everywhere numbers are compared vertically. */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 1px;
+  }
+
+  ::selection {
+    background-color: color-mix(in oklch, var(--color-accent) 28%, transparent);
+  }
+}
+
+@layer components {
+  /* A thin, quiet scrollbar. Application chrome recedes. */
+  .scroll-thin {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in oklch, var(--text-secondary) 35%, transparent) transparent;
+  }
+}
