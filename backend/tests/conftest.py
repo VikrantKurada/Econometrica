@@ -11,6 +11,9 @@ import pytest_asyncio
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 
 from econometrica.config import get_settings
+
+# Importing the models package registers every table on ``Base.metadata``.
+from econometrica.db import models  # noqa: F401
 from econometrica.db.base import Base
 
 _FALLBACK_TEST_DATABASE_URL = (
