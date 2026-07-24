@@ -1,4 +1,13 @@
-import type { Health } from "./types";
+import type {
+  Capabilities,
+  Chat,
+  ChatCreate,
+  ChatUpdate,
+  Health,
+  Project,
+  ProjectCreate,
+  ProjectUpdate,
+} from "./types";
 
 /**
  * Every request goes through the Vite dev proxy at /api, so there is no base
@@ -99,4 +108,39 @@ export async function request<T>(
 
 export const api = {
   health: (): Promise<Health> => request<Health>("/health"),
+
+  listProjects: (): Promise<Project[]> => request<Project[]>("/projects"),
+
+  createProject: (payload: ProjectCreate): Promise<Project> =>
+    request<Project>("/projects", { method: "POST", body: payload }),
+
+  /**
+   * Partial by construction: whatever keys `payload` carries are the only ones
+   * sent, and the backend's `exclude_unset` leaves the rest alone.
+   */
+  updateProject: (projectId: string, payload: ProjectUpdate): Promise<Project> =>
+    request<Project>(`/projects/${projectId}`, { method: "PATCH", body: payload }),
+
+  deleteProject: (projectId: string): Promise<void> =>
+    request<void>(`/projects/${projectId}`, { method: "DELETE" }),
+
+  listChats: (projectId: string): Promise<Chat[]> =>
+    request<Chat[]>(`/projects/${projectId}/chats`),
+
+  createChat: (projectId: string, payload: ChatCreate): Promise<Chat> =>
+    request<Chat>(`/projects/${projectId}/chats`, { method: "POST", body: payload }),
+
+  /**
+   * `payload.web_search_enabled` has three meanings and all three survive the
+   * trip: absent leaves the override alone, `null` clears it back to inherited,
+   * and a boolean sets it explicitly.
+   */
+  updateChat: (chatId: string, payload: ChatUpdate): Promise<Chat> =>
+    request<Chat>(`/chats/${chatId}`, { method: "PATCH", body: payload }),
+
+  deleteChat: (chatId: string): Promise<void> =>
+    request<void>(`/chats/${chatId}`, { method: "DELETE" }),
+
+  chatCapabilities: (chatId: string): Promise<Capabilities> =>
+    request<Capabilities>(`/chats/${chatId}/capabilities`),
 };

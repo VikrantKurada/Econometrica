@@ -3,6 +3,7 @@ import { useState } from "react";
 
 import { HealthIndicator } from "./components/HealthIndicator";
 import { AppShell } from "./components/layout/AppShell";
+import { ProjectTree } from "./components/projects/ProjectTree";
 import { createQueryClient } from "./lib/queryClient";
 
 export default function App() {
@@ -10,7 +11,7 @@ export default function App() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <AppShell status={<HealthIndicator />} />
+      <AppShell projects={<ProjectTree />} status={<HealthIndicator />} />
     </QueryClientProvider>
   );
 }
