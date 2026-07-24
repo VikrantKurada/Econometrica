@@ -1,0 +1,21 @@
+services:
+  db:
+    image: timescale/timescaledb-ha:pg16
+    container_name: econometrica-db
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-econometrica}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me-locally}
+      POSTGRES_DB: ${POSTGRES_DB:-econometrica}
+    ports:
+      - "${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - econometrica-pgdata:/home/postgres/pgdata/data
+      - ./infra/initdb:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-econometrica}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  econometrica-pgdata:
