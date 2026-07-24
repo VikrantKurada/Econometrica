@@ -1,23 +1,13 @@
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, status
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from econometrica.api.deps import SessionDep
+from econometrica.api.deps import SessionDep, get_project_or_404
 from econometrica.db.models import Project
 from econometrica.schemas.project import ProjectCreate, ProjectRead, ProjectUpdate
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
-
-
-async def get_project_or_404(session: AsyncSession, project_id: UUID) -> Project:
-    project = await session.get(Project, project_id)
-    if project is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=f"Project {project_id} not found"
-        )
-    return project
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
