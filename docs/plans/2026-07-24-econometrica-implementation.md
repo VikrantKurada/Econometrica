@@ -22,6 +22,35 @@ Tailwind, Radix, Plotly.js · pytest + hypothesis, Vitest + Playwright.
 
 ---
 
+## Verified environment (2026-07-24)
+
+Dependency resolution landed well above the version floors below. All 21
+econometric code paths that Phase 2 depends on were probed against this exact
+combination and passed, so **no version pinning is required**:
+
+| Package | Resolved |
+|---|---|
+| Python | 3.12.12 |
+| pandas | 3.0.5 |
+| numpy | 2.5.1 |
+| scipy | 1.18.0 |
+| statsmodels | 0.14.6 |
+| arch | 8.0.0 |
+| linearmodels | 7.0 |
+
+Two API changes surfaced by the probe that Phase 2 tools must account for:
+
+- `statsmodels.tsa.stattools.grangercausalitytests` — the `verbose` argument is
+  deprecated and warns. Do not pass it; capture the returned dict instead.
+- `arch.unitroot.VarianceRatio` and `arch.unitroot.KPSS` — lag selection now
+  defaults to a data-dependent method. Pass `lags` explicitly in every call so
+  results are deterministic and reproducible across library versions.
+
+If a later task does hit pandas-3 dtype friction, the fallback is
+`pandas>=2.2,<3`, but nothing observed so far justifies it.
+
+---
+
 ## How this plan is organised
 
 Phases 1 and 2 — the skeleton and the econometrics core — are specified at full
