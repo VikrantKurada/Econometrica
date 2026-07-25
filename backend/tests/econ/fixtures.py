@@ -251,24 +251,46 @@ def make_stationary_ar1(
 
 
 def make_garch_series(
-    *, omega: float, alpha: float, beta: float, n: int, seed: int, burn_in: int = 500
+    *,
+    omega: float,
+    alpha: float,
+    beta: float,
+    n: int,
+    seed: int,
+    burn_in: int = 500,
+    dist: str = "normal",
+    nu: float | None = None,
 ) -> pd.Series:
     """Zero-mean returns from a GARCH(1,1) iterated directly, not via ``arch``.
 
-    Recursion: ``sigma2_t = omega + alpha * eps2_{t-1} + beta * sigma2_{t-1}``
-    with Gaussian innovations, seeded at the unconditional variance
-    ``omega / (1 - alpha - beta)``. Generated independently of the ``arch``
-    package so the test data cannot inherit a bug from the library under test.
+    Recursion: ``sigma2_t = omega + alpha * eps2_{t-1} + beta * sigma2_{t-1}``,
+    seeded at the unconditional variance ``omega / (1 - alpha - beta)``.
+    Generated independently of the ``arch`` package so the test data cannot
+    inherit a bug from the library under test.
 
-    True parameters: ``omega``, ``alpha`` (ARCH), ``beta`` (GARCH). Downstream
-    tests rely on pronounced volatility clustering (ARCH-LM rejects) and on
-    the parameters being recoverable by GARCH estimation.
+    Innovations are standard normal (``dist='normal'``, the default — output
+    is bit-for-bit identical to before the option existed) or standardised
+    Student-t (``dist='t'`` with ``nu > 2``, scaled by ``sqrt(nu/(nu-2))`` to
+    unit variance so the unconditional variance formula is unchanged and only
+    the tail weight differs — the fat-tailed known-answer case).
+
+    True parameters: ``omega``, ``alpha`` (ARCH), ``beta`` (GARCH) and, for
+    the t variant, the innovation degrees of freedom ``nu``. Downstream tests
+    rely on pronounced volatility clustering (ARCH-LM rejects) and on the
+    parameters being recoverable by GARCH estimation.
     """
     if alpha + beta >= 1:
         raise ValueError(f"GARCH(1,1) needs alpha + beta < 1, got {alpha + beta}")
     rng = np.random.default_rng(seed)
     total = n + burn_in
-    z = rng.standard_normal(total)
+    if dist == "normal":
+        z = rng.standard_normal(total)
+    elif dist == "t":
+        if nu is None or nu <= 2:
+            raise ValueError(f"dist='t' needs nu > 2 for a finite variance, got nu={nu}")
+        z = rng.standard_t(nu, total) / np.sqrt(nu / (nu - 2.0))
+    else:
+        raise ValueError(f"unknown innovation dist {dist!r}; use 'normal' or 't'")
     returns = np.empty(total)
     sigma2 = omega / (1.0 - alpha - beta)
     for t in range(total):

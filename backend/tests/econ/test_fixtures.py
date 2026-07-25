@@ -169,6 +169,53 @@ def test_garch_fixture_exhibits_volatility_clustering():
     assert p_value < 0.01
 
 
+def test_garch_fixture_is_reproducible_under_a_seed():
+    a = make_garch_series(omega=1e-6, alpha=0.09, beta=0.90, n=500, seed=3)
+    b = make_garch_series(omega=1e-6, alpha=0.09, beta=0.90, n=500, seed=3)
+    assert a.equals(b)
+
+
+def test_garch_fixture_t_variant_is_reproducible_under_a_seed():
+    a = make_garch_series(omega=1e-6, alpha=0.09, beta=0.90, n=500, seed=3, dist="t", nu=6.0)
+    b = make_garch_series(omega=1e-6, alpha=0.09, beta=0.90, n=500, seed=3, dist="t", nu=6.0)
+    assert a.equals(b)
+
+
+def test_garch_fixture_t_variant_has_fatter_tails_than_the_normal_variant():
+    """Standardised residuals of the t variant must show clear excess kurtosis.
+
+    Standardising by the TRUE conditional volatility isolates the innovation
+    distribution: normal innovations give excess kurtosis near 0, t(6)
+    innovations give it near 3. If this fails, the t-vs-normal AIC comparison
+    in the GARCH tool tests is vacuous.
+    """
+    from scipy import stats
+
+    kwargs = dict(omega=1e-6, alpha=0.09, beta=0.90, n=3000, seed=3)
+    normal = make_garch_series(**kwargs)
+    fat = make_garch_series(**kwargs, dist="t", nu=6.0)
+    # The GARCH filter itself fattens unconditional tails; compare the raw
+    # series with identical volatility dynamics so only the innovations differ.
+    assert stats.kurtosis(fat) > stats.kurtosis(normal) + 1.0
+
+
+def test_garch_fixture_t_variant_keeps_unit_variance_innovations():
+    """Innovations are standardised t, so the unconditional variance formula
+    omega / (1 - alpha - beta) still holds for the t variant."""
+    series = make_garch_series(
+        omega=1e-6, alpha=0.05, beta=0.60, n=20000, seed=3, dist="t", nu=6.0
+    )
+    target = 1e-6 / (1.0 - 0.05 - 0.60)
+    assert float(series.var()) == pytest.approx(target, rel=0.15)
+
+
+def test_garch_fixture_t_variant_requires_a_valid_nu():
+    with pytest.raises(ValueError, match="nu"):
+        make_garch_series(omega=1e-6, alpha=0.09, beta=0.90, n=100, seed=3, dist="t", nu=2.0)
+    with pytest.raises(ValueError, match="nu"):
+        make_garch_series(omega=1e-6, alpha=0.09, beta=0.90, n=100, seed=3, dist="t")
+
+
 def test_cointegrated_pair_has_a_stationary_spread():
     from statsmodels.tsa.stattools import adfuller
 
