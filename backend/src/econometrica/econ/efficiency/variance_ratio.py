@@ -21,8 +21,13 @@ included so charts and tables anchor at the definitional value.
 import pandas as pd
 from pydantic import BaseModel, Field
 
-from econometrica.econ._common import build_manifest, coerce_params
-from econometrica.econ.efficiency._shared import TRANSFORM_FIELD_DOC, Transform, prepare_series
+from econometrica.econ._common import (
+    TRANSFORM_FIELD_DOC,
+    Transform,
+    build_manifest,
+    coerce_params,
+    prepare_series,
+)
 from econometrica.econ.registry import get_registry
 from econometrica.econ.types import Diagnostic, ResultSet, Series, Table
 

@@ -9,7 +9,7 @@ here never escape: every public surface of the families speaks
 
 from collections.abc import Iterable, Sequence
 from importlib import metadata
-from typing import Any
+from typing import Any, Literal
 
 import numpy as np
 import pandas as pd
@@ -17,6 +17,15 @@ from pydantic import BaseModel
 
 from econometrica.econ.fingerprint import fingerprint_frame, fingerprint_params
 from econometrica.econ.types import Diagnostic, Estimate, Manifest, Series
+
+Transform = Literal["none", "log", "diff", "log_diff", "cumsum"]
+
+TRANSFORM_FIELD_DOC = (
+    "Applied to the column before testing: 'none' uses it as-is, 'log' takes"
+    " logs (levels of strictly positive prices), 'diff' first-differences,"
+    " 'log_diff' takes log returns (strictly positive prices), 'cumsum'"
+    " cumulates a return column into a level path."
+)
 
 
 def coerce_params[P: BaseModel](params: BaseModel, model: type[P]) -> P:
@@ -33,6 +42,50 @@ def require_columns(data: pd.DataFrame, columns: Iterable[str], *, tool: str) ->
             f"{tool}: missing column(s) {missing} in the supplied data; "
             f"available columns are {list(data.columns)}"
         )
+
+
+def prepare_series(
+    data: pd.DataFrame,
+    *,
+    column: str,
+    transform: Transform,
+    min_obs: int,
+    tool: str,
+) -> pd.Series:
+    """Extract, transform and validate the series a tool operates on.
+
+    Promoted from the efficiency family on third use (the volatility family).
+    NaNs are dropped before transforming. Log transforms refuse non-positive
+    values loudly rather than emitting NaN/inf into a test statistic. The
+    minimum-observation check runs on the transformed series — what the tool
+    actually sees.
+    """
+    require_columns(data, [column], tool=tool)
+    series = data[column].dropna().astype(float)
+
+    if transform in ("log", "log_diff") and not (series > 0).all():
+        raise ValueError(
+            f"{tool}: transform {transform!r} requires strictly positive values in"
+            f" column {column!r}; use 'none'/'diff'/'cumsum' for series that can be"
+            " non-positive"
+        )
+
+    if transform == "log":
+        series = pd.Series(np.log(series.to_numpy()), index=series.index)
+    elif transform == "diff":
+        series = series.diff().dropna()
+    elif transform == "log_diff":
+        series = pd.Series(np.log(series.to_numpy()), index=series.index).diff().dropna()
+    elif transform == "cumsum":
+        series = series.cumsum()
+
+    if len(series) < min_obs:
+        raise ValueError(
+            f"{tool}: needs at least {min_obs} observations after the"
+            f" {transform!r} transform, got {len(series)}; supply more data or"
+            " lower min_obs"
+        )
+    return series
 
 
 def build_manifest(
