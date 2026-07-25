@@ -23,8 +23,8 @@ answer.
 | 4.2 planner | ✅ |
 | 4.3 data steward | ✅ |
 | 4.4 econometrician + gates | ✅ |
-| 4.5 validator | ⬜ next |
-| 4.6 numeric grounding gate | ⬜ |
+| 4.5 validator | ✅ |
+| 4.6 numeric grounding gate | ⬜ next |
 | 4.7 narrator | ⬜ |
 | 4.8 orchestrator | ⬜ |
 | 4.9 run and step persistence | ⬜ |
@@ -346,6 +346,21 @@ the Validator and Econometrician resolve to the same provider**, which is the
 parent plan's named criterion — independence is the whole point of the role.
 
 **Commit:** `feat(agents): add validator fed by deterministic diagnostics`
+
+**Landed.** `independence_warning()` lives here rather than in the
+orchestrator so it is testable before 4.8 exists; the orchestrator will call
+it. It returns `None` when either side has no model, since the Econometrician
+is deterministic and nothing is being marked against itself.
+
+`Agent.check()` was added to the base class for this: a Validator may only ask
+for revisions to steps that exist, which the schema cannot express because
+only the plan knows which those are. Raising `ValueError` from it spends a
+retry, so an unactionable rejection gets one chance to become actionable
+before the run gives up.
+
+Diagnostics render with their verdict spelled out, and the word for
+`passed=None` is **"not judged"**, never "failed". A model told a check failed
+when it merely did not run rejects work for a reason that does not exist.
 
 ---
 

@@ -18,7 +18,6 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 
 from pydantic import BaseModel
-from pydantic import ValidationError as PydanticValidationError
 
 from econometrica.agents.schemas import AgentOutputError, parse_agent_json
 from econometrica.llm.base import LLMProvider
@@ -109,6 +108,18 @@ class Agent[OutputT: BaseModel](ABC):
     def output_model(self) -> type[OutputT]:
         """The shape this agent's reply must take."""
 
+    def check(self, output: OutputT) -> None:  # noqa: B027 — an optional hook, not a duty
+        """Validation the schema cannot express on its own.
+
+        Raise ``ValueError`` to reject the reply and spend a retry on it. The
+        cases that need this are the ones where validity depends on something
+        outside the reply — a Validator may only ask for revisions to steps
+        that exist, and only the plan knows which those are.
+
+        Empty by design rather than abstract: most agents have nothing to add
+        here, and forcing each to write ``pass`` would say nothing.
+        """
+
     async def ask(self, messages: Sequence[Message]) -> AgentResult[OutputT]:
         """Run the conversation until the reply parses, or the budget is spent."""
         conversation = list(messages)
@@ -132,7 +143,10 @@ class Agent[OutputT: BaseModel](ABC):
             try:
                 payload = parse_agent_json(completion.content)
                 output = self.output_model().model_validate(payload)
-            except (AgentOutputError, PydanticValidationError) as exc:
+                self.check(output)
+            # ValueError covers all three: AgentOutputError and Pydantic's
+            # ValidationError both subclass it, and `check` raises it directly.
+            except ValueError as exc:
                 problems.append(str(exc))
                 if attempt < self.max_attempts:
                     conversation.append(Message.assistant(completion.content))
