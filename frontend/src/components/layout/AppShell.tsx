@@ -43,7 +43,8 @@ export function AppShell({ projects, canvas, chat, status }: AppShellProps) {
   const content: Record<PaneId, ReactNode> = {
     projects: <SidePane>{projects}</SidePane>,
     canvas: <CanvasPane>{canvas}</CanvasPane>,
-    chat: <ChatPane>{chat}</ChatPane>,
+    // A conversation owns its own scrolling so the composer stays pinned.
+    chat: <ChatPane fill={Boolean(chat)}>{chat}</ChatPane>,
   };
 
   const visible = PANE_ORDER.filter((pane) => !collapsed[pane]);

@@ -81,3 +81,66 @@ export interface ChatUpdate {
   web_search_enabled?: boolean | null;
   mcp_enabled?: boolean | null;
 }
+
+export type MessageRole = "system" | "user" | "assistant";
+
+/**
+ * One turn. Assistant turns carry their own provenance — which provider and
+ * model produced them and what they cost — because the model can change
+ * between turns, so the chat alone could not explain any individual reply.
+ *
+ * `error` and useful `content` are mutually exclusive: a failed generation is
+ * persisted with an empty body so the failure stays visible in the transcript
+ * rather than the turn silently vanishing.
+ */
+export interface Message {
+  id: string;
+  chat_id: string;
+  /** Server-assigned ordering key. Sort on this, never on `created_at`. */
+  seq: number;
+  role: MessageRole;
+  content: string;
+  provider: string | null;
+  model: string | null;
+  input_tokens: number;
+  output_tokens: number;
+  cache_read_tokens: number;
+  cache_write_tokens: number;
+  latency_ms: number;
+  stop_reason: string | null;
+  error: string | null;
+  created_at: string;
+}
+
+export interface MessageSend {
+  content: string;
+  provider: string;
+  model: string;
+}
+
+export interface ProviderStatus {
+  name: string;
+  label: string;
+  requires_key: boolean;
+  key_url: string;
+  /** Has whatever it needs to be used — a key, where one is required. */
+  configured: boolean;
+  /** Answered its health probe. Only probed when configured. */
+  reachable: boolean;
+  detail: string;
+  models_available: number;
+}
+
+export interface ModelCapabilities {
+  tool_calling: boolean;
+  json_mode: boolean;
+  streaming: boolean;
+  vision: boolean;
+  context_window: number;
+}
+
+export interface ModelInfo {
+  id: string;
+  name: string;
+  capabilities: ModelCapabilities;
+}

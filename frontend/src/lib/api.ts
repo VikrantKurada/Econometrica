@@ -4,9 +4,12 @@ import type {
   ChatCreate,
   ChatUpdate,
   Health,
+  Message,
+  ModelInfo,
   Project,
   ProjectCreate,
   ProjectUpdate,
+  ProviderStatus,
 } from "./types";
 
 /**
@@ -143,4 +146,25 @@ export const api = {
 
   chatCapabilities: (chatId: string): Promise<Capabilities> =>
     request<Capabilities>(`/chats/${chatId}/capabilities`),
+
+  /** The transcript, already ordered by the server's sequence key. */
+  listMessages: (chatId: string): Promise<Message[]> =>
+    request<Message[]>(`/chats/${chatId}/messages`),
+
+  listProviders: (): Promise<ProviderStatus[]> => request<ProviderStatus[]>("/providers"),
+
+  listProviderModels: (provider: string): Promise<ModelInfo[]> =>
+    request<ModelInfo[]>(`/providers/${provider}/models`),
+
+  setProviderKey: (provider: string, apiKey: string): Promise<ProviderStatus> =>
+    request<ProviderStatus>(`/providers/${provider}/key`, {
+      method: "PUT",
+      body: { api_key: apiKey },
+    }),
+
+  deleteProviderKey: (provider: string): Promise<void> =>
+    request<void>(`/providers/${provider}/key`, { method: "DELETE" }),
 };
+
+// Sending a message is not here: it streams, so it needs the byte-level reader
+// in `streamChat` rather than this JSON-shaped helper.
