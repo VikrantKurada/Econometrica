@@ -5,8 +5,14 @@ Each module here translates one vendor's wire format into the types in
 :mod:`econometrica.llm.errors` types on failure.
 """
 
+from econometrica.llm.providers.anthropic import AnthropicProvider
 from econometrica.llm.providers.nvidia import NvidiaProvider
 from econometrica.llm.providers.ollama import OllamaProvider
 from econometrica.llm.providers.openai import OpenAIProvider
 
-__all__ = ["NvidiaProvider", "OllamaProvider", "OpenAIProvider"]
+__all__ = [
+    "AnthropicProvider",
+    "NvidiaProvider",
+    "OllamaProvider",
+    "OpenAIProvider",
+]

@@ -27,6 +27,7 @@ dependencies = [
     "pyarrow>=18.0",
     "opentelemetry-sdk>=1.29",
     "opentelemetry-exporter-otlp-proto-http>=1.29",
+    "anthropic>=0.120.0",
 ]
 
 [project.optional-dependencies]

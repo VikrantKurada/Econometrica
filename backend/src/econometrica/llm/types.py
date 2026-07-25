@@ -100,8 +100,18 @@ class ModelInfo(BaseModel):
 
 
 class Usage(BaseModel):
+    """Token accounting for one turn.
+
+    Cache fields are billed differently from ordinary input tokens (reads far
+    cheaper, writes slightly dearer), so the telemetry layer needs them
+    separated rather than folded into ``input_tokens``. Providers that do not
+    report caching simply leave them at zero.
+    """
+
     input_tokens: int = 0
     output_tokens: int = 0
+    cache_read_tokens: int = 0
+    cache_write_tokens: int = 0
 
     @property
     def total_tokens(self) -> int:
@@ -116,6 +126,16 @@ class Completion(BaseModel):
     provider: str = ""
     stop_reason: str | None = None
     latency_ms: float = 0.0
+
+    @property
+    def refused(self) -> bool:
+        """Whether the provider declined the request on policy grounds.
+
+        A refusal is a successful HTTP response with empty content, so callers
+        that read the first content block unconditionally break on it. Derived
+        from ``stop_reason`` rather than stored, so the two cannot disagree.
+        """
+        return self.stop_reason == "refusal"
 
 
 class StreamChunk(BaseModel):
