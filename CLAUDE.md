@@ -248,3 +248,9 @@ Say what you want next; this file loads automatically. A good opener:
 
 Task lists do **not** survive across sessions — this file and the plan document
 are the memory. Update the "Where things stand" table when a phase moves.
+
+**Keep `README.md` current in the same breath.** It is the one file a visitor
+reads first, and it drifts silently because nothing tests it. When a task
+lands, check its Status block, its repository layout, and any instruction the
+change makes untrue — the "open the app at `localhost:5173`" line was wrong for
+months because `npm run dev` binds `::1` only, and no test could have caught it.
