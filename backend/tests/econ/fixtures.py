@@ -47,6 +47,61 @@ def make_capm_data(
     return pd.DataFrame({"market": market, "asset": asset}, index=_bdays(n))
 
 
+def make_autocorrelated_capm_data(
+    *,
+    beta: float,
+    alpha: float,
+    phi: float,
+    n: int,
+    seed: int,
+    resid_vol: float = 0.01,
+    market_phi: float = 0.0,
+    market_mean: float = 0.0004,
+    market_vol: float = 0.01,
+    burn_in: int = 500,
+) -> pd.DataFrame:
+    """CAPM data whose errors are a stationary AR(1): the HAC known-answer case.
+
+    ``asset = alpha + beta * market + eps`` with ``eps_t = phi * eps_{t-1} + nu_t``,
+    innovations scaled so eps keeps unconditional standard deviation
+    ``resid_vol``. The market is optionally AR(1) with coefficient
+    ``market_phi`` (same unconditional scale ``market_vol``): serial
+    correlation in the errors inflates the HAC standard error of the slope
+    only when the regressor is itself persistent (the score ``x_t * eps_t``
+    autocorrelates like ``market_phi * phi``), so HAC-vs-nonrobust slope
+    comparisons need ``market_phi > 0``. The intercept's error variance is
+    inflated by autocorrelated errors alone.
+
+    True parameters: ``alpha``, ``beta``, residual AR coefficient ``phi``.
+    Both AR processes discard ``burn_in`` observations.
+    """
+    if not abs(phi) < 1:
+        raise ValueError(f"residual AR(1) is stationary only for |phi| < 1, got {phi}")
+    if not abs(market_phi) < 1:
+        raise ValueError(f"market AR(1) is stationary only for |market_phi| < 1, got {market_phi}")
+    rng = np.random.default_rng(seed)
+    total = n + burn_in
+
+    market_innov_sd = market_vol * np.sqrt(1.0 - market_phi**2)
+    market_shocks = rng.normal(0.0, market_innov_sd, total)
+    market = np.empty(total)
+    market[0] = market_shocks[0]
+    for t in range(1, total):
+        market[t] = market_phi * market[t - 1] + market_shocks[t]
+    market = market[burn_in:] + market_mean
+
+    resid_innov_sd = resid_vol * np.sqrt(1.0 - phi**2)
+    nu = rng.normal(0.0, resid_innov_sd, total)
+    eps = np.empty(total)
+    eps[0] = nu[0]
+    for t in range(1, total):
+        eps[t] = phi * eps[t - 1] + nu[t]
+    eps = eps[burn_in:]
+
+    asset = alpha + beta * market + eps
+    return pd.DataFrame({"market": market, "asset": asset}, index=_bdays(n))
+
+
 def make_factor_data(
     *,
     loadings: dict[str, float],

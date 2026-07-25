@@ -14,6 +14,7 @@ from econometrica.econ.pricing._common import (
     require_columns,
     series_from,
 )
+from econometrica.econ.pricing.robust_errors import CovType, fit_ols
 from econometrica.econ.registry import get_registry
 from econometrica.econ.returns import PERIODS_PER_YEAR, align_series, annualise_return
 from econometrica.econ.types import ResultSet
@@ -36,6 +37,16 @@ class CapmParams(BaseModel):
         default="D", description="Return frequency, used to annualise alpha."
     )
     min_obs: int = Field(default=30, ge=3, description="Minimum aligned observations required.")
+    cov: CovType = Field(
+        default="nonrobust",
+        description="Standard error type: nonrobust OLS, white (HC3)"
+        " heteroskedasticity-robust, or newey_west HAC.",
+    )
+    hac_lags: int | None = Field(
+        default=None,
+        ge=1,
+        description="Newey-West lag count; None applies floor(4*(n/100)^(2/9)).",
+    )
 
 
 @get_registry().register(
@@ -69,11 +80,19 @@ def capm(data: pd.DataFrame, params: BaseModel) -> ResultSet:
         x = x - aligned[p.risk_free]
 
     design = sm.add_constant(x.to_numpy())
-    fit = sm.OLS(y.to_numpy(), design).fit()
+    fit, hac_lags_used = fit_ols(y.to_numpy(), design, cov=p.cov, hac_lags=p.hac_lags)
 
     estimates = estimates_from_ols(fit, ["alpha", "beta"])
     alpha = estimates[0].value
     residuals = pd.Series(fit.resid, index=aligned.index)
+
+    scalars = {
+        "r_squared": float(fit.rsquared),
+        "nobs": float(fit.nobs),
+        "alpha_annualised": annualise_return(alpha, PERIODS_PER_YEAR[p.frequency]),
+    }
+    if hac_lags_used is not None:
+        scalars["hac_lags"] = float(hac_lags_used)
 
     return ResultSet(
         tool="capm",
@@ -81,11 +100,7 @@ def capm(data: pd.DataFrame, params: BaseModel) -> ResultSet:
         params=p.model_dump(),
         estimates=estimates,
         diagnostics=ols_residual_diagnostics(fit.resid),
-        scalars={
-            "r_squared": float(fit.rsquared),
-            "nobs": float(fit.nobs),
-            "alpha_annualised": annualise_return(alpha, PERIODS_PER_YEAR[p.frequency]),
-        },
+        scalars=scalars,
         series={"residuals": series_from("residuals", residuals)},
         manifest=build_manifest(data, p, tool="capm", version=_VERSION, libraries=_LIBRARIES),
     )

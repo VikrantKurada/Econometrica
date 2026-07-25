@@ -1,6 +1,8 @@
+import pandas as pd
 import pytest
 
 from tests.econ.fixtures import (
+    make_autocorrelated_capm_data,
     make_capm_data,
     make_cointegrated_pair,
     make_factor_data,
@@ -43,6 +45,33 @@ def test_factor_fixture_recovers_loadings_under_ols():
     assert fit.params["const"] == pytest.approx(0.0003, abs=0.0005)
     for name, true_loading in loadings.items():
         assert fit.params[name] == pytest.approx(true_loading, abs=0.05)
+
+
+def test_autocorrelated_capm_fixture_is_reproducible_under_a_seed():
+    a = make_autocorrelated_capm_data(beta=1.2, alpha=0.0003, phi=0.7, n=500, seed=23)
+    b = make_autocorrelated_capm_data(beta=1.2, alpha=0.0003, phi=0.7, n=500, seed=23)
+    assert a.equals(b)
+
+
+def test_autocorrelated_capm_fixture_has_ar1_residuals():
+    """OLS residuals must inherit the true AR(1) structure, or the HAC tests are vacuous."""
+    import statsmodels.api as sm
+    from statsmodels.stats.stattools import durbin_watson
+
+    data = make_autocorrelated_capm_data(
+        beta=1.2, alpha=0.0003, phi=0.7, n=3000, seed=23, market_phi=0.5
+    )
+    fit = sm.OLS(data["asset"], sm.add_constant(data["market"])).fit()
+    lag1 = pd.Series(fit.resid).autocorr(lag=1)
+    assert lag1 == pytest.approx(0.7, abs=0.1)
+    assert durbin_watson(fit.resid) < 1.0  # ~2*(1-phi) = 0.6
+
+
+def test_autocorrelated_capm_fixture_market_is_persistent_when_asked():
+    data = make_autocorrelated_capm_data(
+        beta=1.2, alpha=0.0003, phi=0.7, n=3000, seed=23, market_phi=0.5
+    )
+    assert data["market"].autocorr(lag=1) == pytest.approx(0.5, abs=0.1)
 
 
 def test_random_walk_has_a_unit_root():
