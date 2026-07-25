@@ -2135,6 +2135,12 @@ effects" needs an executable gate alongside it.
 
 ## Phase 5: Charts and artifact canvas
 
+**Step-level plan: `docs/plans/2026-07-25-econometrica-phase-5.md`.** It
+settles four things this table assumes, chief among them that the "conditional
+volatility overlay" below cannot be built as an overlay — a dual-axis chart is
+the one form the `dataviz` skill rules out outright — and that ACF/PACF stems
+have no tool emitting the values they would plot.
+
 | Task | Files | Acceptance criteria |
 |---|---|---|
 | 5.1 | `charts/spec.py` | Discriminated-union `ChartSpec` over ~22 chart types. An invalid spec from an LLM is rejected with a usable error |

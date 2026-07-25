@@ -8,7 +8,8 @@ Postgres + TimescaleDB + pgvector.
 and `docs/plans/2026-07-24-econometrica-implementation.md` for the phase plan.**
 Phases 1–2 are specified there step by step; 3–6 at task level. Each phase gets
 its own step-level document when it is reached — Phase 4's is
-`docs/plans/2026-07-25-econometrica-phase-4.md`.
+`docs/plans/2026-07-25-econometrica-phase-4.md`, Phase 5's is
+`docs/plans/2026-07-25-econometrica-phase-5.md`.
 
 ---
 
@@ -45,15 +46,16 @@ Consequences that keep coming up:
 
 ### The immediate next task
 
-**Phase 5 — charts and the artifact canvas.** Its step-level plan is not
-written yet; do that first, as Phase 4's was. **Load the `dataviz` skill
-before writing any chart code.**
+**Task 5.1 — the chart spec union**, per the Phase 5 plan. `charts/spec.py`: a
+discriminated union Pydantic rejects with a usable error. Read that plan's
+four decisions first — chiefly that **no spec may express a second y-axis**,
+which makes the design's "conditional volatility overlay" two stacked panels.
 
 Two things Phase 5 inherits that are not in its task table:
 
 - **There is no UI for runs.** `POST /api/chats/{id}/runs` and
   `GET /api/runs/{id}` work and nothing in `frontend/src` calls them, which is
-  why the Phase 4 gate is API-level. The canvas is where that lands.
+  why the Phase 4 gate is API-level. The canvas (5.4) is where that lands.
 - **`ECONOMETRICA_PRICE_SOURCE=synthetic`** makes the whole pipeline runnable
   today without market data (Phase 6 owns the real adapters). Handy for
   driving the UI you are building; any run using it carries a `synthetic_data`
