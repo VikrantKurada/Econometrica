@@ -300,6 +300,45 @@ def make_garch_series(
     return pd.Series(returns[burn_in:], index=_bdays(n), name="garch")
 
 
+def make_var1_process(
+    *,
+    coef: list[list[float]],
+    n: int,
+    seed: int,
+    noise_scale: float = 1.0,
+    burn_in: int = 200,
+) -> pd.DataFrame:
+    """A stationary VAR(1): ``z_t = A z_{t-1} + eps_t`` with i.i.d. Gaussian shocks.
+
+    ``coef`` is the k x k coefficient matrix A as nested lists; its spectral
+    radius must be below 1 (stationarity), enforced loudly. Shocks are i.i.d.
+    N(0, noise_scale^2) and independent across equations, so with a
+    lower-triangular A the later variables are causally upstream of the
+    earlier ones and Cholesky orthogonalization (in column order) recovers
+    the structural shocks. A ``burn_in`` stretch is discarded so the sample
+    starts from the stationary distribution.
+
+    True parameters: the matrix A; equation-by-equation OLS of ``z_t`` on
+    ``z_{t-1}`` recovers each row of A to within sampling error. Downstream
+    tests rely on columns named ``y1..yk`` and a business-day DatetimeIndex.
+    """
+    a = np.asarray(coef, dtype=float)
+    if a.ndim != 2 or a.shape[0] != a.shape[1]:
+        raise ValueError(f"coef must be a square matrix, got shape {a.shape}")
+    radius = float(np.max(np.abs(np.linalg.eigvals(a))))
+    if radius >= 1:
+        raise ValueError(f"VAR(1) is stationary only for spectral radius < 1, got {radius:.3f}")
+    rng = np.random.default_rng(seed)
+    k = a.shape[0]
+    total = n + burn_in
+    eps = rng.normal(0.0, noise_scale, (total, k))
+    z = np.zeros((total, k))
+    for t in range(1, total):
+        z[t] = a @ z[t - 1] + eps[t]
+    columns = [f"y{i + 1}" for i in range(k)]
+    return pd.DataFrame(z[burn_in:], columns=columns, index=_bdays(n))
+
+
 def make_cointegrated_pair(n: int, seed: int) -> tuple[pd.Series, pd.Series]:
     """A cointegrated pair: ``x`` is a random walk, ``y = 1.5 * x + noise``.
 

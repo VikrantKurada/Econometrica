@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -11,6 +12,7 @@ from tests.econ.fixtures import (
     make_portfolio_data,
     make_random_walk,
     make_stationary_ar1,
+    make_var1_process,
 )
 
 
@@ -222,3 +224,47 @@ def test_cointegrated_pair_has_a_stationary_spread():
     x, y = make_cointegrated_pair(n=2000, seed=5)
     spread = y - 1.5 * x
     assert adfuller(spread)[1] < 0.01
+
+
+VAR1_COEF = [[0.5, 0.3], [0.0, 0.4]]
+
+
+def test_var1_fixture_is_reproducible_under_a_seed():
+    a = make_var1_process(coef=VAR1_COEF, n=500, seed=21)
+    b = make_var1_process(coef=VAR1_COEF, n=500, seed=21)
+    assert a.equals(b)
+
+
+def test_var1_fixture_has_named_columns_and_business_day_index():
+    data = make_var1_process(coef=VAR1_COEF, n=100, seed=21)
+    assert list(data.columns) == ["y1", "y2"]
+    assert isinstance(data.index, pd.DatetimeIndex)
+
+
+def test_var1_fixture_recovers_the_coefficient_matrix_under_ols():
+    """Equation-by-equation OLS must see the true A, or every VAR test is wrong."""
+    import statsmodels.api as sm
+
+    data = make_var1_process(coef=VAR1_COEF, n=5000, seed=21)
+    lagged = sm.add_constant(data.shift(1).dropna().to_numpy())
+    current = data.iloc[1:].to_numpy()
+    for i, row in enumerate(VAR1_COEF):
+        fit = sm.OLS(current[:, i], lagged).fit()
+        for j, true_coef in enumerate(row):
+            assert fit.params[1 + j] == pytest.approx(true_coef, abs=0.05)
+
+
+def test_var1_fixture_rejects_a_nonstationary_coefficient_matrix():
+    with pytest.raises(ValueError, match="spectral radius"):
+        make_var1_process(coef=[[1.0, 0.0], [0.0, 0.4]], n=100, seed=21)
+
+
+def test_var1_fixture_rejects_a_non_square_coefficient_matrix():
+    with pytest.raises(ValueError, match="square"):
+        make_var1_process(coef=[[0.5, 0.3]], n=100, seed=21)
+
+
+def test_var1_fixture_noise_scale_sets_the_innovation_spread():
+    small = make_var1_process(coef=VAR1_COEF, n=2000, seed=21, noise_scale=0.1)
+    large = make_var1_process(coef=VAR1_COEF, n=2000, seed=21, noise_scale=1.0)
+    assert float(np.std(small["y1"])) == pytest.approx(0.1 * float(np.std(large["y1"])), rel=1e-9)
