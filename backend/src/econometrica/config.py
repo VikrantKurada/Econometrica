@@ -1,6 +1,7 @@
 """Application settings, loaded from the environment and the repo-root ``.env``."""
 
 from pathlib import Path
+from typing import Literal
 
 from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -36,6 +37,15 @@ class Settings(BaseSettings):
     log_level: str = Field(
         default="INFO",
         validation_alias=AliasChoices("ECONOMETRICA_LOG_LEVEL", "LOG_LEVEL"),
+    )
+
+    #: Where a run's prices come from. "none" refuses, which is the honest
+    #: default until Phase 6 ships the real adapters; "synthetic" generates
+    #: reproducible random walks so the pipeline can be run and demonstrated.
+    #: Any run built on synthetic data is flagged as such in its quality report.
+    price_source: Literal["none", "synthetic"] = Field(
+        default="none",
+        validation_alias=AliasChoices("ECONOMETRICA_PRICE_SOURCE", "PRICE_SOURCE"),
     )
 
     ollama_base_url: str = "http://localhost:11434"

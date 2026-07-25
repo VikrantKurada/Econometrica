@@ -28,7 +28,9 @@ answer.
 | 4.7 narrator | ✅ |
 | 4.8 orchestrator | ✅ |
 | 4.9 run and step persistence | ✅ |
-| 4.10 phase 4 e2e | ⬜ next — see the note under 4.10 |
+| 4.10 phase 4 e2e | ✅ |
+
+**Phase 4 is complete.**
 
 Task 4.1 turned up a fourth thing the tree did not provide: **the running
 server's tool registry was empty.** Registration is an import side-effect of
@@ -553,6 +555,37 @@ and the tier should be pinned to `single` unless a second provider is
 configured.
 
 **Commit:** `test(e2e): close phase 4 with a full analysis run`
+
+**Landed as an API-level spec**, because there is no UI for runs — the
+pipeline is reachable over HTTP only, and building one is Phase 5 work.
+Everything below the UI is real: uvicorn, the Vite proxy, a live model
+choosing the methods, the registry computing them, the gates refusing, and
+Postgres holding the trace.
+
+Prices come from `data/synthetic.py`, selected by
+`ECONOMETRICA_PRICE_SOURCE=synthetic`, which `playwright.config.ts` sets on
+the backend it starts. It is never the default, it names itself, and the Data
+Steward turns that name into a **risk**-severity `synthetic_data` flag that
+the spec asserts on — so the gate proves the honesty seam alongside the
+pipeline.
+
+**What the gate actually shows**, identically across three consecutive runs:
+
+```
+model=ministral-3:8b  status=completed
+plan=variance_ratio:ran adf:ran phillips_perron:ran ljung_box:ran garch:refused
+verdict=false  published=true
+```
+
+An 8B local model planned five steps against the 36-tool catalogue; four ran;
+**GARCH was refused by its gate**, because a random walk has no ARCH effects.
+That is Task 4.4's acceptance criterion firing in a live run rather than a
+unit test — and the Validator then rejected the work, which is the correct
+call when a planned step could not be run.
+
+One wire-shape note found here: `ExecutionReport.results` is a Pydantic
+`@property`, so it does **not** cross the wire. `execution.outcomes` is the
+contract a client reads.
 
 ---
 

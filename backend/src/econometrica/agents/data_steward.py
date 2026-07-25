@@ -52,6 +52,10 @@ class PriceSource(Protocol):
     returns, quality — needs no network to be tested.
     """
 
+    #: Names the adapter in the quality report. Which source produced a number
+    #: is part of reproducing it — yfinance and Stooq disagree about splits.
+    label: str
+
     async def prices(self, ticker: str, *, start: date, end: date) -> pd.Series:
         """Price history for one ticker, indexed by date."""
         ...
@@ -69,6 +73,8 @@ class DataQualityReport(BaseModel):
     tickers: list[str]
     frequency: str
     return_method: str
+    #: Which adapter the prices came from.
+    source: str = ""
     rows: int
     start: date
     end: date
@@ -134,6 +140,23 @@ class DataSteward:
         raw = await self._fetch(spec)
         flags: list[QualityFlag] = []
 
+        source = getattr(self.source, "label", "") or type(self.source).__name__
+        if "synthetic" in source.lower():
+            # `risk`, not `info`. A reader who misses this misreads everything
+            # built on top of it, which is a worse failure than any of the
+            # sampling problems flagged below.
+            flags.append(
+                QualityFlag(
+                    code="synthetic_data",
+                    severity="risk",
+                    detail=(
+                        f"these prices came from {source} — they are generated,"
+                        " not market data, and no conclusion drawn from them"
+                        " describes a real asset"
+                    ),
+                )
+            )
+
         windowed = {
             ticker: self._window(prices, spec, ticker, flags)
             for ticker, prices in raw.items()
@@ -159,6 +182,7 @@ class DataSteward:
             tickers=list(spec.tickers),
             frequency=spec.frequency,
             return_method=spec.return_method,
+            source=source,
             rows=len(resampled),
             start=resampled.index.min().date(),
             end=resampled.index.max().date(),

@@ -135,6 +135,31 @@ async def test_frequency_conversion_resamples_to_period_end():
     assert [ts.month for ts in dataset.prices.index] == [1, 2, 3]
 
 
+async def test_the_source_is_named_in_the_report():
+    """Which adapter produced the numbers is part of reproducing them."""
+    source = FakeSource({"AAA": series()})
+
+    dataset = await DataSteward(source).resolve(spec())
+
+    assert dataset.report.source
+
+
+async def test_synthetic_data_is_flagged_as_a_risk_not_a_footnote():
+    """A run built on generated prices must say so, loudly.
+
+    The synthetic source exists so the pipeline can run before Phase 6. The
+    one way that becomes dishonest is if a reader cannot tell.
+    """
+
+    class Generated(FakeSource):
+        label = "synthetic (generated, not market data)"
+
+    dataset = await DataSteward(Generated({"AAA": series()})).resolve(spec())
+
+    assert dataset.report.has("synthetic_data")
+    assert dataset.report.flag("synthetic_data").severity == "risk"
+
+
 async def test_the_frame_offers_levels_and_returns_under_distinct_names():
     """A tool takes one DataFrame, so both have to coexist in it.
 

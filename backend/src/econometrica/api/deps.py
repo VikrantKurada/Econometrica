@@ -12,6 +12,7 @@ from sqlalchemy.orm.interfaces import ORMOption
 
 from econometrica.agents.data_steward import DataUnavailableError, PriceSource
 from econometrica.config import get_settings
+from econometrica.data.synthetic import SyntheticPriceSource
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -48,10 +49,15 @@ ProviderRegistryDep = Annotated[ProviderRegistry, Depends(get_provider_registry)
 def get_price_source() -> PriceSource:
     """Where a run's market data comes from.
 
-    Phase 6 owns the yfinance, Stooq, FRED and Ken French adapters. Until then
-    this refuses with an explanation rather than returning empty frames, and
-    tests override it — which is the same seam Phase 6 will fill.
+    Phase 6 owns the yfinance, Stooq, FRED and Ken French adapters, and this
+    is the seam they will fill. Until then the default refuses with an
+    explanation rather than returning empty frames, and
+    ``ECONOMETRICA_PRICE_SOURCE=synthetic`` selects a generator so the
+    pipeline can be run end to end — a run built on it is flagged as
+    synthetic in its quality report.
     """
+    if get_settings().price_source == "synthetic":
+        return SyntheticPriceSource()
     return _UnconfiguredPriceSource()
 
 
@@ -59,6 +65,8 @@ PriceSourceDep = Annotated[PriceSource, Depends(get_price_source)]
 
 
 class _UnconfiguredPriceSource:
+    label = "none configured"
+
     async def prices(self, ticker: str, *, start: date, end: date) -> "pd.Series":
         raise DataUnavailableError(
             f"no market data adapter is configured, so {ticker} cannot be"

@@ -6,20 +6,25 @@ React/TypeScript frontend, backed by Postgres with TimescaleDB and pgvector. LLM
 agents select from a registry of typed, versioned econometric tools — they never
 compute statistics themselves.
 
-> **Status.** Phases 0–3 complete; Phase 4 is 8 of 10 tasks in.
+> **Status.** Phases 0–4 complete.
 >
 > **Working today:** projects and chats; the full econometrics core (36 tools
 > across asset pricing, market efficiency, volatility, multivariate and event
 > study); five LLM providers (Ollama, Anthropic, OpenAI, Gemini, NVIDIA NIM);
-> and a streaming chat pane you can hold a real conversation in.
+> a streaming chat pane you can hold a real conversation in; and the
+> multi-agent pipeline behind `POST /api/chats/{id}/runs` — Planner, Data
+> Steward, Econometrician, Validator and Narrator, with executable tool
+> preconditions and a numeric grounding gate.
 >
-> **Built but not yet usable end to end:** the multi-agent pipeline behind
-> `POST /api/chats/{id}/runs` — Planner, Data Steward, Econometrician,
-> Validator and Narrator, with executable tool preconditions and a numeric
-> grounding gate that blocks any figure the tools did not compute. It runs
-> against an injected data source, but the market-data adapters it needs for
-> real tickers belong to Phase 6, so the route refuses with an explanation
-> rather than inventing data.
+> The end-to-end gate runs it against a live local model. In a typical pass an
+> 8B model plans five steps, four run, and **GARCH is refused** because the
+> data has no ARCH effects to model.
+>
+> **Real market data is Phase 6.** Until those adapters land,
+> `ECONOMETRICA_PRICE_SOURCE=synthetic` generates reproducible random walks so
+> the pipeline can be run and demonstrated; it is never the default, and every
+> run built on it carries a `synthetic_data` risk flag. Left unset, a run
+> refuses with an explanation rather than inventing data.
 >
 > Every run records its own trace — a DAG of model calls and tool
 > invocations with tokens, latency and parent links, readable at

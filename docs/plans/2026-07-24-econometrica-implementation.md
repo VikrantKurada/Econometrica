@@ -33,11 +33,11 @@ notes a new session needs.
 | 1 — DB, API, three-pane shell | ✅ done |
 | 2 — econometrics core | ✅ done — 36 tools, 5 families, gate green, 97% coverage |
 | 3 — LLM providers and streaming chat | ✅ done — e2e gate green against a live Ollama |
-| 4 — multi-agent orchestration | 1 of 10 — see the Phase 4 plan for task state |
-| 5 — charts and artifact canvas | not started |
+| 4 — multi-agent orchestration | ✅ done — e2e gate green against a live model |
+| 5 — charts and artifact canvas | next |
 | 6 — telemetry, uploads, MCP, exports | not started |
 
-**649 backend tests, 65 frontend tests, 2 Playwright e2e.** ruff and
+**821 backend tests, 65 frontend tests, 4 Playwright e2e.** ruff and
 `mypy --strict` clean; `alembic check` reports no drift.
 
 Phase 3 tasks, against the task table further down:

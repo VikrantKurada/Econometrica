@@ -37,6 +37,11 @@ export default defineConfig({
       command: "uv run uvicorn econometrica.main:app --port 8100",
       cwd: "../backend",
       url: "http://127.0.0.1:8100/api/health",
+      // The analysis gate needs prices, and the real market-data adapters are
+      // Phase 6. This selects the generator instead — every run built on it
+      // carries a `synthetic_data` risk flag, which the spec asserts on, so
+      // the gate proves the honesty seam as well as the pipeline.
+      env: { ECONOMETRICA_PRICE_SOURCE: "synthetic" },
       reuseExistingServer: !process.env.CI,
       timeout: 60_000,
     },

@@ -36,26 +36,28 @@ Consequences that keep coming up:
 | 1 — DB, API, three-pane shell | done |
 | 2 — econometrics core (36 tools, 5 families) | done, phase gate green, 97% coverage |
 | 3 — LLM providers + streaming chat | done, e2e gate green |
-| 4 — multi-agent orchestration | 9 of 10 tasks done |
+| 4 — multi-agent orchestration | done, e2e gate green |
 | 5 — charts and artifact canvas | not started |
 | 6 — telemetry, uploads, MCP, exports | not started |
 
-**811 backend tests, 65 frontend tests, 2 Playwright e2e.** ruff and
+**821 backend tests, 65 frontend tests, 4 Playwright e2e.** ruff and
 `mypy --strict` clean on `src`. `alembic check` reports no drift.
 
 ### The immediate next task
 
-**Task 4.10 — the Phase 4 e2e**, which closes the phase. Follow
-`e2e/chat.spec.ts`: skip with a reason when Ollama is down, prefer a small
-model, assert on the SSE wire and not only the DOM.
+**Phase 5 — charts and the artifact canvas.** Its step-level plan is not
+written yet; do that first, as Phase 4's was. **Load the `dataviz` skill
+before writing any chart code.**
 
-**It needs a decision first.** `get_price_source` is still the Phase 6 stub
-that refuses, so a run cannot fetch real tickers. Either the spec overrides
-that dependency with a fixture source — testing everything Phase 4 owns — or
-Phase 4 closes without a live-data e2e and 4.10 waits for Phase 6. There is
-also no frontend for runs yet: `POST /api/chats/{id}/runs` and
-`GET /api/runs/{id}` exist, but nothing in `frontend/src` calls them, so an
-e2e driven through the browser would need that UI built first.
+Two things Phase 5 inherits that are not in its task table:
+
+- **There is no UI for runs.** `POST /api/chats/{id}/runs` and
+  `GET /api/runs/{id}` work and nothing in `frontend/src` calls them, which is
+  why the Phase 4 gate is API-level. The canvas is where that lands.
+- **`ECONOMETRICA_PRICE_SOURCE=synthetic`** makes the whole pipeline runnable
+  today without market data (Phase 6 owns the real adapters). Handy for
+  driving the UI you are building; any run using it carries a `synthetic_data`
+  risk flag, and that flag must stay visible in whatever the canvas renders.
 
 Phase 4 is the interesting one: six agent roles, the deterministic
 `DiagnosticsEngine` (already built, `econ/diagnostics/`) feeding a Validator on
