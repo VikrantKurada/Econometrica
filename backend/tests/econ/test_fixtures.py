@@ -9,8 +9,10 @@ from tests.econ.fixtures import (
     make_factor_data,
     make_fama_macbeth_panel,
     make_garch_series,
+    make_granger_pair,
     make_portfolio_data,
     make_random_walk,
+    make_regime_series,
     make_stationary_ar1,
     make_var1_process,
 )
@@ -268,3 +270,75 @@ def test_var1_fixture_noise_scale_sets_the_innovation_spread():
     small = make_var1_process(coef=VAR1_COEF, n=2000, seed=21, noise_scale=0.1)
     large = make_var1_process(coef=VAR1_COEF, n=2000, seed=21, noise_scale=1.0)
     assert float(np.std(small["y1"])) == pytest.approx(0.1 * float(np.std(large["y1"])), rel=1e-9)
+
+
+def test_granger_pair_is_reproducible_under_a_seed():
+    a = make_granger_pair(n=500, seed=31)
+    b = make_granger_pair(n=500, seed=31)
+    assert a.equals(b)
+
+
+def test_granger_pair_y_depends_on_x_at_exactly_the_stated_lag():
+    """If the lag structure is wrong, every Granger known-answer test is wrong."""
+    import statsmodels.api as sm
+
+    data = make_granger_pair(coef=0.8, lag=2, n=5000, seed=31)
+    y = data["y"].to_numpy()
+    x = data["x"].to_numpy()
+    design = sm.add_constant(
+        np.column_stack([y[2:-1], x[2:-1], x[1:-2], x[:-3]])  # y lag1, x lags 1..3
+    )
+    fit = sm.OLS(y[3:], design).fit()
+    assert fit.params[2] == pytest.approx(0.0, abs=0.05)  # x lag 1: nothing
+    assert fit.params[3] == pytest.approx(0.8, abs=0.05)  # x lag 2: the channel
+    assert fit.params[4] == pytest.approx(0.0, abs=0.05)  # x lag 3: nothing
+
+
+def test_granger_pair_x_is_unpredictable_from_lagged_y():
+    """Causality must run strictly x -> y for the reverse-direction tests."""
+    import statsmodels.api as sm
+
+    data = make_granger_pair(coef=0.8, lag=2, n=5000, seed=31)
+    y = data["y"].to_numpy()
+    x = data["x"].to_numpy()
+    fit = sm.OLS(x[1:], sm.add_constant(np.column_stack([x[:-1], y[:-1]]))).fit()
+    # The structural claim is the exact zero coefficient; a p-value assertion
+    # on a true null would be a coin flip (p is uniform under H0).
+    assert fit.params[2] == pytest.approx(0.0, abs=0.05)
+
+
+def test_granger_pair_rejects_a_nonstationary_y_recursion():
+    with pytest.raises(ValueError, match="y_phi"):
+        make_granger_pair(n=100, seed=31, y_phi=1.0)
+
+
+def test_granger_pair_rejects_an_invalid_lag():
+    with pytest.raises(ValueError, match="lag"):
+        make_granger_pair(n=100, seed=31, lag=0)
+
+
+def test_regime_series_is_reproducible_under_a_seed():
+    a = make_regime_series(n_low=200, n_high=200, vol_low=0.01, vol_high=0.03, seed=17)
+    b = make_regime_series(n_low=200, n_high=200, vol_low=0.01, vol_high=0.03, seed=17)
+    assert a.equals(b)
+
+
+def test_regime_series_blocks_carry_their_stated_volatilities():
+    series = make_regime_series(n_low=2000, n_high=2000, vol_low=0.01, vol_high=0.03, seed=17)
+    assert len(series) == 4000
+    assert float(series.iloc[:2000].std()) == pytest.approx(0.01, rel=0.1)
+    assert float(series.iloc[2000:].std()) == pytest.approx(0.03, rel=0.1)
+
+
+def test_regime_series_supports_regime_means():
+    series = make_regime_series(
+        n_low=3000, n_high=3000, vol_low=0.01, vol_high=0.03, seed=17,
+        mean_low=0.001, mean_high=-0.002,
+    )
+    assert float(series.iloc[:3000].mean()) == pytest.approx(0.001, abs=0.0005)
+    assert float(series.iloc[3000:].mean()) == pytest.approx(-0.002, abs=0.0015)
+
+
+def test_regime_series_rejects_non_positive_volatilities():
+    with pytest.raises(ValueError, match="vol"):
+        make_regime_series(n_low=100, n_high=100, vol_low=0.0, vol_high=0.03, seed=17)

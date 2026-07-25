@@ -3,6 +3,6 @@
 Importing this package registers every multivariate tool with the global registry.
 """
 
-from econometrica.econ.multivariate import cointegration, var_model
+from econometrica.econ.multivariate import causality, cointegration, regime, var_model
 
-__all__ = ["cointegration", "var_model"]
+__all__ = ["causality", "cointegration", "regime", "var_model"]

@@ -339,6 +339,81 @@ def make_var1_process(
     return pd.DataFrame(z[burn_in:], columns=columns, index=_bdays(n))
 
 
+def make_granger_pair(
+    *,
+    n: int,
+    seed: int,
+    coef: float = 0.8,
+    lag: int = 2,
+    x_phi: float = 0.0,
+    y_phi: float = 0.3,
+    noise_scale: float = 1.0,
+    burn_in: int = 200,
+) -> pd.DataFrame:
+    """A pair where x Granger-causes y at exactly ``lag`` and nothing runs back.
+
+    ``y_t = y_phi * y_{t-1} + coef * x_{t-lag} + u_t`` with ``x`` an AR(1)
+    (coefficient ``x_phi``, white noise by default) fully independent of
+    ``u``. With the default white-noise x, lagged x below the true lag carries
+    NO information about the driving lag, so a Granger test at lag 1 has no
+    power while the test at ``lag`` rejects strongly — and x is unpredictable
+    from lagged y, so the reverse direction never rejects.
+
+    True parameters: the causal coefficient ``coef`` at lag ``lag`` (all other
+    x lags enter with exactly zero). Downstream tests rely on columns named
+    ``x`` and ``y`` and a business-day DatetimeIndex.
+    """
+    if lag < 1:
+        raise ValueError(f"the causal lag must be >= 1, got {lag}")
+    if not abs(x_phi) < 1:
+        raise ValueError(f"x is stationary only for |x_phi| < 1, got x_phi={x_phi}")
+    if not abs(y_phi) < 1:
+        raise ValueError(f"y is stationary only for |y_phi| < 1, got y_phi={y_phi}")
+    rng = np.random.default_rng(seed)
+    total = n + burn_in
+    x_shocks = rng.normal(0.0, noise_scale, total)
+    u = rng.normal(0.0, noise_scale, total)
+    x = np.empty(total)
+    y = np.empty(total)
+    x[0] = x_shocks[0]
+    y[0] = u[0]
+    for t in range(1, total):
+        x[t] = x_phi * x[t - 1] + x_shocks[t]
+        y[t] = y_phi * y[t - 1] + (coef * x[t - lag] if t >= lag else 0.0) + u[t]
+    return pd.DataFrame({"x": x[burn_in:], "y": y[burn_in:]}, index=_bdays(n))
+
+
+def make_regime_series(
+    *,
+    n_low: int,
+    n_high: int,
+    vol_low: float,
+    vol_high: float,
+    seed: int,
+    mean_low: float = 0.0,
+    mean_high: float = 0.0,
+) -> pd.Series:
+    """Two concatenated i.i.d. Gaussian volatility regimes: low first, then high.
+
+    The first ``n_low`` observations are N(mean_low, vol_low^2), the next
+    ``n_high`` are N(mean_high, vol_high^2), with a single hard break in
+    between — the cleanest possible known answer for regime-switching
+    estimation: the regime of every observation is known by position.
+
+    True parameters: the per-regime means and volatilities and the break
+    location. Downstream tests rely on a business-day DatetimeIndex of length
+    ``n_low + n_high``.
+    """
+    if vol_low <= 0 or vol_high <= 0:
+        raise ValueError(f"vol_low/vol_high must be > 0, got {vol_low} and {vol_high}")
+    rng = np.random.default_rng(seed)
+    low = rng.normal(mean_low, vol_low, n_low)
+    high = rng.normal(mean_high, vol_high, n_high)
+    return pd.Series(
+        np.concatenate([low, high]), index=_bdays(n_low + n_high), name="regime"
+    )
+
+
 def make_cointegrated_pair(n: int, seed: int) -> tuple[pd.Series, pd.Series]:
     """A cointegrated pair: ``x`` is a random walk, ``y = 1.5 * x + noise``.
 
