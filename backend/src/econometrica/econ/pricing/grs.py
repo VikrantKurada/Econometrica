@@ -20,7 +20,7 @@ import statsmodels.api as sm
 from pydantic import BaseModel, Field
 from scipy import stats
 
-from econometrica.econ.pricing._common import (
+from econometrica.econ._common import (
     build_manifest,
     coerce_params,
     estimates_from_ols,

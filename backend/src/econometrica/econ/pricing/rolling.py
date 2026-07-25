@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 from scipy import stats
 from statsmodels.regression.rolling import RollingOLS
 
-from econometrica.econ.pricing._common import (
+from econometrica.econ._common import (
     build_manifest,
     coerce_params,
     iso_index,

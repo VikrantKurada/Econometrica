@@ -1,8 +1,10 @@
-"""Shared plumbing for the asset pricing tool family.
+"""Shared plumbing for the econ tool families.
 
-Nothing here is a registered tool; these helpers keep the tool modules focused
-on the econometrics. Library result objects consumed here never escape: every
-public surface of the family speaks :class:`~econometrica.econ.types.ResultSet`.
+Started life inside the pricing family and was promoted here on second use
+(the efficiency family). Nothing here is a registered tool; these helpers keep
+the tool modules focused on the econometrics. Library result objects consumed
+here never escape: every public surface of the families speaks
+:class:`~econometrica.econ.types.ResultSet`.
 """
 
 from collections.abc import Iterable, Sequence

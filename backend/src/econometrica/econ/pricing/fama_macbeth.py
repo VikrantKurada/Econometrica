@@ -10,7 +10,7 @@ import pandas as pd
 from linearmodels.panel import FamaMacBeth
 from pydantic import BaseModel, Field
 
-from econometrica.econ.pricing._common import (
+from econometrica.econ._common import (
     build_manifest,
     coerce_params,
     require_columns,
