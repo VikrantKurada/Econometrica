@@ -26,8 +26,8 @@ answer.
 | 4.5 validator | ✅ |
 | 4.6 numeric grounding gate | ✅ |
 | 4.7 narrator | ✅ |
-| 4.8 orchestrator | ⬜ next |
-| 4.9 run and step persistence | ⬜ |
+| 4.8 orchestrator | ✅ |
+| 4.9 run and step persistence | ⬜ next |
 | 4.10 phase 4 e2e | ⬜ |
 
 Task 4.1 turned up a fourth thing the tree did not provide: **the running
@@ -464,6 +464,38 @@ a readable, persisted run rather than a half-written one — the same contract
 `messages.py` already keeps.
 
 **Commit:** `feat(agents): add orchestrator with tiered validation and sse progress`
+
+**Landed**, on `POST /api/chats/{id}/runs` as decision 2 said. Roles bind from
+`Project.model_assignments`, the tier from `Project.validation_tier`, both
+validated before anything runs. `get_price_source` is the seam Phase 6 fills;
+until then it refuses with an explanation rather than returning empty frames.
+
+**The tier decides, not the wiring.** A project set to `single` gets no review
+even when a Validator is configured — otherwise "cheapest tier" would depend
+on how the orchestrator happened to be constructed.
+
+**Two integration bugs that only a live probe could find.** Both were invisible
+to the whole scripted test suite, because a scripted reply is one written by
+someone who already knows the answer.
+
+1. *Two vocabularies for one concept.* `DatasetSpec.return_method` takes
+   `"log"`; the tool-level `transform` in the same catalogue takes
+   `"log_diff"`. A real model reached for the tool spelling **every time**,
+   burning a retry on a synonym. `log_diff` is now accepted as what it is —
+   a log difference is a log return. Planning cost halved: 2 attempts and
+   7829 input tokens became 1 and 3502. (`diff` is still rejected; a price
+   difference is not a simple return.)
+2. *The Planner did not know the column names.* Data is assembled **after**
+   planning, from the tickers the plan requests, so columns are `BTC-USD` and
+   `BTC-USD_return` — never the tools' `price`/`return` defaults, which is
+   what the model used. Every step of every real plan would have failed at
+   execution. The convention is now stated in the system prompt.
+
+**On catalogue narrowing:** measured, not assumed. The full 36-tool catalogue
+costs 27.8k input tokens against 3.7k for one family, with comparable plan
+quality on a 262k-context model. So narrowing is a cost optimisation for large
+models and a hard requirement for small ones — not a correctness issue where
+the context fits.
 
 ---
 

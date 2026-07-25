@@ -11,8 +11,6 @@ prose with an invented statistic is the thing this whole application exists to
 prevent.
 """
 
-from dataclasses import dataclass
-
 from pydantic import BaseModel, Field
 
 from econometrica.agents.base import Agent, AgentAttemptsExhaustedError
@@ -50,12 +48,16 @@ class Narrative(BaseModel):
     citations: list[str] = Field(default_factory=list)
 
 
-@dataclass(frozen=True)
-class Narration:
-    """What the Narrator produced, and whether it may be shown."""
+class Narration(BaseModel):
+    """What the Narrator produced, and whether it may be shown.
+
+    A model rather than a dataclass so it can travel over the run's SSE
+    stream unchanged — the grounding report is exactly what a client needs to
+    explain a withheld interpretation.
+    """
 
     published: bool
-    narrative: Narrative | None
+    narrative: Narrative | None = None
     grounding: GroundingReport
 
 

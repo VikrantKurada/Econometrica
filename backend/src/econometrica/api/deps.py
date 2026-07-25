@@ -1,15 +1,20 @@
 """Dependencies and lookup helpers shared by every router."""
 
 from collections.abc import Sequence
+from datetime import date
 from functools import lru_cache
-from typing import Annotated, Any
+from typing import TYPE_CHECKING, Annotated, Any
 from uuid import UUID
 
 from fastapi import Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm.interfaces import ORMOption
 
+from econometrica.agents.data_steward import DataUnavailableError, PriceSource
 from econometrica.config import get_settings
+
+if TYPE_CHECKING:
+    import pandas as pd
 from econometrica.db.models import Chat, Project
 from econometrica.db.session import get_session
 from econometrica.llm.registry import ProviderRegistry
@@ -38,6 +43,28 @@ def get_provider_registry() -> ProviderRegistry:
 
 
 ProviderRegistryDep = Annotated[ProviderRegistry, Depends(get_provider_registry)]
+
+
+def get_price_source() -> PriceSource:
+    """Where a run's market data comes from.
+
+    Phase 6 owns the yfinance, Stooq, FRED and Ken French adapters. Until then
+    this refuses with an explanation rather than returning empty frames, and
+    tests override it — which is the same seam Phase 6 will fill.
+    """
+    return _UnconfiguredPriceSource()
+
+
+PriceSourceDep = Annotated[PriceSource, Depends(get_price_source)]
+
+
+class _UnconfiguredPriceSource:
+    async def prices(self, ticker: str, *, start: date, end: date) -> "pd.Series":
+        raise DataUnavailableError(
+            f"no market data adapter is configured, so {ticker} cannot be"
+            " resolved. Data providers arrive in Phase 6; until then, supply"
+            " one by overriding the get_price_source dependency."
+        )
 
 
 def _not_found(entity: str, entity_id: UUID) -> HTTPException:

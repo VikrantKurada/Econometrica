@@ -46,22 +46,27 @@ least one reason; a reason a reader cannot act on is not a reason.\
 """
 
 
-def independence_warning(*, econometrician: str | None, validator: str | None) -> str | None:
+def independence_warning(*, author: str | None, validator: str | None) -> str | None:
     """Warn when the review is not actually independent.
 
     Same provider means shared training data and shared blind spots, which is
-    not a second opinion however the prompt is worded. ``None`` on either side
-    means that role runs no model at all, so there is nothing to be marked
-    against.
+    not a second opinion however the prompt is worded.
+
+    ``author`` is the role whose reasoning is under review. The design names
+    the Econometrician, but that role turned out to need no model — it
+    executes a plan whose tools and parameters are already validated — so the
+    reasoning being checked is the **Planner's**, and that is what must differ.
+    ``None`` on either side means that role runs no model, so there is nothing
+    to be marked against itself.
     """
-    if econometrician is None or validator is None:
+    if author is None or validator is None:
         return None
-    if econometrician != validator:
+    if author != validator:
         return None
     return (
-        f"the Validator and the Econometrician are both on {econometrician}:"
-        " a model reviewing reasoning from its own family shares its blind"
-        " spots. Assign the Validator a different provider."
+        f"the Validator and the Planner are both on {author}: a model"
+        " reviewing reasoning from its own family shares its blind spots."
+        " Assign the Validator a different provider."
     )
 
 

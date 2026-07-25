@@ -16,7 +16,7 @@ from collections.abc import Iterator
 from datetime import date
 from typing import Any, Literal, Self
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 from pydantic import ValidationError as PydanticValidationError
 
 from econometrica.econ import load_tools
@@ -107,6 +107,16 @@ def _balanced_objects(text: str) -> Iterator[str]:
                 yield text[start : index + 1]
 
 
+#: Spellings of a return method that mean exactly what this schema means.
+#: The catalogue a Planner reads uses the *tool-level* transform vocabulary —
+#: "log_diff" for log returns — and a real local model reached for that
+#: spelling here on its first attempt every time, burning a retry on a
+#: synonym. A log difference is a log return; recognising that is not leniency
+#: about meaning. "diff" is deliberately absent: a price difference is not a
+#: simple return.
+_RETURN_METHOD_SYNONYMS = {"log_diff": "log", "log_return": "log", "pct_change": "simple"}
+
+
 class DatasetSpec(BaseModel):
     """What data an analysis runs on, before any of it has been fetched."""
 
@@ -115,6 +125,13 @@ class DatasetSpec(BaseModel):
     end: date
     frequency: Literal["D", "W", "M", "Q", "A"] = "D"
     return_method: Literal["simple", "log"] = "log"
+
+    @field_validator("return_method", mode="before")
+    @classmethod
+    def accept_tool_vocabulary(cls, value: object) -> object:
+        if isinstance(value, str):
+            return _RETURN_METHOD_SYNONYMS.get(value, value)
+        return value
     #: Ticker or series id for the risk-free rate; None where the analysis
     #: does not need excess returns.
     risk_free: str | None = None

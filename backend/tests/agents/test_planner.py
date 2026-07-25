@@ -69,6 +69,23 @@ async def test_the_catalogue_covers_every_registered_tool():
         assert tool.name in catalogue
 
 
+async def test_the_column_naming_convention_reaches_the_model():
+    """Without it a real model plans against the tools' default column names.
+
+    The data is assembled after planning, from the tickers the plan requests,
+    so the columns are `BTC-USD` and `BTC-USD_return` — never `price` or
+    `return`. A live probe produced exactly that mistake, and every step of
+    the plan would have failed at execution.
+    """
+    provider = FakeProvider(responses=[json.dumps(PLAN)])
+
+    await Planner(provider, "fake-1").plan(QUESTION)
+
+    prompt = system_message(provider)
+    assert "_return" in prompt
+    assert "Column names" in prompt
+
+
 async def test_project_context_is_offered_when_given_and_absent_when_not():
     with_context = FakeProvider(responses=[json.dumps(PLAN)])
     await Planner(with_context, "fake-1").plan(QUESTION, context="Daily crypto, USD.")

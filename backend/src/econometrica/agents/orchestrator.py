@@ -1,0 +1,283 @@
+"""The orchestrator: one question, one run, streamed.
+
+It composes the roles rather than reimplementing any of them, and the value it
+adds is in three decisions that no single agent can make.
+
+**Which tier.** `single` is cheap and skips the Validator; `critic` is the
+default and consults it; `consensus` plans on several providers and reports
+what they disagree about. The deterministic gates — tool preconditions and
+numeric grounding — run in **every** tier. Cheap must not mean unguarded.
+
+**When to stop.** A rejection buys exactly one revision. Left unbounded, a
+Validator and a Planner will trade drafts until the budget runs out, and the
+second rejection is far more likely to mean "this question cannot be answered
+with this data" than "try once more".
+
+**What a failure leaves behind.** The same contract `messages.py` keeps for
+chat: a run that dies mid-pipeline comes back readable, saying how far it got
+and why it stopped, never half-written.
+"""
+
+from collections.abc import AsyncIterator, Sequence
+from typing import Any, Literal
+
+from pydantic import BaseModel, Field
+
+from econometrica.agents.data_steward import DataQualityReport, DataSteward
+from econometrica.agents.econometrician import Econometrician, ExecutionReport
+from econometrica.agents.narrator import Narration, Narrator
+from econometrica.agents.planner import Planner
+from econometrica.agents.schemas import AnalysisPlan, ValidationVerdict
+from econometrica.agents.validator import Validator, independence_warning
+from econometrica.econ.diagnostics.engine import run_diagnostics
+from econometrica.econ.types import Diagnostic
+
+Tier = Literal["single", "critic", "consensus"]
+TIERS: tuple[Tier, ...] = ("single", "critic", "consensus")
+
+RunStatus = Literal["completed", "blocked", "failed"]
+
+
+class RunEvent(BaseModel):
+    """One increment of progress.
+
+    Dotted names rather than a discriminated union: a client renders a
+    timeline, and new phases must not break one that has not been updated.
+    """
+
+    name: str
+    detail: str = ""
+    payload: dict[str, Any] = Field(default_factory=dict)
+
+
+class RunOutcome(BaseModel):
+    """Everything a run produced, however far it got."""
+
+    status: RunStatus
+    question: str
+    plan: AnalysisPlan | None = None
+    #: Populated only in the consensus tier, and only where planners differed.
+    alternative_plans: list[AnalysisPlan] = Field(default_factory=list)
+    quality: DataQualityReport | None = None
+    execution: ExecutionReport | None = None
+    verdict: ValidationVerdict | None = None
+    narration: Narration | None = None
+    diagnostics: list[Diagnostic] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    revisions: int = 0
+    error: str = ""
+
+
+class Orchestrator:
+    def __init__(
+        self,
+        *,
+        planners: Sequence[Planner],
+        steward: DataSteward,
+        validator: Validator | None,
+        narrator: Narrator,
+        tier: Tier = "critic",
+        max_revisions: int = 1,
+    ) -> None:
+        if tier not in TIERS:
+            raise ValueError(f"unknown validation tier {tier!r}; expected one of {TIERS}")
+        if not planners:
+            raise ValueError("at least one planner is required")
+
+        self.planners = list(planners)
+        self.steward = steward
+        self.validator = validator
+        self.narrator = narrator
+        self.econometrician = Econometrician()
+        self.tier: Tier = tier
+        self.max_revisions = max_revisions
+
+    async def run(self, question: str, *, context: str = "") -> RunOutcome:
+        """Run to completion and return the outcome, discarding progress events."""
+        outcome = RunOutcome(status="failed", question=question)
+        async for event in self.stream(question, context=context):
+            if event.name == "run.finished":
+                outcome = RunOutcome.model_validate(event.payload)
+        return outcome
+
+    async def stream(self, question: str, *, context: str = "") -> AsyncIterator[RunEvent]:
+        outcome = RunOutcome(status="failed", question=question)
+        yield RunEvent(name="run.started", detail=question)
+
+        try:
+            async for event in self._pipeline(question, context, outcome):
+                yield event
+        except Exception as exc:
+            # Deliberately broad. Whatever failed, the run has to come back
+            # describing itself — a traceback on the wire tells a user nothing
+            # and loses the work that did succeed.
+            outcome.status = "failed"
+            outcome.error = f"{type(exc).__name__}: {exc}"
+            yield RunEvent(name="run.failed", detail=outcome.error)
+
+        yield RunEvent(name="run.finished", payload=outcome.model_dump(mode="json"))
+
+    # --- the pipeline -------------------------------------------------------
+
+    async def _pipeline(
+        self, question: str, context: str, outcome: RunOutcome
+    ) -> AsyncIterator[RunEvent]:
+        self._warn_about_independence(outcome)
+        for warning in outcome.warnings:
+            yield RunEvent(name="run.warning", detail=warning)
+
+        plan = await self._plan(question, context, outcome)
+        yield RunEvent(name="plan.finished", payload=plan.model_dump(mode="json"))
+        for warning in outcome.warnings[len(outcome.warnings) - 1 :]:
+            if "disagree" in warning:
+                yield RunEvent(name="plan.disagreement", detail=warning)
+
+        dataset = await self.steward.resolve(plan.dataset)
+        outcome.quality = dataset.report
+        yield RunEvent(name="data.finished", payload=dataset.report.model_dump(mode="json"))
+
+        revision_context = context
+        while True:
+            execution = await self.econometrician.run(plan, dataset.frame)
+            outcome.plan = plan
+            outcome.execution = execution
+            for step in execution.outcomes:
+                yield RunEvent(
+                    name="step.finished",
+                    detail=f"{step.step_id} ({step.tool}): {step.status}",
+                    payload=step.model_dump(mode="json"),
+                )
+
+            outcome.diagnostics = _diagnostics_for(execution)
+
+            validator = self._reviewer()
+            if validator is None:
+                break
+
+            verdict = (
+                await validator.review(plan, execution, diagnostics=outcome.diagnostics)
+            ).output
+            outcome.verdict = verdict
+            yield RunEvent(
+                name="validate.finished",
+                detail="approved" if verdict.approved else "rejected",
+                payload=verdict.model_dump(mode="json"),
+            )
+
+            if verdict.approved or outcome.revisions >= self.max_revisions:
+                break
+
+            outcome.revisions += 1
+            revision_context = _revision_context(context, verdict)
+            yield RunEvent(
+                name="plan.revising",
+                detail=f"revision {outcome.revisions} of {self.max_revisions}",
+            )
+            plan = (await self.planners[0].plan(question, context=revision_context)).output
+
+        narration = await self.narrator.write(
+            plan, execution, verdict=outcome.verdict
+        )
+        outcome.narration = narration
+        yield RunEvent(
+            name="narrate.finished",
+            detail="published" if narration.published else "withheld",
+            payload=narration.model_dump(mode="json"),
+        )
+
+        # A rejection is information, not a failure. Only the grounding gate
+        # withholding the prose downgrades the run.
+        outcome.status = "completed" if narration.published else "blocked"
+
+    # --- internals ----------------------------------------------------------
+
+    def _reviewer(self) -> Validator | None:
+        """The Validator, if this tier uses one.
+
+        The tier decides, not the wiring. A project set to `single` gets no
+        review even when a Validator is configured — otherwise "cheapest tier"
+        would silently depend on how the orchestrator happened to be built.
+        """
+        return None if self.tier == "single" else self.validator
+
+    def _warn_about_independence(self, outcome: RunOutcome) -> None:
+        if self._reviewer() is None:
+            return
+        reviewer = self._reviewer()
+        assert reviewer is not None  # guarded above
+        warning = independence_warning(
+            author=getattr(self.planners[0].provider, "name", None),
+            validator=getattr(reviewer.provider, "name", None),
+        )
+        if warning:
+            outcome.warnings.append(warning)
+
+    async def _plan(
+        self, question: str, context: str, outcome: RunOutcome
+    ) -> AnalysisPlan:
+        if self.tier != "consensus" or len(self.planners) == 1:
+            return (await self.planners[0].plan(question, context=context)).output
+
+        plans = [
+            (await planner.plan(question, context=context)).output
+            for planner in self.planners
+        ]
+        signatures = {_signature(plan) for plan in plans}
+        if len(signatures) > 1:
+            # Surfaced, never arbitrated. Two defensible approaches to the same
+            # question is a finding about the question, and picking one
+            # silently would hide it.
+            outcome.alternative_plans = plans[1:]
+            outcome.warnings.append(
+                f"the planners disagree: {len(signatures)} distinct approaches were"
+                f" proposed ({'; '.join(sorted(signatures))}). The first is being"
+                " run; the others are reported for comparison."
+            )
+        return plans[0]
+
+
+def _signature(plan: AnalysisPlan) -> str:
+    """A plan's identity for comparison: which tools, in which order."""
+    return " -> ".join(step.tool for step in plan.ordered_steps())
+
+
+def _revision_context(context: str, verdict: ValidationVerdict) -> str:
+    parts = [context] if context else []
+    parts.append(
+        "A previous plan was rejected by the Validator for these reasons:\n"
+        + "\n".join(f"- {reason}" for reason in verdict.reasons)
+    )
+    if verdict.revise_steps:
+        parts.append(f"Steps needing rework: {', '.join(verdict.revise_steps)}")
+    return "\n\n".join(parts)
+
+
+def _diagnostics_for(execution: ExecutionReport) -> list[Diagnostic]:
+    """The deterministic battery over whatever residuals the run produced.
+
+    Tools that expose a residual series get the full assumption check; the
+    rest contribute the diagnostics they computed themselves. Either way the
+    Validator is handed numbers rather than asked to imagine them.
+    """
+    collected: list[Diagnostic] = []
+    for outcome in execution.outcomes:
+        if outcome.result is None:
+            continue
+        collected.extend(outcome.result.diagnostics)
+        residuals = outcome.result.series.get("residuals")
+        if residuals is None:
+            continue
+        values = [value for value in residuals.y if value is not None]
+        try:
+            collected.extend(run_diagnostics(_as_series(values)))
+        except Exception:
+            # A battery that cannot run is not a reason to lose the run; the
+            # tool's own diagnostics are already collected above.
+            continue
+    return collected
+
+
+def _as_series(values: list[float]) -> Any:
+    import pandas as pd
+
+    return pd.Series(values, dtype=float)

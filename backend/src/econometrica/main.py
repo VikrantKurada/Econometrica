@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from econometrica import __version__
-from econometrica.api.routers import chats, health, messages, projects, providers
+from econometrica.api.routers import chats, health, messages, projects, providers, runs
 from econometrica.econ import load_tools
 
 # Tools register as an import side-effect of their family packages, so without
@@ -26,3 +26,4 @@ app.include_router(projects.router)
 app.include_router(chats.router)
 app.include_router(providers.router)
 app.include_router(messages.router)
+app.include_router(runs.router)

@@ -142,6 +142,23 @@ def test_dataset_spec_rejects_a_backwards_window():
         dataset(start=date(2024, 1, 1), end=date(2020, 1, 1))
 
 
+def test_log_diff_is_accepted_as_a_spelling_of_log_returns():
+    """The prompt carries two vocabularies for one concept, so models mix them.
+
+    `DatasetSpec.return_method` takes "log"; the tool-level `transform` in the
+    same catalogue takes "log_diff". They mean the same thing for returns — a
+    log difference *is* a log return — and a real local model reached for the
+    tool spelling on its first attempt every time, burning a retry on a
+    synonym. Recognising it is not leniency about meaning.
+    """
+    assert dataset(return_method="log_diff").return_method == "log"
+
+
+def test_a_return_method_that_is_not_a_synonym_is_still_rejected():
+    with pytest.raises(ValidationError):
+        dataset(return_method="diff")  # a price difference, not a return
+
+
 def test_dataset_spec_rejects_an_empty_ticker_list():
     with pytest.raises(ValidationError):
         dataset(tickers=[])

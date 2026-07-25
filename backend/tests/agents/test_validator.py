@@ -143,16 +143,16 @@ async def test_a_validator_that_keeps_inventing_steps_raises():
 
 def test_the_same_provider_on_both_roles_is_warned_about():
     """A model reviewing its own reasoning is not a second opinion."""
-    warning = independence_warning(econometrician="ollama", validator="ollama")
+    warning = independence_warning(author="ollama", validator="ollama")
 
     assert warning is not None
     assert "ollama" in warning
 
 
 def test_different_providers_draw_no_warning():
-    assert independence_warning(econometrician="anthropic", validator="openai") is None
+    assert independence_warning(author="anthropic", validator="openai") is None
 
 
-def test_the_econometrician_being_deterministic_is_not_a_clash():
+def test_a_deterministic_author_is_not_a_clash():
     """Nothing is being marked against itself when one side has no model."""
-    assert independence_warning(econometrician=None, validator="ollama") is None
+    assert independence_warning(author=None, validator="ollama") is None

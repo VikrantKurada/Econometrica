@@ -48,6 +48,20 @@ Rules:
 - At least one step. If the question cannot be answered with these tools, say
   so in `hypotheses` and plan the closest thing that can be.
 
+# Column names
+
+The data is assembled after you plan, and the columns are named from the
+tickers you request — not "price" or "return", whatever a tool's default
+says. For each ticker T there are exactly two columns:
+
+- `T` — the price level. Use it for unit-root and variance-ratio work.
+- `T_return` — the return, built with your `return_method`. Use it for
+  volatility and autocorrelation work.
+
+So for BTC-USD you would write `"column": "BTC-USD"` or
+`"column": "BTC-USD_return"`. A column that is not one of these does not
+exist, and the step will fail.
+
 # Tool catalogue
 {catalogue}\
 """
