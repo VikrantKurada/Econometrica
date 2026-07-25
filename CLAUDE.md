@@ -41,17 +41,22 @@ Consequences that keep coming up:
 | 5 — charts and artifact canvas | not started |
 | 6 — telemetry, uploads, MCP, exports | not started |
 
-**854 backend tests, 65 frontend tests, 4 Playwright e2e.** ruff and
+**876 backend tests, 65 frontend tests, 4 Playwright e2e.** ruff and
 `mypy --strict` clean on `src`. `alembic check` reports no drift.
 
 ### The immediate next task
 
-**Task 5.2 — the Visualizer**, per the Phase 5 plan. `charts/spec.py` already
-gives it the vocabulary and `unresolved_references()` to bind against a
-`ResultSet`. Follow the Phase 4 precedent and make the tool-to-chart mapping
-**deterministic** — the shape of a `ResultSet` implies its charts — leaving
-the model only the editorial calls (ordering, titles). A test should prove a
-chart is produced with no provider at all.
+**Task 5.3 — the chart renderers.** The first frontend work in a while, and
+the first chart code: **load the `dataviz` skill before writing any of it.**
+One React component per `charts/spec.py` type (14 of them), one shared Plotly
+layout module, and a partial Plotly bundle — the full one is ~3 MB.
+
+The palette is already validated against this project's own surfaces; the
+numbers and the three rules that follow from them are in the Phase 5 plan's
+decision 2. Add the eight slots to `src/styles/index.css` as `--series-1…8`
+under *both* the `prefers-color-scheme` query and the `[data-theme]` scope,
+the way the existing tokens do. Then step 7 of the skill's procedure:
+**render it and look at it** — the validator checks colour, not layout.
 
 Two things Phase 5 inherits that are not in its task table:
 

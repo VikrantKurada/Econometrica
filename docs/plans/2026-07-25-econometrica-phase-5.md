@@ -18,8 +18,8 @@ manifest that reproduces them.
 |---|---|
 | 5.0 `acf` tool (prerequisite) | ✅ |
 | 5.1 chart spec union | ✅ |
-| 5.2 visualizer agent | ⬜ next |
-| 5.3 chart renderers | ⬜ |
+| 5.2 visualizer agent | ✅ |
+| 5.3 chart renderers | ⬜ next |
 | 5.4 artifact canvas | ⬜ |
 | 5.5 exports | ⬜ |
 | 5.6 phase 5 e2e | ⬜ |
@@ -192,6 +192,26 @@ candidates to show first, what to title them). A test should prove a chart is
 produced with no provider at all.
 
 **Commit:** `feat(agents): add visualizer over result shape`
+
+**Landed split in two.** `charts/propose.py` is deterministic and decides what
+a result supports; `agents/visualizer.py` is the model, and it may only
+reorder, drop and retitle charts that already bind — it cannot invent one,
+change a type, or change what data is drawn. So the role stays
+model-assignable as the design intends, while the path most runs should take
+(`propose_charts` with no provider) needs no turn at all.
+
+**Rules key on shape before name**, which is what stops 37 tools needing 37
+entries: any result carrying a `residuals` series gets a QQ plot, and a test
+proves that using a `ResultSet` from an invented future tool.
+
+**The invariant, parametrised over ten tools:** every proposed chart binds —
+`unresolved_references` comes back empty against the result it was proposed
+for.
+
+Both named criteria hold against real tool output: GARCH gives a two-panel
+chart sharing an x-axis (never two y-scales), and a two-variable IRF gives a
+four-panel grid, one per `impulse → response` pair, sized from the series the
+tool emits rather than from a hard-coded system size.
 
 ---
 
