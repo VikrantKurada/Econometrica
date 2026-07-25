@@ -98,6 +98,43 @@ docker compose up -d db --wait
 
 ---
 
+## Permissions
+
+This project runs in **Allow All** — `permissions.defaultMode` is set to
+`bypassPermissions`, so tool calls execute without confirmation prompts.
+
+**Where it lives:** `.claude/settings.local.json`, alongside ~125 accumulated
+allow rules. That file is **gitignored**, because a permission posture is a
+personal choice about this machine, not something a clone should silently
+inherit. This file cannot set it — `CLAUDE.md` is instructions to Claude, and
+permission mode is harness configuration; writing "allow all" here would have
+no mechanical effect.
+
+**To restore it on a fresh clone**, create `.claude/settings.local.json`:
+
+```json
+{
+  "permissions": {
+    "defaultMode": "bypassPermissions",
+    "allow": []
+  }
+}
+```
+
+**What it means in practice.** Nothing asks first — file writes, shell
+commands, network calls, `git push`. That is the point, and it is why this
+project's other conventions matter more than they otherwise would: verify
+before destructive commands, prefer additive fixes, and check `git status`
+before assuming the tree is clean. If you ever want the confirmation layer
+back for one session, start with `--permission-mode default`; to retire it
+entirely, change `defaultMode` to `"default"` in that file.
+
+The allow list is worth keeping even under Allow All: it is what still applies
+if the mode is ever turned off, and it survives as a record of what has been
+sanctioned.
+
+---
+
 ## Environment gotchas
 
 These cost real time when rediscovered. All are verified on this machine.
