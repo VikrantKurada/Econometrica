@@ -3,6 +3,7 @@ import pytest
 from tests.econ.fixtures import (
     make_capm_data,
     make_cointegrated_pair,
+    make_factor_data,
     make_garch_series,
     make_random_walk,
     make_stationary_ar1,
@@ -22,6 +23,26 @@ def test_capm_fixture_recovers_beta_under_ols():
     data = make_capm_data(beta=1.3, alpha=0.0002, n=5000, seed=7, resid_vol=0.005)
     model = sm.OLS(data["asset"], sm.add_constant(data["market"])).fit()
     assert model.params.iloc[1] == pytest.approx(1.3, abs=0.05)
+
+
+def test_factor_fixture_is_reproducible_under_a_seed():
+    loadings = {"mkt_rf": 1.1, "smb": 0.4, "hml": -0.3}
+    a = make_factor_data(loadings=loadings, alpha=0.0002, n=500, seed=13)
+    b = make_factor_data(loadings=loadings, alpha=0.0002, n=500, seed=13)
+    assert a.equals(b)
+
+
+def test_factor_fixture_recovers_loadings_under_ols():
+    """If this fixture is wrong, every factor-model test built on it is wrong."""
+    import statsmodels.api as sm
+
+    loadings = {"mkt_rf": 1.1, "smb": 0.4, "hml": -0.3}
+    data = make_factor_data(loadings=loadings, alpha=0.0003, n=5000, seed=13, resid_vol=0.005)
+    assert list(data.columns) == ["mkt_rf", "smb", "hml", "asset"]
+    fit = sm.OLS(data["asset"], sm.add_constant(data[list(loadings)])).fit()
+    assert fit.params["const"] == pytest.approx(0.0003, abs=0.0005)
+    for name, true_loading in loadings.items():
+        assert fit.params[name] == pytest.approx(true_loading, abs=0.05)
 
 
 def test_random_walk_has_a_unit_root():

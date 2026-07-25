@@ -47,6 +47,37 @@ def make_capm_data(
     return pd.DataFrame({"market": market, "asset": asset}, index=_bdays(n))
 
 
+def make_factor_data(
+    *,
+    loadings: dict[str, float],
+    alpha: float,
+    n: int,
+    seed: int,
+    resid_vol: float = 0.01,
+    factor_mean: float = 0.0002,
+    factor_vol: float = 0.01,
+) -> pd.DataFrame:
+    """Daily returns obeying ``asset = alpha + sum(loading_i * factor_i) + eps``.
+
+    True parameters: intercept ``alpha`` and one loading per entry of
+    ``loadings`` (insertion order fixes both column order and rng draw order,
+    so identical calls are bit-for-bit reproducible). Factors are i.i.d.
+    N(factor_mean, factor_vol^2), mutually independent and independent of the
+    i.i.d. N(0, resid_vol^2) residual, so multivariate OLS must recover every
+    loading to within sampling error — including exact zeros.
+
+    Downstream tests rely on: one column per factor named exactly as in
+    ``loadings``, an ``asset`` column, a business-day DatetimeIndex, and zero
+    specification error.
+    """
+    rng = np.random.default_rng(seed)
+    factors = {name: rng.normal(factor_mean, factor_vol, n) for name in loadings}
+    asset = alpha + rng.normal(0.0, resid_vol, n)
+    for name, loading in loadings.items():
+        asset = asset + loading * factors[name]
+    return pd.DataFrame({**factors, "asset": asset}, index=_bdays(n))
+
+
 def make_random_walk(n: int, seed: int, step_vol: float = 1.0) -> pd.Series:
     """A driftless random walk: cumulative sum of i.i.d. N(0, step_vol^2) steps.
 
