@@ -24,8 +24,8 @@ answer.
 | 4.3 data steward | ✅ |
 | 4.4 econometrician + gates | ✅ |
 | 4.5 validator | ✅ |
-| 4.6 numeric grounding gate | ⬜ next |
-| 4.7 narrator | ⬜ |
+| 4.6 numeric grounding gate | ✅ |
+| 4.7 narrator | ⬜ next |
 | 4.8 orchestrator | ⬜ |
 | 4.9 run and step persistence | ⬜ |
 | 4.10 phase 4 e2e | ⬜ |
@@ -392,6 +392,28 @@ Tolerance is relative, not absolute: `0.0001` and `1_000_000` cannot share an
 epsilon.
 
 **Commit:** `feat(agents): add numeric grounding gate`
+
+**Landed.** Precision comes from the citation rather than a global epsilon:
+"1.30" claims two decimal places and matches anything rounding to it at two,
+"1.3" claims one. Stricter and more permissive than a fixed tolerance, in the
+right directions.
+
+`allowed_values()` unions `ResultSet.all_numeric_values()` with the numbers in
+`ResultSet.params`, which the former does not cover. Without that, "a
+GARCH(1,1) fit" reads as two fabrications.
+
+Exemptions are years in a date context, markdown list markers, artifact
+references, model orders inside a name, and conventional significance levels
+where the sentence is about significance. **Each has a paired test proving it
+does not apply outside its context** — "the statistic is 2008" is checked,
+"returns rose 5%" is checked, and a real figure opening a line is checked.
+That pairing is the whole discipline here: an over-strict gate that blocks
+"significant at the 5% level" gets switched off within a day, and a gate that
+is off protects nothing.
+
+Verified on realistic narrator prose beyond the unit tests: an honest GARCH
+paragraph passes with six numbers checked, and a transposed digit
+(0.8834 → 0.8843) is caught.
 
 ---
 

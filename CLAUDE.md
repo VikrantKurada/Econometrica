@@ -36,20 +36,20 @@ Consequences that keep coming up:
 | 1 — DB, API, three-pane shell | done |
 | 2 — econometrics core (36 tools, 5 families) | done, phase gate green, 97% coverage |
 | 3 — LLM providers + streaming chat | done, e2e gate green |
-| 4 — multi-agent orchestration | 4 of 10 tasks done |
+| 4 — multi-agent orchestration | 6 of 10 tasks done |
 | 5 — charts and artifact canvas | not started |
 | 6 — telemetry, uploads, MCP, exports | not started |
 
-**707 backend tests, 65 frontend tests, 2 Playwright e2e.** ruff and
+**738 backend tests, 65 frontend tests, 2 Playwright e2e.** ruff and
 `mypy --strict` clean on `src`. `alembic check` reports no drift.
 
 ### The immediate next task
 
-**Task 4.5 — the Validator**, per the Phase 4 plan. It reads
-`ExecutionReport` (results, gate verdicts, unjudged checks) plus the
-deterministic diagnostics, and emits a `ValidationVerdict`. The criterion that
-matters: it must be assignable to a *different provider* than the
-Econometrician, and a test must prove the orchestrator warns when they match.
+**Task 4.7 — the Narrator**, per the Phase 4 plan. `agents/grounding.py`
+already exists and is the gate its output must pass — enforced in the agent,
+not hoped for: a blocked draft is re-asked once with the offending numbers
+listed (`GroundingReport.summary()` is written for that prompt), and a second
+failure returns the report rather than the prose.
 
 Phase 4 is the interesting one: six agent roles, the deterministic
 `DiagnosticsEngine` (already built, `econ/diagnostics/`) feeding a Validator on
