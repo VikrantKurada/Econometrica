@@ -7,6 +7,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from econometrica.db.base import TimestampedBase
 
 if TYPE_CHECKING:
+    from econometrica.db.models.message import Message
     from econometrica.db.models.project import Project
 
 
@@ -28,3 +29,10 @@ class Chat(TimestampedBase):
     mcp_enabled: Mapped[bool | None] = mapped_column(default=None)
 
     project: Mapped["Project"] = relationship(back_populates="chats")
+    messages: Mapped[list["Message"]] = relationship(
+        back_populates="chat",
+        cascade="all, delete-orphan",
+        # Ordered here so every load of a transcript is already correct;
+        # created_at ties within a transaction, seq does not.
+        order_by="Message.seq",
+    )
