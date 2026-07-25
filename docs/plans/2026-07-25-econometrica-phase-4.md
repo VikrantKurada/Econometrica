@@ -25,8 +25,8 @@ answer.
 | 4.4 econometrician + gates | ✅ |
 | 4.5 validator | ✅ |
 | 4.6 numeric grounding gate | ✅ |
-| 4.7 narrator | ⬜ next |
-| 4.8 orchestrator | ⬜ |
+| 4.7 narrator | ✅ |
+| 4.8 orchestrator | ⬜ next |
 | 4.9 run and step persistence | ⬜ |
 | 4.10 phase 4 e2e | ⬜ |
 
@@ -427,6 +427,23 @@ a blocked draft is re-asked once with the offending numbers listed, and a
 second failure returns the verdict rather than the prose.
 
 **Commit:** `feat(agents): add narrator gated on numeric grounding`
+
+**Landed.** The output type is `Narrative` — `{prose, citations}` — rather than
+raw text, so the base class's JSON parsing and retry apply unchanged and the
+grounding check slots into `Agent.check()`. Failing that hook spends a retry
+with the offending figures named, which is the only version of the retry worth
+having.
+
+`write()` returns a `Narration`, not prose: `published=False` with the
+grounding report attached when every draft cited something invented. Results
+without prose are inconvenient; prose with an invented statistic is what this
+application exists to prevent, so withholding is the correct failure.
+
+**What 4.8 inherits.** Every piece it needs now exists: `Planner.plan()`,
+`DataSteward.resolve()` → `Dataset.frame`, `Econometrician.run()` →
+`ExecutionReport`, `Validator.review()` + `independence_warning()`, and
+`Narrator.write()`. What is left is the tier logic, the bounded revision loop,
+the `RunEvent` vocabulary and the SSE route.
 
 ---
 

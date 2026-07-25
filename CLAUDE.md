@@ -36,20 +36,22 @@ Consequences that keep coming up:
 | 1 — DB, API, three-pane shell | done |
 | 2 — econometrics core (36 tools, 5 families) | done, phase gate green, 97% coverage |
 | 3 — LLM providers + streaming chat | done, e2e gate green |
-| 4 — multi-agent orchestration | 6 of 10 tasks done |
+| 4 — multi-agent orchestration | 7 of 10 tasks done |
 | 5 — charts and artifact canvas | not started |
 | 6 — telemetry, uploads, MCP, exports | not started |
 
-**738 backend tests, 65 frontend tests, 2 Playwright e2e.** ruff and
+**746 backend tests, 65 frontend tests, 2 Playwright e2e.** ruff and
 `mypy --strict` clean on `src`. `alembic check` reports no drift.
 
 ### The immediate next task
 
-**Task 4.7 — the Narrator**, per the Phase 4 plan. `agents/grounding.py`
-already exists and is the gate its output must pass — enforced in the agent,
-not hoped for: a blocked draft is re-asked once with the offending numbers
-listed (`GroundingReport.summary()` is written for that prompt), and a second
-failure returns the report rather than the prose.
+**Task 4.8 — the orchestrator**, per the Phase 4 plan. Every piece it composes
+already exists and is tested: `Planner.plan()`, `DataSteward.resolve()` →
+`Dataset.frame`, `Econometrician.run()` → `ExecutionReport`,
+`Validator.review()` + `independence_warning()`, `Narrator.write()`. What is
+left is the three validation tiers, the bounded revision loop, the `RunEvent`
+vocabulary, and `POST /api/chats/{id}/runs` streaming them — a **new route**,
+deliberately not a mode flag on the Phase 3 chat endpoint (plan decision 2).
 
 Phase 4 is the interesting one: six agent roles, the deterministic
 `DiagnosticsEngine` (already built, `econ/diagnostics/`) feeding a Validator on
