@@ -19,7 +19,7 @@ from econometrica.agents.grounding import GroundingReport, allowed_values, check
 from econometrica.agents.schemas import AnalysisPlan, ValidationVerdict
 from econometrica.econ.types import ResultSet
 from econometrica.llm.base import LLMProvider
-from econometrica.llm.types import Message
+from econometrica.llm.types import Completion, Message
 
 _SYSTEM = """\
 You are the Narrator in an econometrics workbench. The tools have run. Your
@@ -59,6 +59,10 @@ class Narration(BaseModel):
     published: bool
     narrative: Narrative | None = None
     grounding: GroundingReport
+    #: Every attempt, published or not. A draft withheld by the grounding gate
+    #: still cost tokens, and a trace that dropped it would understate exactly
+    #: the runs where the safeguard did its job.
+    completions: list[Completion] = Field(default_factory=list)
 
 
 class Narrator(Agent[Narrative]):
@@ -106,12 +110,22 @@ class Narrator(Agent[Narrative]):
                     Message.user(_render(plan, report, verdict)),
                 ]
             )
-        except AgentAttemptsExhaustedError:
+        except AgentAttemptsExhaustedError as exc:
             # Every draft failed. The last grounding report is the useful part
             # — it says which figures were invented.
-            return Narration(published=False, narrative=None, grounding=self._grounding)
+            return Narration(
+                published=False,
+                narrative=None,
+                grounding=self._grounding,
+                completions=list(exc.completions),
+            )
 
-        return Narration(published=True, narrative=result.output, grounding=self._grounding)
+        return Narration(
+            published=True,
+            narrative=result.output,
+            grounding=self._grounding,
+            completions=list(result.completions),
+        )
 
 
 # --- rendering --------------------------------------------------------------

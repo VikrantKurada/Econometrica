@@ -27,8 +27,8 @@ answer.
 | 4.6 numeric grounding gate | ✅ |
 | 4.7 narrator | ✅ |
 | 4.8 orchestrator | ✅ |
-| 4.9 run and step persistence | ⬜ next |
-| 4.10 phase 4 e2e | ⬜ |
+| 4.9 run and step persistence | ✅ |
+| 4.10 phase 4 e2e | ⬜ next — see the note under 4.10 |
 
 Task 4.1 turned up a fourth thing the tree did not provide: **the running
 server's tool registry was empty.** Registration is an import side-effect of
@@ -515,6 +515,28 @@ Two things `CLAUDE.md` warns about and this task will hit:
   test, because `alembic check` cannot verify them either.
 
 **Commit:** `feat(db): persist runs and steps for the agent trace`
+
+**Landed**, plus `GET /api/chats/{id}/runs` and `GET /api/runs/{id}` to read a
+trace back. Steps are written after the stream ends, not during it: a trace is
+only complete once the run is, and a write that failed mid-stream would leave
+a partial trace claiming to be whole. A failure to record emits `run.untraced`
+rather than retracting a run the client already watched succeed.
+
+**One warning in this document was half right.** Alembic's autogenerate *does*
+emit CHECK constraints when it **creates** a table — all thirteen appeared
+without editing. What it cannot see is one added to or changed on a table that
+already exists, which is the `validation_tier` case. `alembic check` verifies
+neither, so `tests/db/test_migrations.py` now asserts every constraint in the
+models reaches some migration, and `tests/db/test_run_model.py` exercises each
+one against real Postgres.
+
+**A gap the trace tests exposed.** `Narrator.write()` returns a `Narration`,
+not an `AgentResult`, so its retries were invisible — and the Narrator is the
+agent most likely to retry, since the grounding gate rejects drafts. A draft
+withheld by that gate still cost tokens, so `AgentAttemptsExhaustedError` now
+carries its completions and `Narration` passes them through. Without it the
+cost dashboard would have understated precisely the runs where the safeguard
+did its job.
 
 ---
 

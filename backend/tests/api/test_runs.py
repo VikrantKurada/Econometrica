@@ -167,6 +167,41 @@ async def test_the_critic_tier_consults_the_validator(client, scripted):
     assert len(scripted.provider.calls) == 3
 
 
+async def test_a_finished_run_leaves_a_trace_in_the_database(client, scripted):
+    """The run's own record, written after the stream, not during it."""
+    chat_id = await make_chat(client)
+
+    await client.post(f"/api/chats/{chat_id}/runs", json={"question": QUESTION})
+
+    runs = (await client.get(f"/api/chats/{chat_id}/runs")).json()
+    assert len(runs) == 1
+    assert runs[0]["status"] == "completed"
+    assert runs[0]["tier"] == "single"
+    assert runs[0]["question"] == QUESTION
+    assert runs[0]["output_tokens"] > 0
+
+
+async def test_the_trace_lists_its_steps_in_order(client, scripted):
+    chat_id = await make_chat(client)
+    await client.post(f"/api/chats/{chat_id}/runs", json={"question": QUESTION})
+    run_id = (await client.get(f"/api/chats/{chat_id}/runs")).json()[0]["id"]
+
+    trace = (await client.get(f"/api/runs/{run_id}")).json()
+
+    assert [step["agent"] for step in trace["steps"]] == [
+        "planner",
+        "data_steward",
+        "econometrician",
+        "narrator",
+    ]
+    assert trace["steps"][0]["parent_id"] is None
+    assert trace["steps"][1]["parent_id"] == trace["steps"][0]["id"]
+
+
+async def test_an_unknown_run_is_a_404(client, scripted):
+    assert (await client.get(f"/api/runs/{uuid4()}")).status_code == 404
+
+
 async def test_an_unknown_chat_is_a_404(client, scripted):
     response = await client.post(
         f"/api/chats/{uuid4()}/runs", json={"question": QUESTION}

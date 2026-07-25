@@ -249,6 +249,89 @@ async def test_ungrounded_prose_blocks_publication_without_losing_the_results():
     assert outcome.execution.results
 
 
+# --- the trace --------------------------------------------------------------
+
+
+async def test_the_trace_records_every_model_call_and_tool_step():
+    orchestrator, _ = build()
+
+    outcome = await orchestrator.run(QUESTION)
+
+    agents = [record.agent for record in outcome.trace]
+    assert agents == [
+        "planner",
+        "data_steward",
+        "econometrician",
+        "econometrician",
+        "validator",
+        "narrator",
+    ]
+    tools = [r.tool for r in outcome.trace if r.agent == "econometrician"]
+    assert tools == ["adf", "kpss"]
+
+
+async def test_every_step_after_the_first_is_reachable_from_it():
+    """A trace with an orphan cannot be drawn as one DAG."""
+    orchestrator, _ = build()
+
+    outcome = await orchestrator.run(QUESTION)
+
+    assert outcome.trace[0].parent is None
+    for index, record in enumerate(outcome.trace[1:], start=1):
+        assert record.parent is not None, f"step {index} ({record.agent}) has no parent"
+        assert record.parent < index, "a step may only follow an earlier one"
+
+
+async def test_a_rejected_attempt_is_its_own_traced_step():
+    """Otherwise the cost dashboard understates every run that needed a retry."""
+    orchestrator, _ = build(prose=[narrative("Beta is 9.87."), narrative()])
+
+    outcome = await orchestrator.run(QUESTION)
+
+    narrator_steps = [r for r in outcome.trace if r.agent == "narrator"]
+    assert [r.attempt for r in narrator_steps] == [1, 2]
+    assert narrator_steps[0].status == "failed"
+    assert narrator_steps[0].usage.output_tokens > 0, "a rejected draft still cost tokens"
+
+
+async def test_a_withheld_narration_is_traced_as_refused_not_ok():
+    """The trace has to show the gate firing, or the safeguard is invisible."""
+    orchestrator, _ = build(prose=[narrative("Beta is 9.87."), narrative("Beta is 9.87.")])
+
+    outcome = await orchestrator.run(QUESTION)
+
+    narrator_steps = [r for r in outcome.trace if r.agent == "narrator"]
+    assert narrator_steps[-1].status == "refused"
+    assert "9.87" in narrator_steps[-1].detail
+
+
+async def test_tool_steps_carry_a_hash_of_what_they_computed():
+    orchestrator, _ = build()
+
+    outcome = await orchestrator.run(QUESTION)
+
+    hashes = [r.tool_call_hash for r in outcome.trace if r.kind == "tool" and r.tool]
+    assert all(value and len(value) == 64 for value in hashes)
+    assert len(set(hashes)) == len(hashes), "adf and kpss must not collide"
+
+
+async def test_a_consensus_run_traces_the_planners_it_did_not_use():
+    """Hiding the losers would misreport what the tier costs."""
+    other = {**PLAN, "steps": [{"id": "s1", "tool": "kpss", "params": {"column": "AAA"}}]}
+    orchestrator, _ = build(
+        tier="consensus",
+        planner_providers=[
+            FakeProvider(name="p1", responses=[json.dumps(PLAN)]),
+            FakeProvider(name="p2", responses=[json.dumps(other)]),
+        ],
+    )
+
+    outcome = await orchestrator.run(QUESTION)
+
+    planners = [r for r in outcome.trace if r.agent == "planner"]
+    assert {r.provider for r in planners} == {"p1", "p2"}
+
+
 # --- independence -----------------------------------------------------------
 
 

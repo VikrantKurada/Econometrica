@@ -28,6 +28,7 @@ from econometrica.agents.econometrician import Econometrician, ExecutionReport
 from econometrica.agents.narrator import Narration, Narrator
 from econometrica.agents.planner import Planner
 from econometrica.agents.schemas import AnalysisPlan, ValidationVerdict
+from econometrica.agents.trace import StepRecord, TraceBuilder, tool_call_hash
 from econometrica.agents.validator import Validator, independence_warning
 from econometrica.econ.diagnostics.engine import run_diagnostics
 from econometrica.econ.types import Diagnostic
@@ -36,6 +37,11 @@ Tier = Literal["single", "critic", "consensus"]
 TIERS: tuple[Tier, ...] = ("single", "critic", "consensus")
 
 RunStatus = Literal["completed", "blocked", "failed"]
+
+#: The Econometrician's own status words, in the trace's vocabulary. "ran" is
+#: the only one that differs, and only because "ok" reads better beside a
+#: model call that returned.
+_STEP_STATE = {"ran": "ok", "refused": "refused", "failed": "failed", "skipped": "skipped"}
 
 
 class RunEvent(BaseModel):
@@ -66,6 +72,10 @@ class RunOutcome(BaseModel):
     warnings: list[str] = Field(default_factory=list)
     revisions: int = 0
     error: str = ""
+    #: Every model call and tool invocation, in the order they happened, with
+    #: parent links. `services.tracing` persists this; the trace viewer draws
+    #: it. Rejected attempts are here too — they were billed.
+    trace: list[StepRecord] = Field(default_factory=list)
 
 
 class Orchestrator:
@@ -122,11 +132,13 @@ class Orchestrator:
     async def _pipeline(
         self, question: str, context: str, outcome: RunOutcome
     ) -> AsyncIterator[RunEvent]:
+        trace = TraceBuilder()
+        outcome.trace = trace.records
         self._warn_about_independence(outcome)
         for warning in outcome.warnings:
             yield RunEvent(name="run.warning", detail=warning)
 
-        plan = await self._plan(question, context, outcome)
+        plan = await self._plan(question, context, outcome, trace)
         yield RunEvent(name="plan.finished", payload=plan.model_dump(mode="json"))
         for warning in outcome.warnings[len(outcome.warnings) - 1 :]:
             if "disagree" in warning:
@@ -134,6 +146,15 @@ class Orchestrator:
 
         dataset = await self.steward.resolve(plan.dataset)
         outcome.quality = dataset.report
+        trace.add(
+            StepRecord(
+                agent="data_steward",
+                kind="tool",
+                status="ok",
+                parent=trace.last,
+                detail=f"{dataset.report.rows} rows, {len(dataset.report.flags)} flag(s)",
+            )
+        )
         yield RunEvent(name="data.finished", payload=dataset.report.model_dump(mode="json"))
 
         revision_context = context
@@ -141,7 +162,20 @@ class Orchestrator:
             execution = await self.econometrician.run(plan, dataset.frame)
             outcome.plan = plan
             outcome.execution = execution
+            after_data = trace.last
             for step in execution.outcomes:
+                plan_step = next(s for s in plan.steps if s.id == step.step_id)
+                trace.add(
+                    StepRecord(
+                        agent="econometrician",
+                        kind="tool",
+                        status=_STEP_STATE[step.status],
+                        parent=after_data,
+                        tool=step.tool,
+                        tool_call_hash=tool_call_hash(step.tool, plan_step.params),
+                        detail=step.error or "; ".join(v.detail for v in step.refusals),
+                    )
+                )
                 yield RunEvent(
                     name="step.finished",
                     detail=f"{step.step_id} ({step.tool}): {step.status}",
@@ -154,9 +188,17 @@ class Orchestrator:
             if validator is None:
                 break
 
-            verdict = (
-                await validator.review(plan, execution, diagnostics=outcome.diagnostics)
-            ).output
+            review = await validator.review(
+                plan, execution, diagnostics=outcome.diagnostics
+            )
+            trace.add_agent_turn(
+                review,
+                agent="validator",
+                provider=getattr(validator.provider, "name", None),
+                model=validator.model,
+                parent=trace.last,
+            )
+            verdict = review.output
             outcome.verdict = verdict
             yield RunEvent(
                 name="validate.finished",
@@ -173,10 +215,27 @@ class Orchestrator:
                 name="plan.revising",
                 detail=f"revision {outcome.revisions} of {self.max_revisions}",
             )
-            plan = (await self.planners[0].plan(question, context=revision_context)).output
+            replan = await self.planners[0].plan(question, context=revision_context)
+            trace.add_agent_turn(
+                replan,
+                agent="planner",
+                provider=getattr(self.planners[0].provider, "name", None),
+                model=self.planners[0].model,
+                parent=trace.last,
+            )
+            plan = replan.output
 
         narration = await self.narrator.write(
             plan, execution, verdict=outcome.verdict
+        )
+        trace.add_agent_turn(
+            narration,
+            agent="narrator",
+            provider=getattr(self.narrator.provider, "name", None),
+            model=self.narrator.model,
+            parent=trace.last,
+            final_status="ok" if narration.published else "refused",
+            final_detail="" if narration.published else narration.grounding.summary(),
         )
         outcome.narration = narration
         yield RunEvent(
@@ -213,15 +272,30 @@ class Orchestrator:
             outcome.warnings.append(warning)
 
     async def _plan(
-        self, question: str, context: str, outcome: RunOutcome
+        self, question: str, context: str, outcome: RunOutcome, trace: TraceBuilder
     ) -> AnalysisPlan:
-        if self.tier != "consensus" or len(self.planners) == 1:
-            return (await self.planners[0].plan(question, context=context)).output
+        def record(result: Any, planner: Planner) -> None:
+            trace.add_agent_turn(
+                result,
+                agent="planner",
+                provider=getattr(planner.provider, "name", None),
+                model=planner.model,
+                parent=None,
+            )
 
-        plans = [
-            (await planner.plan(question, context=context)).output
-            for planner in self.planners
-        ]
+        if self.tier != "consensus" or len(self.planners) == 1:
+            result = await self.planners[0].plan(question, context=context)
+            record(result, self.planners[0])
+            return result.output
+
+        plans = []
+        for planner in self.planners:
+            # Every planner's turn is traced, not only the one that was run:
+            # a consensus tier that hid what the others cost would misreport
+            # the price of the tier.
+            result = await planner.plan(question, context=context)
+            record(result, planner)
+            plans.append(result.output)
         signatures = {_signature(plan) for plan in plans}
         if len(signatures) > 1:
             # Surfaced, never arbitrated. Two defensible approaches to the same

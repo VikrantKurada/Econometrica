@@ -21,8 +21,14 @@ compute statistics themselves.
 > real tickers belong to Phase 6, so the route refuses with an explanation
 > rather than inventing data.
 >
-> **Not started:** run/step trace persistence (4.9), interactive charts and the
-> artifact canvas (Phase 5), and uploads, telemetry, MCP and exports (Phase 6).
+> Every run records its own trace — a DAG of model calls and tool
+> invocations with tokens, latency and parent links, readable at
+> `GET /api/runs/{id}`. Rejected attempts are steps in their own right,
+> because they were billed.
+>
+> **Not started:** interactive charts and the artifact canvas (Phase 5), and
+> uploads, telemetry, MCP and exports (Phase 6). There is no frontend for runs
+> yet — the pipeline is reachable over the API only.
 >
 > Working notes for contributors — and for Claude — are in `CLAUDE.md`. The
 > design and phase plans are in `docs/plans/`.

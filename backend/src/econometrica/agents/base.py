@@ -40,7 +40,13 @@ class AgentAttemptsExhaustedError(AgentOutputError):
     caller has the context to tell them apart.
     """
 
-    def __init__(self, role: str, replies: tuple[str, ...], problems: tuple[str, ...]) -> None:
+    def __init__(
+        self,
+        role: str,
+        replies: tuple[str, ...],
+        problems: tuple[str, ...],
+        completions: tuple[Completion, ...] = (),
+    ) -> None:
         last = problems[-1] if problems else "no attempts were made"
         super().__init__(
             f"{role}: {len(replies)} attempt(s) produced no usable output; last problem: {last}",
@@ -49,6 +55,9 @@ class AgentAttemptsExhaustedError(AgentOutputError):
         self.role = role
         self.replies = replies
         self.problems = problems
+        #: Carried so a failed agent's cost is still recordable. Every attempt
+        #: was billed whether or not any of them was usable.
+        self.completions = completions
 
 
 class AgentRefusedError(AgentOutputError):
@@ -159,4 +168,5 @@ class Agent[OutputT: BaseModel](ABC):
             self.role,
             tuple(c.content for c in completions),
             tuple(problems),
+            tuple(completions),
         )
