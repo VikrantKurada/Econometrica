@@ -176,6 +176,48 @@ def make_fama_macbeth_panel(
     return frame
 
 
+def make_portfolio_data(
+    *,
+    n_portfolios: int,
+    n: int,
+    seed: int,
+    alphas: list[float] | None = None,
+    n_factors: int = 1,
+    resid_vol: float = 0.005,
+    factor_mean: float = 0.0004,
+    factor_vol: float = 0.01,
+    beta_low: float = 0.5,
+    beta_high: float = 1.5,
+) -> pd.DataFrame:
+    """Test-portfolio excess returns generated exactly from traded factors.
+
+    ``port_j = alpha_j + sum_k beta_jk * factor_k + eps_j`` with factors i.i.d.
+    N(factor_mean, factor_vol^2), betas drawn once per portfolio from
+    U(beta_low, beta_high), and residuals i.i.d. N(0, resid_vol^2) that are
+    independent across portfolios and of the factors.
+
+    True parameters: the per-portfolio intercepts ``alphas`` (all zero when
+    None — the exact null of the GRS test) and the factor betas. Downstream
+    tests rely on: columns ``factor_1..factor_K`` then ``port_01..port_NN``,
+    a business-day DatetimeIndex, zero specification error, and a diagonal
+    true residual covariance.
+    """
+    if alphas is not None and len(alphas) != n_portfolios:
+        raise ValueError(f"expected {n_portfolios} alphas, got {len(alphas)}")
+    true_alphas = alphas if alphas is not None else [0.0] * n_portfolios
+    rng = np.random.default_rng(seed)
+
+    factors = {f"factor_{k + 1}": rng.normal(factor_mean, factor_vol, n) for k in range(n_factors)}
+    betas = rng.uniform(beta_low, beta_high, (n_portfolios, n_factors))
+    columns: dict[str, np.ndarray] = dict(factors)
+    for j in range(n_portfolios):
+        port = true_alphas[j] + rng.normal(0.0, resid_vol, n)
+        for k, factor in enumerate(factors.values()):
+            port = port + betas[j, k] * factor
+        columns[f"port_{j + 1:02d}"] = port
+    return pd.DataFrame(columns, index=_bdays(n))
+
+
 def make_random_walk(n: int, seed: int, step_vol: float = 1.0) -> pd.Series:
     """A driftless random walk: cumulative sum of i.i.d. N(0, step_vol^2) steps.
 

@@ -8,6 +8,7 @@ from tests.econ.fixtures import (
     make_factor_data,
     make_fama_macbeth_panel,
     make_garch_series,
+    make_portfolio_data,
     make_random_walk,
     make_stationary_ar1,
 )
@@ -105,6 +106,39 @@ def test_fama_macbeth_panel_cross_section_recovers_the_premium():
     cross_section = panel.xs(first_date, level="date")
     fit = sm.OLS(cross_section["returns"], sm.add_constant(cross_section["exposure"])).fit()
     assert fit.params["exposure"] == pytest.approx(0.5, abs=0.02)
+
+
+def test_portfolio_fixture_is_reproducible_under_a_seed():
+    a = make_portfolio_data(n_portfolios=5, n=200, seed=41)
+    b = make_portfolio_data(n_portfolios=5, n=200, seed=41)
+    assert a.equals(b)
+
+
+def test_portfolio_fixture_has_factor_and_portfolio_columns():
+    data = make_portfolio_data(n_portfolios=3, n=100, seed=41, n_factors=2)
+    assert list(data.columns) == ["factor_1", "factor_2", "port_01", "port_02", "port_03"]
+
+
+def test_portfolio_fixture_recovers_injected_alphas_under_ols():
+    """If this fixture is wrong, both GRS known-answer tests are wrong."""
+    import statsmodels.api as sm
+
+    alphas = [0.0003, 0.0003, 0.0, 0.0]
+    data = make_portfolio_data(n_portfolios=4, n=5000, seed=41, alphas=alphas, resid_vol=0.005)
+    design = sm.add_constant(data[["factor_1"]])
+    for j, true_alpha in enumerate(alphas):
+        fit = sm.OLS(data[f"port_{j + 1:02d}"], design).fit()
+        assert fit.params["const"] == pytest.approx(true_alpha, abs=0.0003)
+
+
+def test_portfolio_fixture_defaults_to_zero_alphas():
+    import statsmodels.api as sm
+
+    data = make_portfolio_data(n_portfolios=4, n=5000, seed=43, resid_vol=0.005)
+    design = sm.add_constant(data[["factor_1"]])
+    for j in range(4):
+        fit = sm.OLS(data[f"port_{j + 1:02d}"], design).fit()
+        assert fit.params["const"] == pytest.approx(0.0, abs=0.0003)
 
 
 def test_random_walk_has_a_unit_root():
