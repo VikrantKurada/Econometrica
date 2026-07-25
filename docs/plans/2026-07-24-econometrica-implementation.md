@@ -22,6 +22,41 @@ Tailwind, Radix, Plotly.js · pytest + hypothesis, Vitest + Playwright.
 
 ---
 
+## Progress
+
+Updated as phases land. `CLAUDE.md` carries the same table plus the environment
+notes a new session needs.
+
+| Phase | State |
+|---|---|
+| 0 — scaffold | ✅ done |
+| 1 — DB, API, three-pane shell | ✅ done |
+| 2 — econometrics core | ✅ done — 36 tools, 5 families, gate green, 97% coverage |
+| 3 — LLM providers and streaming chat | 9 of 10 — only Task 3.10 (e2e) remains |
+| 4 — multi-agent orchestration | not started |
+| 5 — charts and artifact canvas | not started |
+| 6 — telemetry, uploads, MCP, exports | not started |
+
+**629 backend tests, 64 frontend tests, 1 Playwright e2e.** ruff and
+`mypy --strict` clean; `alembic check` reports no drift.
+
+Phase 3 tasks, against the task table further down:
+
+| Task | State |
+|---|---|
+| 3.1 provider protocol + fake | ✅ |
+| 3.2 Ollama adapter | ✅ |
+| 3.3 OpenAI + NVIDIA NIM adapters | ✅ |
+| 3.4 Anthropic adapter (official SDK) | ✅ |
+| 3.5 Gemini adapter | ✅ |
+| 3.6 encrypted key store | ✅ |
+| 3.7 providers API | ✅ |
+| 3.8 message persistence + SSE chat | ✅ |
+| 3.9 chat pane UI | ✅ |
+| 3.10 Phase 3 e2e | ⬜ next |
+
+---
+
 ## Verified environment (2026-07-24)
 
 Dependency resolution landed well above the version floors below. All 21
