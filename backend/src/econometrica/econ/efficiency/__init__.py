@@ -3,6 +3,6 @@
 Importing this package registers every efficiency tool with the global registry.
 """
 
-from econometrica.econ.efficiency import unit_root, variance_ratio
+from econometrica.econ.efficiency import randomness, unit_root, variance_ratio
 
-__all__ = ["unit_root", "variance_ratio"]
+__all__ = ["randomness", "unit_root", "variance_ratio"]
