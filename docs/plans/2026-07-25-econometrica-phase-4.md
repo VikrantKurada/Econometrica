@@ -1,0 +1,379 @@
+# Phase 4: Multi-agent orchestration — step-level plan
+
+> **For Claude:** the parent plan is
+> `docs/plans/2026-07-24-econometrica-implementation.md`; the design rationale
+> is `docs/plans/2026-07-24-econometrica-design.md` §4. This document expands
+> that plan's Phase 4 task table to step level, as the parent plan says each
+> phase's plan should be when the phase is reached.
+
+**Goal:** a user asks a question in prose and receives an answer whose every
+number is traceable to a `ResultSet`, whose method choice was refused if it
+violated a precondition, and whose reasoning was reviewed by a model from a
+different vendor than the one that made the choice.
+
+Phase 3 ended with one model answering directly. Phase 4 puts six roles, two
+deterministic gates and a bounded revision loop between the question and the
+answer.
+
+---
+
+## What Phase 4 is allowed to assume
+
+All verified in the tree as of `560d2c3`:
+
+| Thing | Where | Shape |
+|---|---|---|
+| 36 typed tools | `econ/registry.py` | `RegisteredTool(name, version, family, summary, params_model, fn, preconditions)` |
+| LLM tool schemas | `ToolRegistry.to_tool_schemas()` | `{name, description, input_schema}` — already the shape `llm.types.ToolSpec` takes |
+| Results | `econ/types.py` | `ResultSet` with `.estimate(name)` and `.all_numeric_values()` |
+| Diagnostics | `econ/diagnostics/engine.py` | `run_diagnostics(resid, exog) -> list[Diagnostic]`, nine checks, tri-state `passed` |
+| Providers | `llm/base.py` | `LLMProvider` protocol: `complete`, `stream`, `list_models`, `health` |
+| Provider registry | `llm/registry.py` | `spec(name)`, `is_configured(name)`, `build(name)` |
+| A scriptable provider | `llm/fake.py` | `FakeProvider` records every call — the spy every agent test uses |
+| Role→model mapping | `Project.model_assignments` | JSONB, `{"planner": {"provider": ..., "model": ...}, ...}` |
+| Validation tier | `Project.validation_tier` | `single` \| `critic` \| `consensus`, default `critic` |
+
+**No live provider calls in any Phase 4 unit test.** `FakeProvider` is the
+counterparty throughout. The live probes stay where they belong — the adapter
+suites and `e2e/chat.spec.ts`.
+
+---
+
+## Three decisions this plan settles
+
+The parent plan's Phase 4 table states acceptance criteria that the code as it
+stands cannot satisfy. Each is resolved here rather than discovered mid-task.
+
+### 1. Preconditions must become machine-checkable
+
+Task 4.4 requires that "a test must prove GARCH is refused when ARCH-LM finds
+no effects". But `RegisteredTool.preconditions` today is **prose aimed at the
+model**:
+
+```python
+preconditions=(
+    "the selected column holds one regularly observed return series in decimal units",
+    "at least ~250 observations; NaNs are dropped",
+)
+```
+
+Nothing there mentions ARCH effects, and nothing there is executable.
+
+**Decision.** Add an optional `gates: tuple[Gate, ...] = ()` field to
+`RegisteredTool`, populated only for the tools that have a machine-checkable
+precondition. A `Gate` names a deterministic check and the verdict it demands:
+
+```python
+@dataclass(frozen=True)
+class Gate:
+    """A precondition an agent's tool choice must satisfy before it may run."""
+    check: str            # a DiagnosticsEngine check name, or a data-shape rule
+    requires: Literal["reject", "fail_to_reject", "min_obs"]
+    threshold: float | None = None
+    because: str = ""     # shown to the user when the gate refuses
+```
+
+Defaulting to empty means 30-odd registrations are untouched; only
+`garch`/`egarch`/`gjr_garch`, `var_model`/`vecm`, and `johansen` gain one.
+
+*Alternative considered:* a separate `agents/preconditions.py` registry keyed
+by tool name. Rejected — whether GARCH needs ARCH effects is a fact about
+GARCH, and splitting it from the tool means the two drift.
+
+The prose `preconditions` stays exactly as it is: it is what the model reads,
+and it is not redundant with a gate. One is guidance, the other is a refusal.
+
+### 2. The orchestrator gets its own route, not a mode flag on the chat route
+
+`POST /api/chats/{id}/messages` (Phase 3) streams provider tokens and is
+covered by `e2e/chat.spec.ts`. Task 4.8 needs to stream *step-level progress*:
+a different event vocabulary, a different failure model, and a turn that can
+take minutes.
+
+**Decision.** Add `POST /api/chats/{id}/runs`, streaming `RunEvent`s over SSE.
+The Phase 3 route is left untouched. This is additive — the existing gate keeps
+passing unchanged, and "plain chat" stays available for the questions that do
+not warrant six model calls.
+
+*Alternative considered:* a `mode` field on `MessageSend`. Rejected — it makes
+one route's response schema depend on a request field, which neither the
+frontend's `streamChat` nor its tests can narrow on.
+
+### 3. `Diagnostic.passed` is tri-state and gates must respect it
+
+`passed=None` means "not judged" — the invariant `CLAUDE.md` names first.
+A gate that reads `None` as failure would refuse valid work; one that reads it
+as success would let an unchecked assumption through.
+
+**Decision.** `None` blocks the *gate* but not the *run*: the Econometrician
+proceeds and the `PreconditionVerdict` carries `judged=False`, which the
+Validator sees and the Narrator must disclose. A test asserts all three
+branches.
+
+---
+
+## Task 4.1: Agent schemas
+
+**Files:**
+- Create: `backend/src/econometrica/agents/__init__.py`
+- Create: `backend/src/econometrica/agents/schemas.py`
+- Test: `backend/tests/agents/test_schemas.py`
+
+The types every other Phase 4 task speaks. They exist before any agent does,
+because the contract between agents is the thing most worth pinning down
+first — and because "malformed LLM output is rejected and retried rather than
+passed downstream" is a property of these types, not of the agents.
+
+**Step 1: Write the failing test.** Cover, at minimum:
+
+- A well-formed `AnalysisPlan` round-trips through `model_validate_json`.
+- A plan step naming a tool that is not in the registry is rejected.
+- A plan step whose `params` fail the tool's own `params_model` is rejected,
+  and the error names the offending field.
+- A plan with zero steps is rejected — an empty plan is a parse failure
+  dressed as success, and it is what a model emits when it has misread the
+  question.
+- `DatasetSpec` rejects a window whose end precedes its start.
+- `ValidationVerdict` with `approved=False` and no reasons is rejected — a
+  rejection a user cannot act on is worse than none.
+- `parse_agent_json` recovers a JSON object from a fenced ```json block and
+  from surrounding prose, because models emit both.
+- `parse_agent_json` on unrecoverable output raises `AgentOutputError`
+  carrying the raw text, so the retry has something to show the model.
+
+**Step 2: Run it.** `uv run pytest tests/agents/test_schemas.py -v` — expect
+`ModuleNotFoundError: No module named 'econometrica.agents'`.
+
+**Step 3: Implement.** The shapes:
+
+```python
+class DatasetSpec(BaseModel):
+    tickers: list[str]
+    start: date
+    end: date
+    frequency: Literal["D", "W", "M", "Q", "A"] = "D"
+    return_method: Literal["simple", "log"] = "log"
+    risk_free: str | None = None
+
+class PlanStep(BaseModel):
+    id: str
+    tool: str                    # must resolve in the registry
+    params: dict[str, Any]       # must validate against that tool's params_model
+    depends_on: list[str] = []
+    rationale: str = ""
+
+class AnalysisPlan(BaseModel):
+    question: str
+    dataset: DatasetSpec
+    steps: list[PlanStep] = Field(min_length=1)
+    hypotheses: list[str] = []
+    chart_intents: list[str] = []
+
+class ValidationVerdict(BaseModel):
+    approved: bool
+    reasons: list[str] = []
+    revise_steps: list[str] = []   # PlanStep ids
+```
+
+Validation of `tool` and `params` is a `model_validator` on `PlanStep` that
+consults `get_registry()`. Cycle detection over `depends_on` is a
+`model_validator` on `AnalysisPlan` — a plan whose steps cannot be ordered is
+not a plan.
+
+**Step 4: Run it.** Expect all green.
+
+**Step 5: Commit.** `feat(agents): add typed analysis plan and verdict schemas`
+
+---
+
+## Task 4.2: Planner
+
+**Files:** `agents/base.py`, `agents/planner.py`; test
+`tests/agents/test_planner.py`
+
+`agents/base.py` first: an `Agent` base holding the provider, model, role name
+and the retry loop. Every agent gets malformed-output retry from one place —
+ask, parse, and on `AgentOutputError` re-ask once with the parse error appended
+as a user turn, then give up.
+
+**Tests must cover:** a scripted `FakeProvider` reply becomes an
+`AnalysisPlan`; the registry is offered as tool schemas in the request (assert
+on `FakeProvider.calls`, not just the result); a malformed first reply followed
+by a good second one succeeds in two calls; two malformed replies raise; the
+retry prompt contains the parse error.
+
+**Commit:** `feat(agents): add planner with bounded malformed-output retry`
+
+---
+
+## Task 4.3: Data Steward
+
+**Files:** `agents/data_steward.py`; test `tests/agents/test_data_steward.py`
+
+Resolves a `DatasetSpec` into a frame plus a `DataQualityReport`. Phase 6 owns
+the real market-data adapters, so this task takes an injected resolver
+protocol and the tests supply a synthetic one — the agent's job is calendar
+alignment (`econ.returns.align_series`), frequency conversion, return
+construction and quality reporting, none of which needs a network.
+
+**Tests must cover:** misaligned calendars are inner-joined and the dropped
+count is reported; a series that starts late is flagged as a survivorship
+risk; a frame whose last observation postdates the analysis window is flagged
+as look-ahead; an empty overlap raises rather than returning an empty frame.
+
+**Commit:** `feat(agents): add data steward with quality reporting`
+
+---
+
+## Task 4.4: Econometrician — and the gates
+
+**Files:** `econ/registry.py` (add `Gate`), `econ/volatility/garch.py`,
+`econ/multivariate/*.py` (declare gates), `agents/econometrician.py`; tests
+`tests/econ/test_gates.py`, `tests/agents/test_econometrician.py`
+
+Binds plan steps to registry tools and **refuses** those that violate a gate.
+
+**Tests must cover:**
+- `garch` is refused on a series where ARCH-LM fails to reject — the parent
+  plan's named acceptance test. Use `tests/econ/fixtures.py`:
+  `make_stationary_ar1` has no ARCH effects, `make_garch_series` does.
+- `garch` is accepted on `make_garch_series`.
+- `var_model` is refused on `make_random_walk` (non-stationary) and accepted
+  on `make_stationary_ar1`.
+- A gate whose diagnostic returns `passed=None` yields `judged=False` and does
+  **not** refuse — decision 3 above.
+- A refusal names the tool, the check and the `because` text.
+- The refusal is a typed result, not an exception: the orchestrator has to be
+  able to hand it to the Validator.
+
+**Commit:** `feat(agents): add econometrician with executable tool preconditions`
+
+---
+
+## Task 4.5: Validator
+
+**Files:** `agents/validator.py`; test `tests/agents/test_validator.py`
+
+Consumes the plan, the `ResultSet`s, the deterministic diagnostics and any
+precondition refusals, and emits a `ValidationVerdict`.
+
+**Tests must cover:** diagnostics are passed as facts in the prompt (assert
+the ARCH-LM statistic appears in the message text the fake received — the
+Validator must never be asked to infer it); an approval with reasons; a
+rejection naming step ids that exist in the plan; a rejection naming an
+unknown step id is itself rejected as malformed; **the orchestrator warns when
+the Validator and Econometrician resolve to the same provider**, which is the
+parent plan's named criterion — independence is the whole point of the role.
+
+**Commit:** `feat(agents): add validator fed by deterministic diagnostics`
+
+---
+
+## Task 4.6: The numeric grounding gate
+
+**Files:** `agents/grounding.py`; test `tests/agents/test_grounding.py`
+
+The single most important safeguard in the system (design §4). Extracts every
+number from narrator prose and matches it against
+`ResultSet.all_numeric_values()`.
+
+The hard part is not extraction, it is **what is exempt**. Getting this wrong
+in either direction is bad: too strict and every honest sentence is blocked,
+too loose and the gate is theatre.
+
+**Tests must cover:**
+- A fabricated statistic is blocked.
+- A correctly rounded value passes — `1.2977…` cited as `1.30`.
+- A value restated as a percentage passes — `0.83` cited as `83%`.
+- Years are exempt (`in 2008`), and a year that is *not* in a date context is
+  not exempt.
+- Sample sizes matching an integer count present in the result are exempt.
+- List ordinals at line start (`1.`, `2.`) are exempt.
+- A number inside a cited artifact id is exempt (`figure 2`).
+- The block report names the offending number and its sentence, so the
+  revision prompt can be specific.
+
+Tolerance is relative, not absolute: `0.0001` and `1_000_000` cannot share an
+epsilon.
+
+**Commit:** `feat(agents): add numeric grounding gate`
+
+---
+
+## Task 4.7: Narrator
+
+**Files:** `agents/narrator.py`; test `tests/agents/test_narrator.py`
+
+Writes the interpretation, cites artifact and statistic identifiers, and its
+output passes Task 4.6's gate — enforced in the agent, not merely hoped for:
+a blocked draft is re-asked once with the offending numbers listed, and a
+second failure returns the verdict rather than the prose.
+
+**Commit:** `feat(agents): add narrator gated on numeric grounding`
+
+---
+
+## Task 4.8: Orchestrator
+
+**Files:** `agents/orchestrator.py`, `api/routers/runs.py`, `schemas/run.py`;
+tests `tests/agents/test_orchestrator.py`, `tests/api/test_runs.py`
+
+Runs the pipeline, honours the three tiers, bounds revision loops, and streams
+`RunEvent`s over `POST /api/chats/{id}/runs` (decision 2).
+
+**Tests must cover:** `single` skips the Validator but still runs both
+deterministic gates; `critic` runs it; `consensus` runs the plan on N providers
+and surfaces a diff rather than picking a winner; a rejected verdict triggers
+exactly one revision and a second rejection ends the run rather than looping;
+step-level events arrive in dependency order; a provider failure mid-run leaves
+a readable, persisted run rather than a half-written one — the same contract
+`messages.py` already keeps.
+
+**Commit:** `feat(agents): add orchestrator with tiered validation and sse progress`
+
+---
+
+## Task 4.9: Run and Step persistence
+
+**Files:** `db/models/run.py`, `services/tracing.py`, an Alembic revision;
+tests `tests/db/test_run_model.py`, `tests/services/test_tracing.py`
+
+A `Run` per assistant turn holding a DAG of `Step`s: agent, provider, model,
+tokens, cost, latency, tool-call hashes, parent links.
+
+Two things `CLAUDE.md` warns about and this task will hit:
+
+- Order steps on an identity column, **never** `created_at` — steps written in
+  one transaction tie exactly.
+- Alembic does not autogenerate CHECK constraints. Hand-write them and add a
+  test, because `alembic check` cannot verify them either.
+
+**Commit:** `feat(db): persist runs and steps for the agent trace`
+
+---
+
+## Task 4.10: Phase 4 e2e
+
+**Files:** `frontend/e2e/analysis.spec.ts`
+
+"Test whether Bitcoin follows a random walk" end to end, with a full trace.
+
+Follow `e2e/chat.spec.ts`: skip with a reason when Ollama is down, prefer a
+small model, assert on the SSE wire and not only the DOM. One difference —
+a six-role pipeline on a local model is slow, so the run needs its own timeout
+and the tier should be pinned to `single` unless a second provider is
+configured.
+
+**Commit:** `test(e2e): close phase 4 with a full analysis run`
+
+---
+
+## Phase 4 definition of done
+
+- `uv run pytest` green; `ruff check` and `mypy src` clean.
+- `npx vitest run`, `npx tsc --noEmit` and `npm run test:e2e` green.
+- A fabricated number in narrator prose cannot reach the user — proven by
+  test, not by inspection.
+- The Validator can be, and by default is, a different vendor than the
+  Econometrician.
+- Every number on screen traces to a `ResultSet` with a manifest.

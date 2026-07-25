@@ -2112,6 +2112,12 @@ Expected: all tests pass, `econometrica.econ` coverage at or above 90%.
 
 ## Phase 4: Multi-agent orchestration
 
+**Step-level plan: `docs/plans/2026-07-25-econometrica-phase-4.md`.** It
+expands the table below and settles three things the table assumes but the
+code does not yet provide — chiefly that `RegisteredTool.preconditions` is
+prose for the model, so Task 4.4's "refuse GARCH when ARCH-LM finds no
+effects" needs an executable gate alongside it.
+
 | Task | Files | Acceptance criteria |
 |---|---|---|
 | 4.1 | `agents/schemas.py` | Typed `AnalysisPlan`, `PlanStep`, `DatasetSpec`, `ValidationVerdict`. Malformed LLM output is rejected and retried rather than passed downstream |

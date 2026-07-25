@@ -6,7 +6,9 @@ Postgres + TimescaleDB + pgvector.
 
 **Read `docs/plans/2026-07-24-econometrica-design.md` for the approved design
 and `docs/plans/2026-07-24-econometrica-implementation.md` for the phase plan.**
-Phases 1–2 are specified there step by step; 3–6 at task level.
+Phases 1–2 are specified there step by step; 3–6 at task level. Each phase gets
+its own step-level document when it is reached — Phase 4's is
+`docs/plans/2026-07-25-econometrica-phase-4.md`.
 
 ---
 
