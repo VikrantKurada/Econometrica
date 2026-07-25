@@ -52,7 +52,14 @@ testpaths = ["tests"]
 # excluded from the default run while that phase is in flight. Phase 2 closed
 # with all five tool families registered, so the gate runs by default again.
 # Re-add `addopts = '-m "not phase_gate"'` when a later phase opens a new gate.
-markers = ["phase_gate: completion gates enabled at the end of a phase"]
+markers = [
+    "phase_gate: completion gates enabled at the end of a phase",
+    # Live tests hit a real local service and skip themselves when it is
+    # absent. They stay in the default run: a mock only proves the adapter
+    # matches what we believe the wire format is, which is the assumption
+    # actually worth checking. Deselect with -m 'not live' for offline runs.
+    "live: exercises a real local service, skipped when unavailable",
+]
 asyncio_mode = "auto"
 # pytest-asyncio 1.x removed the overridable `event_loop` fixture. The session
 # engine fixture and the tests that use it must share one loop, so both default
