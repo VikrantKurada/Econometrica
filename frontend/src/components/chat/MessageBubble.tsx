@@ -7,7 +7,11 @@ import type { Message } from "../../lib/types";
 
 interface MessageBubbleProps {
   message: Message;
-  /** Text arriving right now, before the finished message is persisted. */
+  /**
+   * Text arriving right now, before the finished message is persisted.
+   * Present-but-empty is the ordinary state between the request and the first
+   * token, so presence — not truthiness — is what marks a turn as streaming.
+   */
   streamingText?: string;
 }
 
@@ -23,6 +27,7 @@ interface MessageBubbleProps {
  */
 export function MessageBubble({ message, streamingText }: MessageBubbleProps) {
   const isUser = message.role === "user";
+  const streaming = streamingText !== undefined;
   const body = streamingText ?? message.content;
   const failed = Boolean(message.error);
 
@@ -46,7 +51,7 @@ export function MessageBubble({ message, streamingText }: MessageBubbleProps) {
             <span>{message.error}</span>
           </p>
         ) : body ? (
-          <div className="prose-chat">
+          <div className="prose-chat" data-testid="message-body">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>{body}</ReactMarkdown>
           </div>
         ) : (
@@ -56,7 +61,7 @@ export function MessageBubble({ message, streamingText }: MessageBubbleProps) {
         )}
       </div>
 
-      {!isUser && !streamingText && (message.model || message.output_tokens > 0) && (
+      {!isUser && !streaming && (message.model || message.output_tokens > 0) && (
         <Provenance message={message} />
       )}
     </article>

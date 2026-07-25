@@ -87,7 +87,10 @@ function streamResponse(body: string): Response {
     new ReadableStream<Uint8Array>({
       start(controller) {
         controller.enqueue(encoder.encode(body));
-        controller.close();
+        // Held open when a test needs to observe the half-streamed state that
+        // a stream closing in the same tick would never let it see.
+        if (holdStream) streamController = controller;
+        else controller.close();
       },
     }),
     { status: 200, headers: { "Content-Type": "text/event-stream" } },
@@ -97,6 +100,8 @@ function streamResponse(body: string): Response {
 let transcript: Message[] = [];
 let streamBody = "";
 let sent: unknown = null;
+let holdStream = false;
+let streamController: ReadableStreamDefaultController<Uint8Array> | null = null;
 
 function installFetch() {
   vi.stubGlobal(
@@ -120,10 +125,14 @@ beforeEach(() => {
   transcript = [];
   streamBody = "";
   sent = null;
+  holdStream = false;
+  streamController = null;
   installFetch();
 });
 
 afterEach(() => {
+  streamController?.close();
+  streamController = null;
   vi.unstubAllGlobals();
 });
 
@@ -249,6 +258,25 @@ describe("Conversation", () => {
 
     expect(await screen.findByText("The beta is 1.3.")).toBeInTheDocument();
     await waitFor(() => expect(screen.getAllByRole("article")).toHaveLength(2));
+  });
+
+  it("does not label the placeholder with provenance before the first token", async () => {
+    // The placeholder carries the chosen model so the badge can render the
+    // moment the turn is stored — but until then there is nothing to attest
+    // to, and a badge under an empty bubble claims a reply that has not
+    // happened. Provenance means "this turn is persisted", nothing less.
+    holdStream = true;
+    streamBody = sseBody([
+      { event: "start", data: { user_message: message({ id: "m1", content: "beta?" }) } },
+    ]);
+
+    const { user } = renderWithProviders(<Conversation chatId="c1" />);
+    await pickModel(user);
+    await user.type(await screen.findByLabelText("Message"), "beta?");
+    await user.click(screen.getByLabelText("Send message"));
+
+    expect(await screen.findByLabelText("Thinking")).toBeInTheDocument();
+    expect(screen.queryByTestId("provenance")).toBeNull();
   });
 
   it("sends the chosen provider and model with the message", async () => {

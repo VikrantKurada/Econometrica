@@ -32,12 +32,12 @@ notes a new session needs.
 | 0 — scaffold | ✅ done |
 | 1 — DB, API, three-pane shell | ✅ done |
 | 2 — econometrics core | ✅ done — 36 tools, 5 families, gate green, 97% coverage |
-| 3 — LLM providers and streaming chat | 9 of 10 — only Task 3.10 (e2e) remains |
-| 4 — multi-agent orchestration | not started |
+| 3 — LLM providers and streaming chat | ✅ done — e2e gate green against a live Ollama |
+| 4 — multi-agent orchestration | next — Task 4.1 |
 | 5 — charts and artifact canvas | not started |
 | 6 — telemetry, uploads, MCP, exports | not started |
 
-**629 backend tests, 64 frontend tests, 1 Playwright e2e.** ruff and
+**629 backend tests, 65 frontend tests, 2 Playwright e2e.** ruff and
 `mypy --strict` clean; `alembic check` reports no drift.
 
 Phase 3 tasks, against the task table further down:
@@ -53,7 +53,14 @@ Phase 3 tasks, against the task table further down:
 | 3.7 providers API | ✅ |
 | 3.8 message persistence + SSE chat | ✅ |
 | 3.9 chat pane UI | ✅ |
-| 3.10 Phase 3 e2e | ⬜ next |
+| 3.10 Phase 3 e2e | ✅ |
+
+`e2e/chat.spec.ts` closes the phase. It wraps `fetch` before the page loads so
+the SSE body can be tee'd and asserted read by read — the rendered text alone
+would pass just as happily against an endpoint that buffered the whole reply
+and sent it in one frame. Playwright's own `response.text()` cannot be used
+for this: on a consumed event stream it fails with "No data found for resource
+with given identifier". The spec skips, with a reason, when Ollama is down.
 
 ---
 

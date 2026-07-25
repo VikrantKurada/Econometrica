@@ -33,20 +33,20 @@ Consequences that keep coming up:
 | 0 — scaffold | done |
 | 1 — DB, API, three-pane shell | done |
 | 2 — econometrics core (36 tools, 5 families) | done, phase gate green, 97% coverage |
-| 3 — LLM providers + streaming chat | 9 of 10 tasks done |
+| 3 — LLM providers + streaming chat | done, e2e gate green |
 | 4 — multi-agent orchestration | not started |
 | 5 — charts and artifact canvas | not started |
 | 6 — telemetry, uploads, MCP, exports | not started |
 
-**629 backend tests, 64 frontend tests, 1 Playwright e2e.** ruff and
+**629 backend tests, 65 frontend tests, 2 Playwright e2e.** ruff and
 `mypy --strict` clean on `src`. `alembic check` reports no drift.
 
 ### The immediate next task
 
-**Task 3.10 — Phase 3 e2e.** `frontend/e2e/` has `skeleton.spec.ts` (Phase 1)
-and `playwright.config.ts` already wired for two servers. Add a spec that
-selects Ollama plus a model, sends a message, and asserts a streamed reply
-appears and survives a reload. Then Phase 3 is closed and Phase 4 begins.
+**Task 4.1 — agent schemas.** `agents/schemas.py`: typed `AnalysisPlan`,
+`PlanStep`, `DatasetSpec`, `ValidationVerdict`, where malformed LLM output is
+rejected and retried rather than passed downstream. Nothing under
+`backend/src/econometrica/agents/` exists yet.
 
 Phase 4 is the interesting one: six agent roles, the deterministic
 `DiagnosticsEngine` (already built, `econ/diagnostics/`) feeding a Validator on
@@ -149,6 +149,12 @@ These cost real time when rediscovered. All are verified on this machine.
   resolves to `::1` and hits SurrealDB instead**, returning confusing 404s.
   Always name `127.0.0.1`. The Vite proxy and the Playwright config already do,
   and e2e uses port 8100 to sidestep it entirely.
+- **The Phase 3 e2e needs a live Ollama and a small chat model.** `chat.spec.ts`
+  sends a real prompt to a real model. It prefers `tinyllama` and falls back to
+  whatever else streams — which on this machine means a 40 GB model, so keep a
+  small one pulled. `E2E_OLLAMA_MODEL` overrides the choice. With Ollama down
+  the spec **skips rather than fails**, so read the report, not just the exit
+  code.
 - **Python is pinned to 3.12** (`requires-python = ">=3.12,<3.13"`). The system
   has 3.14, but `arch` / `numba` / `linearmodels` publish no 3.14 wheels.
 - **pandas 3.0.5 is fine.** All 21 econometric paths were probed against it. Do
