@@ -261,8 +261,9 @@ adding a `ProviderSpec` and a factory.
 
 Say what you want next; this file loads automatically. A good opener:
 
-> Continue Econometrica. Read CLAUDE.md and the implementation plan, then do
-> Task 3.10 (Phase 3 e2e).
+> Continue Econometrica. Read CLAUDE.md and
+> `docs/plans/2026-07-25-econometrica-phase-5.md`, then do Task 5.3 (chart
+> renderers). Load the `dataviz` skill first.
 
 Task lists do **not** survive across sessions — this file and the plan document
 are the memory. Update the "Where things stand" table when a phase moves.
