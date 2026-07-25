@@ -133,6 +133,49 @@ def make_factor_data(
     return pd.DataFrame({**factors, "asset": asset}, index=_bdays(n))
 
 
+def make_fama_macbeth_panel(
+    *,
+    premiums: dict[str, float],
+    n_entities: int,
+    n_periods: int,
+    seed: int,
+    intercept: float = 0.0,
+    noise_vol: float = 0.01,
+    exposure_mean: float = 1.0,
+    exposure_vol: float = 0.5,
+) -> pd.DataFrame:
+    """An (entity, date) panel obeying ``r_it = intercept + sum(premium_k * exposure_ik) + eps``.
+
+    True parameters: one constant risk premium per entry of ``premiums`` and
+    the ``intercept`` (the zero-beta rate). Exposures are entity
+    characteristics — drawn once per entity from N(exposure_mean,
+    exposure_vol^2) and constant through time — while ``eps`` is i.i.d.
+    N(0, noise_vol^2) across entities and periods, so every period's
+    cross-sectional OLS recovers the premiums to within sampling error and
+    Fama-MacBeth averaging tightens them further.
+
+    Downstream tests rely on: a two-level MultiIndex named (entity, date)
+    with business-day dates, a ``returns`` column, and one column per
+    exposure named exactly as in ``premiums``.
+    """
+    rng = np.random.default_rng(seed)
+    exposures = {name: rng.normal(exposure_mean, exposure_vol, n_entities) for name in premiums}
+    eps = rng.normal(0.0, noise_vol, (n_entities, n_periods))
+
+    expected = intercept + sum(
+        premium * exposures[name] for name, premium in premiums.items()
+    )
+    returns = np.asarray(expected)[:, None] + eps
+
+    entities = [f"asset_{i:02d}" for i in range(n_entities)]
+    dates = _bdays(n_periods)
+    index = pd.MultiIndex.from_product([entities, dates], names=["entity", "date"])
+    frame = pd.DataFrame({"returns": returns.ravel()}, index=index)
+    for name in premiums:
+        frame[name] = np.repeat(exposures[name], n_periods)
+    return frame
+
+
 def make_random_walk(n: int, seed: int, step_vol: float = 1.0) -> pd.Series:
     """A driftless random walk: cumulative sum of i.i.d. N(0, step_vol^2) steps.
 

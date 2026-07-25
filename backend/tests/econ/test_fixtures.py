@@ -6,6 +6,7 @@ from tests.econ.fixtures import (
     make_capm_data,
     make_cointegrated_pair,
     make_factor_data,
+    make_fama_macbeth_panel,
     make_garch_series,
     make_random_walk,
     make_stationary_ar1,
@@ -72,6 +73,38 @@ def test_autocorrelated_capm_fixture_market_is_persistent_when_asked():
         beta=1.2, alpha=0.0003, phi=0.7, n=3000, seed=23, market_phi=0.5
     )
     assert data["market"].autocorr(lag=1) == pytest.approx(0.5, abs=0.1)
+
+
+def test_fama_macbeth_panel_is_reproducible_under_a_seed():
+    a = make_fama_macbeth_panel(premiums={"exposure": 0.5}, n_entities=10, n_periods=50, seed=31)
+    b = make_fama_macbeth_panel(premiums={"exposure": 0.5}, n_entities=10, n_periods=50, seed=31)
+    assert a.equals(b)
+
+
+def test_fama_macbeth_panel_has_entity_date_structure():
+    panel = make_fama_macbeth_panel(
+        premiums={"exposure": 0.5}, n_entities=10, n_periods=50, seed=31
+    )
+    assert panel.index.nlevels == 2
+    assert panel.index.names == ["entity", "date"]
+    assert panel.index.get_level_values("entity").nunique() == 10
+    assert panel.index.get_level_values("date").nunique() == 50
+    # Exposures are entity characteristics: constant through time.
+    per_entity = panel.groupby(level="entity")["exposure"].nunique()
+    assert (per_entity == 1).all()
+
+
+def test_fama_macbeth_panel_cross_section_recovers_the_premium():
+    """A single-period cross-sectional OLS must see the true premium."""
+    import statsmodels.api as sm
+
+    panel = make_fama_macbeth_panel(
+        premiums={"exposure": 0.5}, n_entities=30, n_periods=500, seed=31
+    )
+    first_date = panel.index.get_level_values("date")[0]
+    cross_section = panel.xs(first_date, level="date")
+    fit = sm.OLS(cross_section["returns"], sm.add_constant(cross_section["exposure"])).fit()
+    assert fit.params["exposure"] == pytest.approx(0.5, abs=0.02)
 
 
 def test_random_walk_has_a_unit_root():
