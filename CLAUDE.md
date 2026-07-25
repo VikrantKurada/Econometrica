@@ -15,7 +15,7 @@ its own step-level document when it is reached — Phase 4's is
 
 ## The one invariant
 
-**LLMs never compute statistics.** They select from a registry of ~36 typed,
+**LLMs never compute statistics.** They select from a registry of ~37 typed,
 versioned econometric tools; the tools compute. Every number a user sees traces
 to a `ResultSet` produced by a tested function with a reproducibility manifest.
 
@@ -35,7 +35,7 @@ Consequences that keep coming up:
 |---|---|
 | 0 — scaffold | done |
 | 1 — DB, API, three-pane shell | done |
-| 2 — econometrics core (36 tools, 5 families) | done, phase gate green, 97% coverage |
+| 2 — econometrics core (37 tools, 5 families) | done, phase gate green, 97% coverage |
 | 3 — LLM providers + streaming chat | done, e2e gate green |
 | 4 — multi-agent orchestration | done, e2e gate green |
 | 5 — charts and artifact canvas | not started |

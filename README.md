@@ -8,7 +8,7 @@ compute statistics themselves.
 
 > **Status.** Phases 0–4 complete.
 >
-> **Working today:** projects and chats; the full econometrics core (36 tools
+> **Working today:** projects and chats; the full econometrics core (37 tools
 > across asset pricing, market efficiency, volatility, multivariate and event
 > study); five LLM providers (Ollama, Anthropic, OpenAI, Gemini, NVIDIA NIM);
 > a streaming chat pane you can hold a real conversation in; and the

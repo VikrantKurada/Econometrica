@@ -31,7 +31,7 @@ notes a new session needs.
 |---|---|
 | 0 — scaffold | ✅ done |
 | 1 — DB, API, three-pane shell | ✅ done |
-| 2 — econometrics core | ✅ done — 36 tools, 5 families, gate green, 97% coverage |
+| 2 — econometrics core | ✅ done — 37 tools, 5 families, gate green, 97% coverage |
 | 3 — LLM providers and streaming chat | ✅ done — e2e gate green against a live Ollama |
 | 4 — multi-agent orchestration | ✅ done — e2e gate green against a live model |
 | 5 — charts and artifact canvas | next |

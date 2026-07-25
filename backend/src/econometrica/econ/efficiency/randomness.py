@@ -67,6 +67,25 @@ class LjungBoxParams(BaseModel):
     )
 
 
+class AcfParams(BaseModel):
+    """Options for the autocorrelation and partial autocorrelation functions."""
+
+    column: str = Field(default="return", description=_RETURN_COLUMN_DOC)
+    transform: Transform = Field(default="none", description=TRANSFORM_FIELD_DOC)
+    nlags: int | None = Field(
+        default=None,
+        ge=1,
+        description="Lags to report, starting at 1. None applies the"
+        " deterministic rule min(floor(10*log10(n)), n // 5).",
+    )
+    alpha: float = Field(
+        default=0.05, gt=0.0, lt=1.0, description="Significance level for the bands."
+    )
+    min_obs: int = Field(
+        default=30, ge=20, description="Minimum observations required after transforming."
+    )
+
+
 class BdsParams(BaseModel):
     """Options for the BDS independence test."""
 
@@ -405,4 +424,136 @@ def hurst(data: pd.DataFrame, params: BaseModel) -> ResultSet:
             )
         },
         manifest=build_manifest(data, p, tool="hurst", version=_VERSION, libraries=_LIBRARIES),
+    )
+
+
+def _default_nlags(nobs: int) -> int:
+    """Deterministic lag rule.
+
+    statsmodels' own default has changed between releases, and a lag count
+    that moves with the library version makes two runs of the same manifest
+    disagree. Fixed here and reported as a scalar so a reader can see it.
+    """
+    return max(1, min(int(10 * np.log10(nobs)), nobs // 5))
+
+
+@get_registry().register(
+    name="acf",
+    version=_VERSION,
+    family="efficiency",
+    summary="Autocorrelation and partial autocorrelation functions with"
+    " Bartlett significance bands; reports each lag from 1, the bands, and"
+    " how many lags fall outside them.",
+    params_model=AcfParams,
+    preconditions=(
+        "the selected column holds one regularly observed return series; NaNs are dropped",
+        "the series is stationary — on price levels use transform='log_diff'",
+    ),
+)
+def acf(data: pd.DataFrame, params: BaseModel) -> ResultSet:
+    """ACF and PACF, shaped for a pair of stem charts.
+
+    Lag 0 is omitted. It is exactly 1 by construction, and including it
+    compresses every informative lag against the axis.
+
+    The bands are Bartlett's, which widen with lag because the variance of
+    each estimate accumulates the autocorrelation of the earlier ones. The
+    common flat +/-1.96/sqrt(n) shortcut understates significance at longer
+    lags on exactly the autocorrelated series this tool is pointed at.
+    """
+    from statsmodels.tsa.stattools import acf as sm_acf
+    from statsmodels.tsa.stattools import pacf as sm_pacf
+
+    p = coerce_params(params, AcfParams)
+    series = prepare_series(
+        data, column=p.column, transform=p.transform, min_obs=p.min_obs, tool="acf"
+    )
+    nobs = len(series)
+    nlags = p.nlags if p.nlags is not None else _default_nlags(nobs)
+    if nlags >= nobs:
+        raise ValueError(
+            f"acf: the lag count ({nlags}) must be smaller than the {nobs}"
+            " observations; reduce nlags or supply more data"
+        )
+
+    values = series.to_numpy()
+    # `bartlett_confint=True` is the default and is stated anyway: it is the
+    # difference between a band that widens and one that does not.
+    acf_values, acf_confint = sm_acf(
+        values, nlags=nlags, alpha=p.alpha, bartlett_confint=True, fft=True
+    )
+    # `ywadjusted` pinned rather than left to the default, for the same
+    # reproducibility reason as the lag rule.
+    pacf_values, pacf_confint = sm_pacf(
+        values, nlags=nlags, alpha=p.alpha, method="ywadjusted"
+    )
+
+    # statsmodels centres the interval on each estimate; the significance band
+    # a stem chart draws is that half-width about zero.
+    acf_band = (acf_confint[:, 1] - acf_values)[1:]
+    pacf_band = (pacf_confint[:, 1] - pacf_values)[1:]
+    acf_lags = acf_values[1:]
+    pacf_lags = pacf_values[1:]
+    lags = list(range(1, nlags + 1))
+
+    outside = int(np.sum(np.abs(acf_lags) > acf_band))
+    first_significant = next(
+        (lag for lag, value, band in zip(lags, acf_lags, acf_band, strict=True)
+         if abs(value) > band),
+        0,
+    )
+
+    # Counting band exceedances and calling any of them a failure is the
+    # multiple-comparisons trap: each lag is a test at `alpha`, so white noise
+    # crosses at least one band about 40% of the time at 10 lags. Under the
+    # null the count is Binomial(nlags, alpha), so the honest verdict is an
+    # exact binomial test on how many crossed, not on whether any did.
+    exceedance_p = float(
+        stats.binomtest(outside, nlags, p.alpha, alternative="greater").pvalue
+    )
+
+    return ResultSet(
+        tool="acf",
+        version=_VERSION,
+        params=p.model_dump(),
+        estimates=[],
+        diagnostics=[
+            Diagnostic(
+                name="acf_significance",
+                statistic=float(outside),
+                p_value=exceedance_p,
+                passed=bool(exceedance_p >= 0.05),
+                interpretation=f"{outside} of {nlags} autocorrelations fall outside"
+                f" the {100 * (1 - p.alpha):g}% Bartlett band; under the null that"
+                f" count is Binomial({nlags}, {p.alpha:g}). passed means the number"
+                " crossing is consistent with chance. For a joint test of the same"
+                " null use ljung_box.",
+            )
+        ],
+        scalars={
+            "nobs": float(nobs),
+            "nlags": float(nlags),
+            "significant_lags": float(outside),
+            "first_significant_lag": float(first_significant),
+        },
+        tables={
+            "autocorrelations": Table(
+                columns=["lag", "acf", "acf_band", "pacf", "pacf_band"],
+                rows=[
+                    [float(lag), float(a), float(ab), float(pv), float(pb)]
+                    for lag, a, ab, pv, pb in zip(
+                        lags, acf_lags, acf_band, pacf_lags, pacf_band, strict=True
+                    )
+                ],
+            )
+        },
+        series={
+            "acf": Series(name="acf", x=lags, y=[float(v) for v in acf_lags]),
+            "acf_upper": Series(name="acf_upper", x=lags, y=[float(v) for v in acf_band]),
+            "acf_lower": Series(name="acf_lower", x=lags, y=[float(-v) for v in acf_band]),
+            "pacf": Series(name="pacf", x=lags, y=[float(v) for v in pacf_lags]),
+            "pacf_upper": Series(name="pacf_upper", x=lags, y=[float(v) for v in pacf_band]),
+            "pacf_lower": Series(name="pacf_lower", x=lags, y=[float(-v) for v in pacf_band]),
+        },
+        manifest=build_manifest(data, p, tool="acf", version=_VERSION, libraries=_LIBRARIES),
     )

@@ -48,12 +48,14 @@ reading their docstrings:
 Also available: `ResultSet.manifest` (for export provenance), `RunOutcome`
 with its full trace, and `GET /api/runs/{id}`.
 
-**Not available and not to be invented:** ACF/PACF values are not emitted by
-any tool — `ljung_box` returns a table of statistics, not autocorrelations.
-Either a task adds an `acf` tool to the registry (Phase 2 work, done
-test-first) or the ACF/PACF stems come out of the design's chart list. Do not
-compute them in the frontend; that would put statistics above the tool
-boundary and break the project's one invariant.
+**Resolved before 5.1:** ACF/PACF values were emitted by no tool —
+`ljung_box` returns a table of statistics, not autocorrelations — so the
+design's stem charts had nothing to plot. An `acf` tool now exists
+(`econ/efficiency/randomness.py`, 37 tools in the registry), emitting `acf`,
+`pacf` and symmetric Bartlett bands as `*_upper`/`*_lower` series shaped for a
+pair of stem panels. Computing them in the frontend was the one option ruled
+out: it would put statistics above the tool boundary and break the project's
+single invariant.
 
 ---
 
