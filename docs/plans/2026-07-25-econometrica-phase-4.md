@@ -20,8 +20,8 @@ answer.
 | Task | State |
 |---|---|
 | 4.1 agent schemas | ✅ |
-| 4.2 planner | ⬜ next |
-| 4.3 data steward | ⬜ |
+| 4.2 planner | ✅ |
+| 4.3 data steward | ⬜ next |
 | 4.4 econometrician + gates | ⬜ |
 | 4.5 validator | ⬜ |
 | 4.6 numeric grounding gate | ⬜ |
@@ -227,6 +227,23 @@ by a good second one succeeds in two calls; two malformed replies raise; the
 retry prompt contains the parse error.
 
 **Commit:** `feat(agents): add planner with bounded malformed-output retry`
+
+**Landed, with one revision to the plan above.** The registry is rendered into
+the *system prompt* by `agents/catalogue.py` rather than passed as native
+`ToolSpec`s. Passing tools natively invites the model to emit `tool_calls`,
+and a Planner's output is a plan — dependencies and rationale that a tool call
+cannot carry. The test still asserts on `FakeProvider.calls`, just on the
+prompt rather than the `tools` argument.
+
+**A constraint 4.8 and 4.10 must handle.** The full catalogue is ~48k
+characters, roughly 12k tokens; parameter descriptions are 17k of that, so
+even a stripped rendering is ~7k. Measured against real models via
+`/api/show`: **tinyllama is a 2048-token model** and qwen3-coder is 262k. So
+the catalogue does not fit every local model, and `render_tool_catalogue`
+takes a `families` filter for exactly this. The orchestrator should narrow to
+the families a question needs rather than always sending all 36 tools — which
+also plans better, since a model choosing among 36 tools chooses worse than
+one choosing among six.
 
 ---
 
