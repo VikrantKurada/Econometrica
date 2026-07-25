@@ -143,53 +143,17 @@ def _finite_or_none(value: float) -> float | None:
 
 
 def ols_residual_diagnostics(residuals: np.ndarray) -> list[Diagnostic]:
-    """Tool-integral residual checks (NOT the Task 2.20 diagnostics engine).
+    """The two residual checks every OLS-based tool reports inline.
 
-    Degenerate (numerically zero-variance) residuals make both statistics
-    undefined; ``passed`` is then left as None — "not judged", never "failed".
+    Delegates to the diagnostics engine so the codebase carries exactly one
+    Jarque-Bera and one Durbin-Watson convention — including the 1.5-2.5 band,
+    which previously lived here as a second copy. Tools call this for their
+    always-on checks; the orchestrator calls
+    :func:`econometrica.econ.diagnostics.run_diagnostics` for the full battery.
+
+    Degenerate (zero-variance) residuals leave ``passed`` as None — "not
+    judged", never "failed".
     """
-    from statsmodels.stats.stattools import durbin_watson, jarque_bera
+    from econometrica.econ.diagnostics import durbin_watson_check, jarque_bera_check
 
-    diagnostics: list[Diagnostic] = []
-
-    jb_stat, jb_p, _, _ = jarque_bera(residuals)
-    if np.isfinite(jb_stat) and np.isfinite(jb_p):
-        diagnostics.append(
-            Diagnostic(
-                name="jarque_bera",
-                statistic=float(jb_stat),
-                p_value=float(jb_p),
-                passed=bool(jb_p >= 0.05),
-                interpretation="Residual normality; passed means normality is not rejected.",
-            )
-        )
-    else:
-        diagnostics.append(
-            Diagnostic(
-                name="jarque_bera",
-                statistic=0.0,
-                passed=None,
-                interpretation="Undefined on degenerate residuals.",
-            )
-        )
-
-    dw = float(durbin_watson(residuals))
-    if np.isfinite(dw):
-        diagnostics.append(
-            Diagnostic(
-                name="durbin_watson",
-                statistic=dw,
-                passed=bool(1.5 <= dw <= 2.5),
-                interpretation="First-order residual autocorrelation; ~2 means none.",
-            )
-        )
-    else:
-        diagnostics.append(
-            Diagnostic(
-                name="durbin_watson",
-                statistic=0.0,
-                passed=None,
-                interpretation="Undefined on degenerate residuals.",
-            )
-        )
-    return diagnostics
+    return [jarque_bera_check(residuals), durbin_watson_check(residuals)]
