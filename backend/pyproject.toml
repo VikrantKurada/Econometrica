@@ -48,9 +48,10 @@ packages = ["src/econometrica"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-# Phase-gate tests intentionally fail until a phase is complete; they are
-# excluded from the default run and re-enabled at the end of the phase.
-addopts = '-m "not phase_gate"'
+# Phase-gate tests intentionally fail until a phase is complete, and are
+# excluded from the default run while that phase is in flight. Phase 2 closed
+# with all five tool families registered, so the gate runs by default again.
+# Re-add `addopts = '-m "not phase_gate"'` when a later phase opens a new gate.
 markers = ["phase_gate: completion gates enabled at the end of a phase"]
 asyncio_mode = "auto"
 # pytest-asyncio 1.x removed the overridable `event_loop` fixture. The session
