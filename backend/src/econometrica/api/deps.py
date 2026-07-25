@@ -1,6 +1,7 @@
 """Dependencies and lookup helpers shared by every router."""
 
 from collections.abc import Sequence
+from functools import lru_cache
 from typing import Annotated, Any
 from uuid import UUID
 
@@ -8,13 +9,35 @@ from fastapi import Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm.interfaces import ORMOption
 
+from econometrica.config import get_settings
 from econometrica.db.models import Chat, Project
 from econometrica.db.session import get_session
+from econometrica.llm.registry import ProviderRegistry
+from econometrica.services.keystore import KeyStore
 
 # Declared as an ``Annotated`` alias rather than a ``Depends()`` default so that
 # route signatures stay free of mutable-looking defaults and the tests can
 # override ``get_session`` in one place.
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
+
+
+@lru_cache(maxsize=1)
+def get_keystore() -> KeyStore:
+    """The encrypted API key store, derived from settings.
+
+    Cached because the Fernet key derivation is deliberately expensive
+    (480,000 PBKDF2 rounds); redoing it per request would show up as latency
+    on every provider call.
+    """
+    settings = get_settings()
+    return KeyStore(path=settings.storage_dir / "keys.enc", secret=settings.secret_key)
+
+
+def get_provider_registry() -> ProviderRegistry:
+    return ProviderRegistry(keystore=get_keystore())
+
+
+ProviderRegistryDep = Annotated[ProviderRegistry, Depends(get_provider_registry)]
 
 
 def _not_found(entity: str, entity_id: UUID) -> HTTPException:
