@@ -36,19 +36,19 @@ Consequences that keep coming up:
 | 1 — DB, API, three-pane shell | done |
 | 2 — econometrics core (36 tools, 5 families) | done, phase gate green, 97% coverage |
 | 3 — LLM providers + streaming chat | done, e2e gate green |
-| 4 — multi-agent orchestration | not started |
+| 4 — multi-agent orchestration | 1 of 10 tasks done |
 | 5 — charts and artifact canvas | not started |
 | 6 — telemetry, uploads, MCP, exports | not started |
 
-**629 backend tests, 65 frontend tests, 2 Playwright e2e.** ruff and
+**649 backend tests, 65 frontend tests, 2 Playwright e2e.** ruff and
 `mypy --strict` clean on `src`. `alembic check` reports no drift.
 
 ### The immediate next task
 
-**Task 4.1 — agent schemas.** `agents/schemas.py`: typed `AnalysisPlan`,
-`PlanStep`, `DatasetSpec`, `ValidationVerdict`, where malformed LLM output is
-rejected and retried rather than passed downstream. Nothing under
-`backend/src/econometrica/agents/` exists yet.
+**Task 4.2 — the Planner**, per the Phase 4 plan. `agents/base.py` first (the
+shared ask-parse-retry loop), then `agents/planner.py`. `agents/schemas.py`
+already exists and gives it `AnalysisPlan` plus `parse_agent_json`; `llm/fake.py`
+gives it a provider that records every call, so no test needs a network.
 
 Phase 4 is the interesting one: six agent roles, the deterministic
 `DiagnosticsEngine` (already built, `econ/diagnostics/`) feeding a Validator on
@@ -207,6 +207,17 @@ adding a `ProviderSpec` and a factory.
   `server_default`, so non-ORM inserts land valid rows.
 - Alembic **does not autogenerate CHECK constraints**. Hand-write them, and know
   that `alembic check` cannot verify them either — a test has to.
+
+### The tool registry
+
+- **Tools register as an import side-effect** of the five `econ/<family>/`
+  packages. `econ.load_tools()` is the one place that imports them all;
+  `main.py` calls it. Anything resolving a tool *by name* needs it first.
+- **A test asserting the registry is populated must run in a subprocess.**
+  Every module under `tests/econ` imports the family it exercises, so by
+  collection time the in-process registry is full no matter what the
+  application does — which is how it stayed empty in a live server until
+  Phase 4. See `tests/api/test_app_startup.py`.
 
 ---
 

@@ -15,6 +15,30 @@ Phase 3 ended with one model answering directly. Phase 4 puts six roles, two
 deterministic gates and a bounded revision loop between the question and the
 answer.
 
+## Progress
+
+| Task | State |
+|---|---|
+| 4.1 agent schemas | ✅ |
+| 4.2 planner | ⬜ next |
+| 4.3 data steward | ⬜ |
+| 4.4 econometrician + gates | ⬜ |
+| 4.5 validator | ⬜ |
+| 4.6 numeric grounding gate | ⬜ |
+| 4.7 narrator | ⬜ |
+| 4.8 orchestrator | ⬜ |
+| 4.9 run and step persistence | ⬜ |
+| 4.10 phase 4 e2e | ⬜ |
+
+Task 4.1 turned up a fourth thing the tree did not provide: **the running
+server's tool registry was empty.** Registration is an import side-effect of
+the five family packages, and nothing under `api/` imported any of them —
+invisible while no request path resolved a tool by name, fatal the moment
+`PlanStep` validates one. `econ.load_tools()` now exists and `main.py` calls
+it, proven by a subprocess test, because every test module under `tests/econ`
+imports the family it exercises and so an in-process assertion would pass
+regardless.
+
 ---
 
 ## What Phase 4 is allowed to assume
