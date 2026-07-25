@@ -72,6 +72,110 @@ async def test_embedding_models_are_marked_as_not_supporting_chat():
     assert models["nomic-embed-text:latest"].capabilities.streaming is False
 
 
+SHOW_RESPONSES = {
+    "llama3.2:latest": {
+        "capabilities": ["completion", "tools"],
+        "model_info": {"llama.context_length": 131072},
+    },
+    "nomic-embed-text:latest": {
+        "capabilities": ["embedding"],
+        "model_info": {"nomic-bert.context_length": 2048},
+    },
+}
+
+
+def _daemon_handler(tags=TAGS_RESPONSE, show=SHOW_RESPONSES):
+    """A daemon answering both /api/tags and /api/show."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/show":
+            name = json.loads(request.content)["model"]
+            if name not in show:
+                return httpx.Response(404, json={"error": f"model {name} not found"})
+            return httpx.Response(200, json=show[name])
+        return httpx.Response(200, json=tags)
+
+    return handler
+
+
+async def test_tool_calling_is_read_from_the_daemon_not_guessed():
+    provider = _provider(_daemon_handler())
+    models = {m.id: m for m in await provider.list_models()}
+    assert models["llama3.2:latest"].capabilities.tool_calling is True
+
+
+async def test_a_chat_model_without_tools_is_not_advertised_as_having_them():
+    """Guessing this wrong sends the orchestrator to a model that cannot comply."""
+    show = {
+        **SHOW_RESPONSES,
+        "llama3.2:latest": {
+            "capabilities": ["completion"],
+            "model_info": {"llama.context_length": 4096},
+        },
+    }
+    provider = _provider(_daemon_handler(show=show))
+    models = {m.id: m for m in await provider.list_models()}
+    assert models["llama3.2:latest"].capabilities.tool_calling is False
+
+
+async def test_context_window_is_the_models_own_not_a_constant():
+    """A hardcoded window makes the orchestrator's context check meaningless."""
+    provider = _provider(_daemon_handler())
+    models = {m.id: m for m in await provider.list_models()}
+    assert models["llama3.2:latest"].capabilities.context_window == 131072
+    assert models["nomic-embed-text:latest"].capabilities.context_window == 2048
+
+
+async def test_vision_is_reported_when_the_daemon_says_so():
+    show = {
+        "llama3.2:latest": {
+            "capabilities": ["completion", "vision"],
+            "model_info": {"llama.context_length": 8192},
+        }
+    }
+    provider = _provider(_daemon_handler(show=show))
+    models = {m.id: m for m in await provider.list_models()}
+    assert models["llama3.2:latest"].capabilities.vision is True
+
+
+async def test_an_embedding_model_is_identified_by_capability_not_by_its_name():
+    tags = {"models": [{"name": "house-blend:v2", "model": "house-blend:v2", "details": {}}]}
+    show = {
+        "house-blend:v2": {
+            "capabilities": ["embedding"],
+            "model_info": {"mystery.context_length": 512},
+        }
+    }
+    provider = _provider(_daemon_handler(tags=tags, show=show))
+    models = {m.id: m for m in await provider.list_models()}
+    assert models["house-blend:v2"].capabilities.streaming is False
+
+
+async def test_a_chat_model_whose_name_looks_like_an_embedder_stays_usable():
+    """`bge-` and `minilm` are name heuristics, and heuristics have victims."""
+    tags = {"models": [{"name": "bge-reranker-chat:latest", "model": "x", "details": {}}]}
+    show = {
+        "bge-reranker-chat:latest": {
+            "capabilities": ["completion"],
+            "model_info": {"bert.context_length": 8192},
+        }
+    }
+    provider = _provider(_daemon_handler(tags=tags, show=show))
+    models = {m.id: m for m in await provider.list_models()}
+    assert models["bge-reranker-chat:latest"].capabilities.streaming is True
+
+
+async def test_a_daemon_that_cannot_describe_a_model_still_lists_it():
+    """An older daemon, or one model erroring, must not empty the picker."""
+    provider = _provider(_daemon_handler(show={}))
+    models = {m.id: m for m in await provider.list_models()}
+
+    assert set(models) == {"llama3.2:latest", "nomic-embed-text:latest"}
+    # Falls back to the tags-shape heuristic rather than to nothing.
+    assert models["llama3.2:latest"].capabilities.streaming is True
+    assert models["nomic-embed-text:latest"].capabilities.streaming is False
+
+
 async def test_a_stopped_daemon_gives_an_actionable_error():
     def handler(request: httpx.Request) -> httpx.Response:
         raise httpx.ConnectError("connection refused")
@@ -315,6 +419,34 @@ async def test_live_lists_real_models():
 
     assert models, "expected at least one local model"
     assert all(m.id for m in models)
+
+
+@pytest.mark.live
+async def test_live_capabilities_match_what_the_daemon_reports():
+    """The adapter used to report a hardcoded 8192 window for every model and
+    infer tool support from the model's name. Both were wrong: this machine
+    serves models from 2048 to 262144 tokens, and several complete but cannot
+    call tools. Cross-checked against /api/show rather than against a constant,
+    so the test says nothing about which models happen to be pulled here.
+    """
+    if not await _daemon_is_up():
+        pytest.skip("ollama daemon is not running")
+
+    provider = OllamaProvider()
+    try:
+        models = await provider.list_models()
+        async with httpx.AsyncClient(base_url="http://localhost:11434", timeout=10.0) as client:
+            raw = (await client.post("/api/show", json={"model": models[0].id})).json()
+    finally:
+        await provider.aclose()
+
+    reported = raw.get("capabilities", [])
+    info = raw.get("model_info", {})
+    expected_window = info[f"{info['general.architecture']}.context_length"]
+
+    assert models[0].capabilities.context_window == expected_window
+    assert models[0].capabilities.tool_calling is ("tools" in reported)
+    assert models[0].capabilities.vision is ("vision" in reported)
 
 
 @pytest.mark.live

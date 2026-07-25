@@ -6,6 +6,7 @@ counts as ``prompt_eval_count``/``eval_count``, and its tool calls carry no
 correlation id, so this adapter synthesises them.
 """
 
+import asyncio
 import json
 import uuid
 from collections.abc import AsyncIterator, Sequence
@@ -41,8 +42,19 @@ _UNREACHABLE_HINT = (
 
 #: Model families that only produce embeddings. Offering one as a chat model
 #: yields a confusing runtime failure, so they are flagged at listing time.
+#:
+#: Only a fallback since the adapter started asking ``/api/show``, which
+#: reports capabilities outright. Kept because a daemon too old to answer that
+#: — or one erroring on a single model — must still produce a usable listing,
+#: and because these heuristics were right about every model on this machine.
+#: They are still heuristics: "bge-reranker-chat" would be a victim.
 _EMBEDDING_FAMILIES = frozenset({"bert", "nomic-bert", "gemma-embed", "xlm-roberta"})
 _EMBEDDING_NAME_HINTS = ("embed", "minilm", "bge-")
+
+#: Used only when the daemon will not say. Ollama's own default num_ctx is
+#: 4096; 8192 is the more common model default, and either way this is a guess
+#: that the ``/api/show`` path exists to avoid.
+DEFAULT_CONTEXT_WINDOW = 8192
 
 
 class OllamaProvider:
@@ -68,7 +80,39 @@ class OllamaProvider:
 
     async def list_models(self) -> list[ModelInfo]:
         payload = await self._get_json("/api/tags")
-        return [self._model_info(entry) for entry in payload.get("models", [])]
+        entries: list[dict[str, Any]] = list(payload.get("models", []))
+
+        # ``/api/tags`` reports neither context length nor tool support, and
+        # inferring them from the model's name was wrong in both directions:
+        # every model claimed an 8192 window when this machine serves 2048 to
+        # 262144, and several that complete cannot call tools. ``/api/show``
+        # states both. It costs one request per model — 16 of them
+        # concurrently against a local daemon measured at 0.25s.
+        described = await asyncio.gather(
+            *(self._describe(_entry_id(entry)) for entry in entries)
+        )
+
+        return [
+            self._model_info(entry, detail)
+            for entry, detail in zip(entries, described, strict=True)
+        ]
+
+    async def _describe(self, model_id: str) -> dict[str, Any] | None:
+        """What the daemon knows about one model, or None if it will not say.
+
+        Never raises. A model the daemon cannot describe should still appear
+        in the listing under the tags heuristic — the alternative is one bad
+        model emptying the picker.
+        """
+        if not model_id:
+            return None
+        try:
+            response = await self._client.post("/api/show", json={"model": model_id})
+            if response.status_code >= 400:
+                return None
+            return dict(response.json())
+        except (httpx.HTTPError, ValueError):
+            return None
 
     async def health(self) -> ProviderHealth:
         """Never raises: the providers endpoint reports status, it does not fail."""
@@ -196,24 +240,17 @@ class OllamaProvider:
             stop_reason="tool_use" if calls else payload.get("done_reason"),
         )
 
-    def _model_info(self, entry: dict[str, Any]) -> ModelInfo:
-        model_id = entry.get("name") or entry.get("model", "")
-        family = str(entry.get("details", {}).get("family", "")).lower()
-        embedding = family in _EMBEDDING_FAMILIES or any(
-            hint in model_id.lower() for hint in _EMBEDDING_NAME_HINTS
+    def _model_info(
+        self, entry: dict[str, Any], detail: dict[str, Any] | None
+    ) -> ModelInfo:
+        model_id = _entry_id(entry)
+        reported = detail.get("capabilities") if detail else None
+        capabilities = (
+            _described_capabilities(set(reported), detail)
+            if isinstance(reported, list)
+            else _guessed_capabilities(entry, model_id)
         )
-        return ModelInfo(
-            id=model_id,
-            name=model_id,
-            capabilities=Capabilities(
-                # Ollama exposes tool calling generically; whether a given model
-                # honours it depends on its template, which tags does not report.
-                tool_calling=not embedding,
-                json_mode=not embedding,
-                streaming=not embedding,
-                context_window=8192,
-            ),
-        )
+        return ModelInfo(id=model_id, name=model_id, capabilities=capabilities)
 
     async def _get_json(self, path: str) -> dict[str, Any]:
         try:
@@ -254,6 +291,67 @@ class OllamaProvider:
 
 
 # --- wire helpers -----------------------------------------------------------
+
+
+def _entry_id(entry: dict[str, Any]) -> str:
+    value = entry.get("name") or entry.get("model", "")
+    return str(value)
+
+
+def _described_capabilities(
+    reported: set[str], detail: dict[str, Any] | None
+) -> Capabilities:
+    """Capabilities as the daemon states them."""
+    chat = "completion" in reported
+    return Capabilities(
+        tool_calling="tools" in reported,
+        # Not in the reported list, and correctly so: `format: json` is a
+        # decoding constraint the daemon applies to any model that completes,
+        # not a property of the model.
+        json_mode=chat,
+        streaming=chat,
+        vision="vision" in reported,
+        context_window=_context_length(detail) or DEFAULT_CONTEXT_WINDOW,
+    )
+
+
+def _guessed_capabilities(entry: dict[str, Any], model_id: str) -> Capabilities:
+    """Fallback for a daemon that will not describe the model."""
+    family = str(entry.get("details", {}).get("family", "")).lower()
+    embedding = family in _EMBEDDING_FAMILIES or any(
+        hint in model_id.lower() for hint in _EMBEDDING_NAME_HINTS
+    )
+    return Capabilities(
+        tool_calling=not embedding,
+        json_mode=not embedding,
+        streaming=not embedding,
+        context_window=DEFAULT_CONTEXT_WINDOW,
+    )
+
+
+def _context_length(detail: dict[str, Any] | None) -> int | None:
+    """The model's own window, under its architecture-prefixed key.
+
+    The key is named for the architecture (``qwen3moe.context_length``), so
+    ``general.architecture`` names it exactly. Matching on the suffix alone
+    would be ambiguous: ministral-3 also reports
+    ``mistral3.rope.scaling.original_context_length``, a *different and
+    smaller* number, and picking it would silently understate the window.
+    """
+    info: dict[str, Any] = (detail or {}).get("model_info", {})
+
+    architecture = info.get("general.architecture")
+    if isinstance(architecture, str):
+        value = info.get(f"{architecture}.context_length")
+        if isinstance(value, int):
+            return value
+
+    # No architecture reported: take the unqualified key, which is the one
+    # with nothing between the prefix and the suffix.
+    for key, value in info.items():
+        if key.endswith(".context_length") and key.count(".") == 1 and isinstance(value, int):
+            return value
+    return None
 
 
 def _wire_message(message: Message) -> dict[str, Any]:

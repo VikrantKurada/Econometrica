@@ -190,6 +190,13 @@ These cost real time when rediscovered. All are verified on this machine.
 adding a `ProviderSpec` and a factory.
 
 - Ollama, OpenAI, NVIDIA, Gemini use **httpx**.
+- **Ollama capabilities come from `/api/show`, not `/api/tags`.** Tags reports
+  neither context length nor tool support, and guessing them from the model
+  name was wrong both ways — on this machine 6 of 13 chat models cannot call
+  tools, and real windows run 512 to 262144, not the 8192 the adapter used to
+  claim for everything. The context key is architecture-prefixed, so read
+  `general.architecture` to name it: matching `*.context_length` alone also
+  catches `mistral3.rope.scaling.original_context_length`, a smaller number.
 - **Anthropic uses the official `anthropic` SDK** — required by the `claude-api`
   skill, which you should load before touching that adapter.
 - **Load the `claude-api` skill for any Anthropic/Claude API work.** It carries
