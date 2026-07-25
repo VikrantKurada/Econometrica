@@ -36,19 +36,19 @@ Consequences that keep coming up:
 | 1 — DB, API, three-pane shell | done |
 | 2 — econometrics core (36 tools, 5 families) | done, phase gate green, 97% coverage |
 | 3 — LLM providers + streaming chat | done, e2e gate green |
-| 4 — multi-agent orchestration | 1 of 10 tasks done |
+| 4 — multi-agent orchestration | 3 of 10 tasks done |
 | 5 — charts and artifact canvas | not started |
 | 6 — telemetry, uploads, MCP, exports | not started |
 
-**649 backend tests, 65 frontend tests, 2 Playwright e2e.** ruff and
+**686 backend tests, 65 frontend tests, 2 Playwright e2e.** ruff and
 `mypy --strict` clean on `src`. `alembic check` reports no drift.
 
 ### The immediate next task
 
-**Task 4.2 — the Planner**, per the Phase 4 plan. `agents/base.py` first (the
-shared ask-parse-retry loop), then `agents/planner.py`. `agents/schemas.py`
-already exists and gives it `AnalysisPlan` plus `parse_agent_json`; `llm/fake.py`
-gives it a provider that records every call, so no test needs a network.
+**Task 4.4 — the Econometrician and the gates**, per the Phase 4 plan. This is
+the one with real design in it: `RegisteredTool.preconditions` is prose aimed
+at the model, so refusing GARCH when ARCH-LM finds no effects needs an
+executable `Gate` alongside it. Read the plan's decision 1 before starting.
 
 Phase 4 is the interesting one: six agent roles, the deterministic
 `DiagnosticsEngine` (already built, `econ/diagnostics/`) feeding a Validator on
@@ -160,7 +160,11 @@ These cost real time when rediscovered. All are verified on this machine.
 - **Python is pinned to 3.12** (`requires-python = ">=3.12,<3.13"`). The system
   has 3.14, but `arch` / `numba` / `linearmodels` publish no 3.14 wheels.
 - **pandas 3.0.5 is fine.** All 21 econometric paths were probed against it. Do
-  not "fix" this by pinning back to 2.x.
+  not "fix" this by pinning back to 2.x. One sharp edge: it **rejects the
+  `M`/`Q`/`A` resample aliases outright** — `resample("M")` raises
+  `ValueError`, it does not warn — while `DatasetSpec.frequency` and
+  `econ.returns.PERIODS_PER_YEAR` still speak those letters. Map to
+  `ME`/`QE`/`YE` at the boundary, as `agents/data_steward.py` does.
 - **PowerShell mangles `git commit -m`** when the message contains double
   quotes — it re-parses before handing off to git, silently turning part of the
   message into a pathspec. Write the message to a file and use `git commit -F`.

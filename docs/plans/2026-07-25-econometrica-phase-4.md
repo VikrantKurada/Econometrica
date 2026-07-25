@@ -21,8 +21,8 @@ answer.
 |---|---|
 | 4.1 agent schemas | ✅ |
 | 4.2 planner | ✅ |
-| 4.3 data steward | ⬜ next |
-| 4.4 econometrician + gates | ⬜ |
+| 4.3 data steward | ✅ |
+| 4.4 econometrician + gates | ⬜ next |
 | 4.5 validator | ⬜ |
 | 4.6 numeric grounding gate | ⬜ |
 | 4.7 narrator | ⬜ |
@@ -263,6 +263,23 @@ risk; a frame whose last observation postdates the analysis window is flagged
 as look-ahead; an empty overlap raises rather than returning an empty frame.
 
 **Commit:** `feat(agents): add data steward with quality reporting`
+
+**Landed, and it consults no model.** The design lists the Data Steward among
+the six roles, but nothing it does here needs one: alignment, frequency
+conversion and return construction each have exactly one right answer, and a
+reproducibility manifest means nothing if the data under it varied with a
+model's mood. The genuinely model-shaped part — mapping an uploaded file's
+columns to roles — is Phase 6 Task 6.1, where the user confirms the mapping.
+
+`Dataset` carries prices *and* returns because the registry wants each in
+different places: the unit-root family tests levels, the volatility family
+fits returns. Columns are the tickers verbatim; binding a tool's `column`
+parameter to one of them is Task 4.4's job.
+
+Watch the frequency letters: `DatasetSpec.frequency` uses `D/W/M/Q/A`, from
+`econ.returns.PERIODS_PER_YEAR`, and **pandas 3 rejects `M`, `Q` and `A`
+outright** — `resample("M")` raises `ValueError`, it does not warn. The
+steward maps them to `ME`/`QE`/`YE`.
 
 ---
 
