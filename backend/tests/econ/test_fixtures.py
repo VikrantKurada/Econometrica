@@ -155,6 +155,12 @@ def test_stationary_ar1_rejects_the_unit_root():
     assert adfuller(ar1)[1] < 0.01
 
 
+def test_stationary_ar1_supports_negative_phi():
+    """The mean-reverting case for the variance ratio known-answer tests."""
+    series = make_stationary_ar1(phi=-0.3, n=3000, seed=2)
+    assert series.autocorr(lag=1) == pytest.approx(-0.3, abs=0.05)
+
+
 def test_garch_fixture_exhibits_volatility_clustering():
     from statsmodels.stats.diagnostic import het_arch
 
