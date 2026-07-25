@@ -16,6 +16,13 @@ class Project(TimestampedBase):
     __tablename__ = "projects"
     __table_args__ = (
         CheckConstraint("length(trim(name)) > 0", name="ck_projects_name_not_blank"),
+        # The API rejects other values, but resolve_capabilities feeds this
+        # straight to the orchestrator — an out-of-band write must not be able
+        # to smuggle an unknown tier past it.
+        CheckConstraint(
+            "validation_tier IN ('single', 'critic', 'consensus')",
+            name="ck_projects_validation_tier_known",
+        ),
     )
 
     name: Mapped[str] = mapped_column(String(200))

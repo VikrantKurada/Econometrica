@@ -5,6 +5,25 @@ from sqlalchemy.exc import IntegrityError
 from econometrica.db.models import Chat, Project
 
 
+@pytest.mark.parametrize("tier", ["single", "critic", "consensus"])
+async def test_database_accepts_every_legal_validation_tier(session, tier):
+    session.add(Project(name=f"Tier {tier}", validation_tier=tier))
+    await session.flush()
+
+
+async def test_database_rejects_an_invalid_validation_tier(session):
+    """The API validates the tier, but a raw insert must not get past the schema.
+
+    resolve_capabilities hands this value to the orchestrator, so an unknown
+    tier written out of band would surface as a runtime failure far from its
+    cause. Same argument that put the server_defaults in the schema.
+    """
+    with pytest.raises(IntegrityError):
+        await session.execute(
+            text("INSERT INTO projects (name, validation_tier) VALUES ('Raw', 'banana')")
+        )
+
+
 async def test_project_persists_with_defaults(session):
     project = Project(name="Equity Factor Study")
     session.add(project)
