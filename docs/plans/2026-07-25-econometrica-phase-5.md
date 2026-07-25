@@ -16,8 +16,9 @@ manifest that reproduces them.
 
 | Task | State |
 |---|---|
-| 5.1 chart spec union | ⬜ next |
-| 5.2 visualizer agent | ⬜ |
+| 5.0 `acf` tool (prerequisite) | ✅ |
+| 5.1 chart spec union | ✅ |
+| 5.2 visualizer agent | ⬜ next |
 | 5.3 chart renderers | ⬜ |
 | 5.4 artifact canvas | ⬜ |
 | 5.5 exports | ⬜ |
@@ -155,6 +156,23 @@ so Pydantic rejects an unknown type with a message naming the valid ones.
   correlation-domain heatmap (−1…1) must be diverging (decision 3).
 
 **Commit:** `feat(charts): add discriminated chart spec union`
+
+**Landed with 14 types**, not the 18 drafted above: `small_multiples`,
+`ribbon`, `step` and `residual_grid` all reduce to `panels` or `band`, and a
+type nobody can distinguish from another is a type a Visualizer will pick
+wrongly. The design's "~22" counts variants (ACF and PACF are two readings of
+one `stem`, the IRF grid is one `panels`).
+
+`unresolved_references()` returns problems rather than raising, because the
+caller retries the model with them and needs all of them at once — the same
+shape as `GroundingReport.summary()`.
+
+**One dead-code catch worth repeating.** The scatter cap was declared as
+`max_length=3` *and* as a validator with an explanatory message. Pydantic's
+constraint fires first, so the explanation never ran, and the test passed only
+because Pydantic's "at most 3 items" happens to contain a 3. Tightening the
+regex to `three` exposed it. Where a message has to tell a model what to do
+instead, the field constraint has to give way to the validator.
 
 ---
 

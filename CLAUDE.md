@@ -41,15 +41,17 @@ Consequences that keep coming up:
 | 5 — charts and artifact canvas | not started |
 | 6 — telemetry, uploads, MCP, exports | not started |
 
-**821 backend tests, 65 frontend tests, 4 Playwright e2e.** ruff and
+**854 backend tests, 65 frontend tests, 4 Playwright e2e.** ruff and
 `mypy --strict` clean on `src`. `alembic check` reports no drift.
 
 ### The immediate next task
 
-**Task 5.1 — the chart spec union**, per the Phase 5 plan. `charts/spec.py`: a
-discriminated union Pydantic rejects with a usable error. Read that plan's
-four decisions first — chiefly that **no spec may express a second y-axis**,
-which makes the design's "conditional volatility overlay" two stacked panels.
+**Task 5.2 — the Visualizer**, per the Phase 5 plan. `charts/spec.py` already
+gives it the vocabulary and `unresolved_references()` to bind against a
+`ResultSet`. Follow the Phase 4 precedent and make the tool-to-chart mapping
+**deterministic** — the shape of a `ResultSet` implies its charts — leaving
+the model only the editorial calls (ordering, titles). A test should prove a
+chart is produced with no provider at all.
 
 Two things Phase 5 inherits that are not in its task table:
 
