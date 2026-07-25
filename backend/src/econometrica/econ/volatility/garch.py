@@ -50,7 +50,7 @@ from econometrica.econ._common import (
     prepare_series,
     series_from,
 )
-from econometrica.econ.registry import get_registry
+from econometrica.econ.registry import Gate, get_registry
 from econometrica.econ.returns import PERIODS_PER_YEAR
 from econometrica.econ.types import Diagnostic, Estimate, ResultSet
 
@@ -319,6 +319,18 @@ def _fit_garch_family(
         "the selected column holds one regularly observed return series in decimal units",
         "at least ~250 observations; NaNs are dropped",
     ),
+    gates=(
+        Gate(
+            check="arch_effects",
+            expect=True,
+            because=(
+                "with no ARCH effects in the series there is no conditional"
+                " heteroskedasticity to model; the fit estimates noise and its"
+                " persistence is meaningless. Report the unconditional"
+                " volatility instead"
+            ),
+        ),
+    ),
 )
 def garch(data: pd.DataFrame, params: BaseModel) -> ResultSet:
     p = coerce_params(params, GarchParams)
@@ -337,6 +349,18 @@ def garch(data: pd.DataFrame, params: BaseModel) -> ResultSet:
         "the selected column holds one regularly observed return series in decimal units",
         "at least ~250 observations; NaNs are dropped",
     ),
+    gates=(
+        Gate(
+            check="arch_effects",
+            expect=True,
+            because=(
+                "with no ARCH effects in the series there is no conditional"
+                " heteroskedasticity to model; the fit estimates noise and its"
+                " persistence is meaningless. Report the unconditional"
+                " volatility instead"
+            ),
+        ),
+    ),
 )
 def egarch(data: pd.DataFrame, params: BaseModel) -> ResultSet:
     p = coerce_params(params, EgarchParams)
@@ -354,6 +378,18 @@ def egarch(data: pd.DataFrame, params: BaseModel) -> ResultSet:
     preconditions=(
         "the selected column holds one regularly observed return series in decimal units",
         "at least ~250 observations; NaNs are dropped",
+    ),
+    gates=(
+        Gate(
+            check="arch_effects",
+            expect=True,
+            because=(
+                "with no ARCH effects in the series there is no conditional"
+                " heteroskedasticity to model; the fit estimates noise and its"
+                " persistence is meaningless. Report the unconditional"
+                " volatility instead"
+            ),
+        ),
     ),
 )
 def gjr_garch(data: pd.DataFrame, params: BaseModel) -> ResultSet:

@@ -135,6 +135,22 @@ async def test_frequency_conversion_resamples_to_period_end():
     assert [ts.month for ts in dataset.prices.index] == [1, 2, 3]
 
 
+async def test_the_frame_offers_levels_and_returns_under_distinct_names():
+    """A tool takes one DataFrame, so both have to coexist in it.
+
+    The unit-root family tests levels and the volatility family fits returns;
+    the column name is what tells a plan step which it is asking for.
+    """
+    source = FakeSource({"AAA": series(periods=40)})
+
+    dataset = await DataSteward(source).resolve(spec())
+
+    assert list(dataset.frame.columns) == ["AAA", "AAA_return"]
+    # The first return is undefined, not zero; tools drop it.
+    assert bool(dataset.frame["AAA_return"].isna().iloc[0])
+    assert len(dataset.frame) == 40
+
+
 async def test_the_report_fingerprints_the_frame_it_describes():
     """Reproducibility has to reach the data, not only the estimates."""
     source = FakeSource({"AAA": series()})

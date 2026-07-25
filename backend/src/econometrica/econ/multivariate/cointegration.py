@@ -29,7 +29,7 @@ from scipy import stats
 
 from econometrica.econ._common import build_manifest, coerce_params, require_columns
 from econometrica.econ.multivariate._shared import COLUMNS_FIELD_DOC, prepare_frame
-from econometrica.econ.registry import get_registry
+from econometrica.econ.registry import Gate, get_registry
 from econometrica.econ.types import Diagnostic, Estimate, ResultSet, Series, Table
 
 _VERSION = "1.0.0"
@@ -355,6 +355,20 @@ def _iso(index: pd.Index) -> list[str]:
         "every selected column holds one I(1) level series (prices, not returns)",
         "the series are cointegrated (rank >= 1); the tool raises when the"
         " determined rank is 0",
+    ),
+    gates=(
+        # The mirror image of the VAR gate, and the reason `expect` exists:
+        # a VECM presumes I(1) levels sharing a long-run relation. On
+        # stationary series there is no error to correct.
+        Gate(
+            check="stationarity",
+            expect=False,
+            because=(
+                "a VECM presumes non-stationary levels bound by a"
+                " cointegrating relation; on stationary series there is no"
+                " error-correction term to estimate — fit a VAR instead"
+            ),
+        ),
     ),
 )
 def vecm(data: pd.DataFrame, params: BaseModel) -> ResultSet:

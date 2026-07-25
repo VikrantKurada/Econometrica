@@ -102,6 +102,21 @@ class Dataset:
     returns: pd.DataFrame
     report: DataQualityReport
 
+    #: Suffix distinguishing a return column from the level it came from.
+    RETURN_SUFFIX = "_return"
+
+    @property
+    def frame(self) -> pd.DataFrame:
+        """Levels and returns in one frame, which is what a tool takes.
+
+        `ToolFn` accepts a single DataFrame, so a plan step cannot say "the
+        returns frame" — it says a column name, and the name is what carries
+        the distinction. The first return is NaN rather than absent, so the
+        two stay index-aligned; every tool drops it.
+        """
+        renamed = self.returns.add_suffix(self.RETURN_SUFFIX)
+        return pd.concat([self.prices, renamed], axis=1)
+
 
 class DataSteward:
     def __init__(

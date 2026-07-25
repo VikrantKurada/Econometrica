@@ -22,8 +22,8 @@ answer.
 | 4.1 agent schemas | ✅ |
 | 4.2 planner | ✅ |
 | 4.3 data steward | ✅ |
-| 4.4 econometrician + gates | ⬜ next |
-| 4.5 validator | ⬜ |
+| 4.4 econometrician + gates | ✅ |
+| 4.5 validator | ⬜ next |
 | 4.6 numeric grounding gate | ⬜ |
 | 4.7 narrator | ⬜ |
 | 4.8 orchestrator | ⬜ |
@@ -305,6 +305,28 @@ Binds plan steps to registry tools and **refuses** those that violate a gate.
   able to hand it to the Validator.
 
 **Commit:** `feat(agents): add econometrician with executable tool preconditions`
+
+**Landed, and it consults no model either.** By the time a plan arrives,
+`PlanStep` has proved every tool exists and every parameter is one it accepts;
+what remains is enforcing gates and running tools, neither of which is a
+question to ask a model. That makes three of the six roles deterministic —
+Data Steward, Econometrician, and the grounding gate — leaving Planner,
+Validator, Narrator (and Phase 5's Visualizer) as the model-assignable ones.
+**This narrows what `Project.model_assignments` means and is worth revisiting
+if per-role assignment for all six is wanted.**
+
+**A statistical bug the red-first run caught.** The first `arch_effects` gate
+ran ARCH-LM on the raw series and *allowed* GARCH on a homoskedastic AR(1) —
+the named acceptance case. ARCH-LM regresses squared values on their own lags,
+so a series autocorrelated in the *mean* fails it whether or not its variance
+moves. The diagnostics engine documents itself as running over a fitted
+model's residuals; a gate handed a raw series has to supply the fit, so it
+pre-whitens with an AR(1) first. A test covers two phi values, so it holds for
+the mechanism rather than for one seed.
+
+`Dataset.frame` was added to close the seam: `ToolFn` takes one DataFrame, so
+levels and returns coexist in it and the column name (`AAA` vs `AAA_return`)
+carries the distinction a plan step needs.
 
 ---
 

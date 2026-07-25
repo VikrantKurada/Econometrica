@@ -30,7 +30,7 @@ from scipy import stats
 
 from econometrica.econ._common import build_manifest, coerce_params
 from econometrica.econ.multivariate._shared import COLUMNS_FIELD_DOC, prepare_frame
-from econometrica.econ.registry import get_registry
+from econometrica.econ.registry import Gate, get_registry
 from econometrica.econ.types import Diagnostic, Estimate, ResultSet, Series, Table
 
 _VERSION = "1.0.0"
@@ -147,6 +147,17 @@ def _companion_modulus(coefs: np.ndarray) -> float:
     preconditions=(
         "every selected column holds one regularly observed series of the same frequency",
         "rows with a NaN in any selected column are dropped",
+    ),
+    gates=(
+        Gate(
+            check="stationarity",
+            expect=True,
+            because=(
+                "a VAR fitted to non-stationary levels produces spurious"
+                " dynamics and invalid inference; difference the series first,"
+                " or use a VECM if they are cointegrated"
+            ),
+        ),
     ),
 )
 def var_model(data: pd.DataFrame, params: BaseModel) -> ResultSet:
