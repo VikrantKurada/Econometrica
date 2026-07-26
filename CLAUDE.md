@@ -40,20 +40,34 @@ Consequences that keep coming up:
 | 3 — LLM providers + streaming chat | done, e2e gate green |
 | 4 — multi-agent orchestration | done, e2e gate green |
 | 5 — charts and artifact canvas | done, e2e gate green |
-| 6 — real data, uploads, telemetry, MCP | in progress — 6.1 of 16 tasks |
+| 6 — real data, uploads, telemetry, MCP | in progress — 6.2 of 16 tasks |
 
-**938 backend tests, 249 frontend tests, 5 Playwright e2e.** ruff and
+**971 backend tests, 249 frontend tests, 5 Playwright e2e.** ruff and
 `mypy --strict` clean on `src`. `alembic check` reports no drift.
 
 ### The immediate next task
 
-**Phase 6, Task 6.2** — the price-source registry and the on-disk cache. Read
+**Phase 6, Task 6.3** — the FRED adapter, and wiring the dead
+`DatasetSpec.risk_free` field. Read
 `docs/plans/2026-07-27-econometrica-phase-6.md`; it carries all sixteen tasks,
 six decisions, and the live-probe findings below.
 
-Task 6.1 landed: `data/yahoo.py` is the first real `PriceSource`. It is not yet
-reachable from the app — `get_price_source` still only knows `none` and
-`synthetic`, and 6.2 is what wires it.
+**Real market data works.** `ECONOMETRICA_PRICE_SOURCE=yahoo` fetches
+dividend-adjusted closes through `data/yahoo.py`, and a live test drives it
+through the Data Steward to a quality report with no flags. `data/registry.py`
+is now the one place that knows every source — add a `SourceSpec` and a factory,
+as `llm/registry.py` does for providers — and it decides which sources are
+wrapped in the cache.
+
+**Cache entries expire, and that is a correctness property rather than
+housekeeping.** A vendor recomputes adjusted closes on every split and
+dividend, so a stale entry is a *different series* and a re-run that
+"reproduced" from one would be reporting on the cache. Default max age is one
+day. When an entry is stale **and** the source is unreachable, the cache
+raises rather than serving it — there is no channel to disclose staleness,
+because `DataQualityReport.source` is read from `label` before the fetch.
+Offline-friendliness comes from consulting the cache *before* the source, not
+from standing in for it.
 
 **Phase 5 is closed.** Re-run reproduces a result from its manifest, verified
 through the UI against a live model, which was the last open item in the parent

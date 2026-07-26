@@ -20,7 +20,7 @@ allowlists that are off by default.
 | Task | State |
 |---|---|
 | 6.1 yfinance `PriceSource` | ✅ |
-| 6.2 source registry, disk cache, offline failures | ⬜ |
+| 6.2 source registry, disk cache, offline failures | ✅ |
 | 6.3 FRED adapter and the dead `risk_free` field | ⬜ |
 | 6.4 Ken French factors — unlocking `ff3`/`ff5`/`carhart4` | ⬜ |
 | 6.5 grounding gate: the `(s3)` false positive | ⬜ |
@@ -308,6 +308,60 @@ source's, so caching is invisible to the quality report.
   not contain `synthetic`, except the synthetic one, which must.
 
 **Commit:** `feat(data): add price source registry with an on-disk cache`
+
+**Landed, and it needed a decision the plan had not anticipated.** 33 tests.
+`ECONOMETRICA_PRICE_SOURCE=yahoo` now works end to end, and a live test drives
+the real adapter through the Data Steward: two tickers over 2023 produce a
+quality report with **no flags at all**, which is the assertion that proves the
+end-exclusivity handling from 6.1 does not leave every real run carrying a
+spurious `look_ahead` risk. A risk flag that cried wolf would be worse than
+none.
+
+### Cache entries expire, because an adjusted close is not a fixed number
+
+The plan treated the cache as a pure fetch optimisation. It is not. **A vendor
+recomputes adjusted closes every time a split or a dividend happens**, so the
+series for a fixed window is not fixed over time — an entry served long enough
+after it was written is a *different series*. A re-run that "reproduced" from
+one would be reporting on the cache rather than on the data, which quietly
+hollows out the claim the whole project rests on.
+
+So entries carry a maximum age (one day by default: long enough that a run, its
+re-run and its exports share one fetch). Past it they are refetched.
+
+That leaves the case the plan's offline bullet was really about, and it resolves
+the other way from what the bullet implied: when an entry is **stale and the
+source is unreachable, it raises**. Serving it would be indistinguishable, to
+everything above, from having fetched it — and there is no channel to say
+otherwise, because `DataQualityReport.source` is read from `label` *before* the
+fetch happens. The error names the staleness so the user can widen `max_age` if
+that is the trade they want.
+
+Offline-friendliness is therefore the cache being consulted *before* the source,
+not the cache standing in for it: a fresh entry is served without a network
+call at all, so being offline never arises for work already fetched.
+
+Three smaller things:
+
+- **`label` is now a read-only `@property` on the protocol.** It was declared
+  `label: str`, which mypy reads as settable, so the cache wrapper's delegating
+  property did not satisfy it. Nothing writes to it, so the protocol was simply
+  over-specified — and a plain class attribute still satisfies a read-only
+  member, which is how every other source declares it.
+- **Cache paths carry a hash of the ticker**, because `^GSPC` and `_GSPC`
+  sanitise identically and one serving the other's prices would be silent.
+  Real symbols carry `^`, `=` and `.`, none of which may reach a Windows path
+  unexamined.
+- **The window recorded is the one requested, not the data's own span.** A
+  request opening on a weekend gets data from the Monday; matching on that
+  would make the request permanently uncacheable, as every repeat would look
+  like it reached past what was stored.
+
+`_UnconfiguredPriceSource` moved out of `api/deps.py` into
+`data/unconfigured.py`, so the registry is the whole truth about what can be
+built, and `deps.py` only reads the setting. A test asserts the settings
+`Literal` and `registry.names()` agree — drift there would surface as a 500 on
+a user's first run rather than at startup.
 
 ---
 

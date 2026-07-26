@@ -38,13 +38,18 @@ compute statistics themselves.
 > 8B model plans five steps, four run, and **GARCH is refused** because the
 > data has no ARCH effects to model.
 >
-> **Real market data is Phase 6, and it is being built now.** The Yahoo adapter
-> exists and is tested against the live service; it is not yet selectable, which
-> is the next task. `ECONOMETRICA_PRICE_SOURCE=synthetic` generates reproducible
-> random walks so the pipeline can be run and demonstrated with no network at
-> all; it is never the default, it is not going away, and every run built on it
-> carries a `synthetic_data` risk flag. Left unset, a run refuses with an
-> explanation rather than inventing data.
+> **Real market data works.** `ECONOMETRICA_PRICE_SOURCE=yahoo` fetches
+> dividend-adjusted daily closes through yfinance, cached on disk so a run, its
+> re-run and its exports share one fetch. The source and its adjustment policy
+> are named in every quality report, because Yahoo's split-adjusted and
+> dividend-adjusted closes for the same day can differ by 3% and reproducing a
+> number means knowing which one produced it. FRED, Ken French factors and file
+> uploads are the tasks in flight.
+>
+> `ECONOMETRICA_PRICE_SOURCE=synthetic` still generates reproducible random
+> walks so the pipeline runs with no network at all; it is never the default, it
+> is not going away, and every run built on it carries a `synthetic_data` risk
+> flag. Left unset, a run refuses with an explanation rather than inventing data.
 >
 > Every run records its own trace — a DAG of model calls and tool
 > invocations with tokens, latency and parent links, readable at
@@ -153,9 +158,10 @@ and model, and send a message.
 
 To run an *analysis* rather than a conversation, use the canvas in the middle
 pane: type a question, choose the model that should plan and narrate it, and
-press Run analysis. Start the backend with `ECONOMETRICA_PRICE_SOURCE=synthetic`
-first, or the run will refuse for want of data — see the note above about what
-that source is and is not.
+press Run analysis. A run needs a data source, or it refuses rather than
+inventing one — start the backend with `ECONOMETRICA_PRICE_SOURCE=yahoo` for
+real prices, or `=synthetic` to work offline on generated data that every
+report flags as such.
 
 Every chart type is also rendered over fixture data at
 <http://localhost:5173/gallery.html>, which is the quickest way to see them all

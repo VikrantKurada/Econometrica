@@ -16,7 +16,7 @@ ways a study of returns flatters itself, and neither shows up in a p-value.
 from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import date
-from typing import Literal, Protocol
+from typing import Literal, Protocol, runtime_checkable
 
 import pandas as pd
 from pydantic import BaseModel, Field
@@ -44,17 +44,34 @@ class DataUnavailableError(ValueError):
     """The requested data could not be assembled into a usable frame."""
 
 
+@runtime_checkable
 class PriceSource(Protocol):
     """Where price history comes from.
 
-    Injected rather than imported: Phase 6 owns the yfinance, Stooq, FRED and
-    Ken French adapters, and this agent's own behaviour — alignment, frequency,
-    returns, quality — needs no network to be tested.
+    Injected rather than imported: `data/registry.py` owns the adapters, and
+    this agent's own behaviour — alignment, frequency, returns, quality — needs
+    no network to be tested.
+
+    Runtime-checkable so the registry's own tests can assert that everything it
+    builds satisfies the protocol. That check is structural — it sees that
+    `label` and `prices` exist, not that their signatures match — which is
+    enough for its purpose and is what mypy covers properly.
     """
 
-    #: Names the adapter in the quality report. Which source produced a number
-    #: is part of reproducing it — yfinance and Stooq disagree about splits.
-    label: str
+    @property
+    def label(self) -> str:
+        """Names the adapter in the quality report.
+
+        Which source produced a number, and under which adjustment policy, is
+        part of reproducing it: Yahoo's split-adjusted and dividend-adjusted
+        closes for AAPL days before its 2020 split differ by 3.1%.
+
+        Read-only, so an implementation may satisfy it with a plain class
+        attribute — as most do — or delegate, as the cache wrapper does.
+        Declaring it settable would rule the second out for no gain; nothing
+        writes to it.
+        """
+        ...
 
     async def prices(self, ticker: str, *, start: date, end: date) -> pd.Series:
         """Price history for one ticker, indexed by date."""

@@ -1,21 +1,17 @@
 """Dependencies and lookup helpers shared by every router."""
 
 from collections.abc import Sequence
-from datetime import date
 from functools import lru_cache
-from typing import TYPE_CHECKING, Annotated, Any
+from typing import Annotated, Any
 from uuid import UUID
 
 from fastapi import Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm.interfaces import ORMOption
 
-from econometrica.agents.data_steward import DataUnavailableError, PriceSource
+from econometrica.agents.data_steward import PriceSource
 from econometrica.config import get_settings
-from econometrica.data.synthetic import SyntheticPriceSource
-
-if TYPE_CHECKING:
-    import pandas as pd
+from econometrica.data.registry import build_price_source
 from econometrica.db.models import Chat, Project
 from econometrica.db.session import get_session
 from econometrica.llm.registry import ProviderRegistry
@@ -49,30 +45,17 @@ ProviderRegistryDep = Annotated[ProviderRegistry, Depends(get_provider_registry)
 def get_price_source() -> PriceSource:
     """Where a run's market data comes from.
 
-    Phase 6 owns the yfinance, Stooq, FRED and Ken French adapters, and this
-    is the seam they will fill. Until then the default refuses with an
-    explanation rather than returning empty frames, and
-    ``ECONOMETRICA_PRICE_SOURCE=synthetic`` selects a generator so the
-    pipeline can be run end to end — a run built on it is flagged as
-    synthetic in its quality report.
+    `data/registry.py` knows every source and whether it is cached; this only
+    reads the setting. The cache lives under the storage directory because it
+    has to be somewhere a user can delete without consequence.
     """
-    if get_settings().price_source == "synthetic":
-        return SyntheticPriceSource()
-    return _UnconfiguredPriceSource()
+    settings = get_settings()
+    return build_price_source(
+        settings.price_source, cache_root=settings.storage_dir / "prices"
+    )
 
 
 PriceSourceDep = Annotated[PriceSource, Depends(get_price_source)]
-
-
-class _UnconfiguredPriceSource:
-    label = "none configured"
-
-    async def prices(self, ticker: str, *, start: date, end: date) -> "pd.Series":
-        raise DataUnavailableError(
-            f"no market data adapter is configured, so {ticker} cannot be"
-            " resolved. Data providers arrive in Phase 6; until then, supply"
-            " one by overriding the get_price_source dependency."
-        )
 
 
 def _not_found(entity: str, entity_id: UUID) -> HTTPException:

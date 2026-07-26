@@ -39,11 +39,13 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("ECONOMETRICA_LOG_LEVEL", "LOG_LEVEL"),
     )
 
-    #: Where a run's prices come from. "none" refuses, which is the honest
-    #: default until Phase 6 ships the real adapters; "synthetic" generates
-    #: reproducible random walks so the pipeline can be run and demonstrated.
-    #: Any run built on synthetic data is flagged as such in its quality report.
-    price_source: Literal["none", "synthetic"] = Field(
+    #: Where a run's prices come from. "none" refuses rather than inventing
+    #: data, which is why it is the default; "yahoo" fetches real
+    #: dividend-adjusted closes through yfinance; "synthetic" generates
+    #: reproducible random walks so the pipeline can be run with no network at
+    #: all, and any run built on it is flagged as such in its quality report.
+    #: The values must match `data.registry.names()` — a test asserts it.
+    price_source: Literal["none", "synthetic", "yahoo"] = Field(
         default="none",
         validation_alias=AliasChoices("ECONOMETRICA_PRICE_SOURCE", "PRICE_SOURCE"),
     )

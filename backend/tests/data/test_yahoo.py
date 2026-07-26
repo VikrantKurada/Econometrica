@@ -306,6 +306,40 @@ async def test_live_crypto_resolves_on_its_own_calendar():
 
 
 @pytest.mark.live
+async def test_live_a_real_fetch_produces_a_clean_quality_report(tmp_path):
+    """The adapter meeting the Data Steward, which is where an off-by-one in the
+    window would show up as a permanent `look_ahead` risk flag on every real
+    run — a risk flag that cried wolf would be worse than none."""
+    if not _yahoo_is_reachable():
+        pytest.skip("yahoo finance is not reachable")
+
+    from econometrica.agents.data_steward import DataSteward
+    from econometrica.agents.schemas import DatasetSpec
+    from econometrica.data.registry import build_price_source
+
+    steward = DataSteward(build_price_source("yahoo", cache_root=tmp_path))
+    dataset = await steward.resolve(
+        DatasetSpec(
+            tickers=["AAPL", "MSFT"],
+            start=date(2023, 1, 1),
+            end=date(2023, 12, 31),
+        )
+    )
+
+    report = dataset.report
+    assert report.source == YahooPriceSource().label
+    assert [flag.code for flag in report.flags] == []
+    assert report.rows > 200
+    assert report.fingerprint
+    assert (dataset.prices > 0).all().all()
+    # A year of daily log returns on two large caps: within ±25% a day, and not
+    # all zero. Loose on purpose — this is checking the pipeline wired up, not
+    # the market.
+    assert dataset.returns.abs().max().max() < 0.25
+    assert dataset.returns.std().min() > 0
+
+
+@pytest.mark.live
 async def test_live_an_unknown_ticker_is_refused():
     """The belief this proves — empty frame, no exception — is the one the
     parent plan got wrong."""
