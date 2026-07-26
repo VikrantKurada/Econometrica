@@ -5,6 +5,12 @@ import { defineConfig } from "vite";
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  define: {
+    // plotly.js ships CommonJS that reaches for Node's `global`, which a
+    // browser does not have — without this the charts throw on first import.
+    // esbuild substitutes the bare identifier only, never `something.global`.
+    global: "globalThis",
+  },
   server: {
     port: 5173,
     // The API is proxied so the browser only ever talks to one origin. Nothing

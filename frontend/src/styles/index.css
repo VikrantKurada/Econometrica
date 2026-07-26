@@ -32,6 +32,15 @@
   --color-text-secondary: var(--text-secondary);
 }
 
+/*
+ * The eight categorical series slots stay hex while everything around them is
+ * oklch: they are the exact steps the palette validator was run on against
+ * --surface-1 (#fafafa / #121416), and converting them would round the values
+ * the recorded colour-blindness separations were measured from. The dark set is
+ * *selected* for the dark surface, never a flip of the light one. Assign in
+ * order, never cycle, and never give a series --color-accent — that is
+ * selection state. See components/charts/palette.ts for the validator output.
+ */
 :root {
   --surface-0: oklch(1 0 0);
   --surface-1: oklch(0.985 0 0);
@@ -39,6 +48,15 @@
   --border: oklch(0.9 0 0);
   --text-primary: oklch(0.2 0 0);
   --text-secondary: oklch(0.5 0 0);
+
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+  --series-4: #eda100;
+  --series-5: #e87ba4;
+  --series-6: #008300;
+  --series-7: #4a3aa7;
+  --series-8: #e34948;
 }
 
 :root[data-theme="dark"] {
@@ -48,6 +66,34 @@
   --border: oklch(0.3 0.005 250);
   --text-primary: oklch(0.95 0 0);
   --text-secondary: oklch(0.68 0 0);
+
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --series-3: #199e70;
+  --series-4: #c98500;
+  --series-5: #d55181;
+  --series-6: #008300;
+  --series-7: #9085e9;
+  --series-8: #e66767;
+}
+
+/*
+ * index.html stamps data-theme before first paint, so inside the app this block
+ * never wins — the :not() guard is what keeps it that way. It exists for a
+ * chart rendered *outside* the shell, which is what an exported artifact is:
+ * standalone HTML with no stamp, which should still follow the reader's OS.
+ */
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"]):not([data-theme="dark"])) {
+    --series-1: #3987e5;
+    --series-2: #d95926;
+    --series-3: #199e70;
+    --series-4: #c98500;
+    --series-5: #d55181;
+    --series-6: #008300;
+    --series-7: #9085e9;
+    --series-8: #e66767;
+  }
 }
 
 @layer base {

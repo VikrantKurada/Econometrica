@@ -19,8 +19,8 @@ manifest that reproduces them.
 | 5.0 `acf` tool (prerequisite) | ✅ |
 | 5.1 chart spec union | ✅ |
 | 5.2 visualizer agent | ✅ |
-| 5.3 chart renderers | ⬜ next |
-| 5.4 artifact canvas | ⬜ |
+| 5.3 chart renderers | ✅ |
+| 5.4 artifact canvas | ⬜ next |
 | 5.5 exports | ⬜ |
 | 5.6 phase 5 e2e | ⬜ |
 
@@ -241,6 +241,41 @@ validator checks color, not layout. Screenshot each chart type in both modes
 and check for label collisions and overflow before calling it done.
 
 **Commit:** `feat(frontend): add themed chart renderers`
+
+**Landed.** The palette was re-validated against `#fafafa` / `#121416` before
+anything was written, and all four runs reproduce decision 2's numbers exactly
+(adjacent 9.1/19.6 light, 8.4/19.3 dark; all-pairs over the first three slots
+9.2/24.0 light, 9.4/20.9 dark). Those are `--surface-1`, so **the chart card is
+`bg-surface-1`** — on `surface-0` the recorded contrast would be a number about
+a surface the chart no longer sits on.
+
+Three things worth carrying forward:
+
+- **Looking at it caught four defects tests did not.** Two end labels
+  overlapping where the volatility series converge; bar values printed
+  `0.970` beside `1.04`; Plotly's modebar landing on the legend as a dark
+  slab; and the table view running to 260 rows and setting the card's height.
+  Each is now fixed, and the label collision has a rule and a test —
+  converging labels are dropped, because nudging them apart detaches them
+  from their lines. The legend and the table view carry identity instead.
+- **The renderer never fits anything.** A `scatter` with `fit: true` draws the
+  line from the result's own intercept and slope estimates, and draws no line
+  at all when the result carries none. A regression run in the browser would
+  be a statistic above the tool boundary with no manifest behind it. Sorting
+  for a QQ plot and binning a histogram are display transforms and stay.
+- **`reference: "t"`** on a QQ spec cannot be drawn — nothing on the wire
+  carries the degrees of freedom — so it renders the "could not be drawn"
+  notice rather than normal quantiles under a t label.
+
+The partial bundle is `plotly.js/lib/core` plus four traces (scatter, bar,
+heatmap, histogram), which is every one of the fourteen types; `stat_tile` and
+`table` are HTML and touch none of it. Plotly's CommonJS reaches for Node's
+`global`, so `vite.config.ts` defines it as `globalThis` — without it the
+charts throw on first import.
+
+`/gallery.html` is a dev-only harness rendering one card per type over
+fixtures. `vite build` only takes `index.html`, so it never ships. It is the
+fastest way to look at 5.4 and 5.5 too.
 
 ---
 

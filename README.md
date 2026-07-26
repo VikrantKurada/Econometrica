@@ -6,15 +6,18 @@ React/TypeScript frontend, backed by Postgres with TimescaleDB and pgvector. LLM
 agents select from a registry of typed, versioned econometric tools — they never
 compute statistics themselves.
 
-> **Status.** Phases 0–4 complete.
+> **Status.** Phases 0–4 complete; Phase 5 is four tasks in, through the chart
+> renderers.
 >
 > **Working today:** projects and chats; the full econometrics core (37 tools
 > across asset pricing, market efficiency, volatility, multivariate and event
 > study); five LLM providers (Ollama, Anthropic, OpenAI, Gemini, NVIDIA NIM);
-> a streaming chat pane you can hold a real conversation in; and the
+> a streaming chat pane you can hold a real conversation in; the
 > multi-agent pipeline behind `POST /api/chats/{id}/runs` — Planner, Data
 > Steward, Econometrician, Validator and Narrator, with executable tool
-> preconditions and a numeric grounding gate.
+> preconditions and a numeric grounding gate; and a renderer for each of the
+> fourteen chart types a result can imply, themed light and dark, each with a
+> table view of the same numbers.
 >
 > The end-to-end gate runs it against a live local model. In a typical pass an
 > 8B model plans five steps, four run, and **GARCH is refused** because the
@@ -31,9 +34,10 @@ compute statistics themselves.
 > `GET /api/runs/{id}`. Rejected attempts are steps in their own right,
 > because they were billed.
 >
-> **Not started:** interactive charts and the artifact canvas (Phase 5), and
+> **Not started:** the artifact canvas and exports (the rest of Phase 5), and
 > uploads, telemetry, MCP and exports (Phase 6). There is no frontend for runs
-> yet — the pipeline is reachable over the API only.
+> yet — the pipeline is reachable over the API only, so the charts are
+> currently visible in the dev gallery rather than in the app.
 >
 > Working notes for contributors — and for Claude — are in `CLAUDE.md`. The
 > design and phase plans are in `docs/plans/`.
@@ -131,6 +135,11 @@ cd frontend && npm run dev
 Then open <http://localhost:5173>. Create a project and a chat, pick a provider
 and model, and send a message.
 
+The charts have no home in the app until the canvas lands, so they live at
+<http://localhost:5173/gallery.html> — every chart type over generated data, in
+whichever theme is stamped. It is a dev harness only; `vite build` takes
+`index.html` alone, so it never ships.
+
 > **The two servers want different addresses, and it is not arbitrary.**
 >
 > Open the **app** at `localhost:5173`. Left at its default host, Vite binds
@@ -165,6 +174,8 @@ backend/          FastAPI app, econometric tool registry, LLM provider adapters
   tests/
 frontend/         React + TypeScript, three-pane workbench
   src/
+    components/charts/  One renderer per chart spec type, plus the palette
+  gallery.html    Dev-only: every chart type over fixture data
   e2e/            Playwright specs
 docs/plans/       Design and implementation plans
 infra/initdb/     SQL run once on first database startup

@@ -131,6 +131,68 @@ export interface ProviderStatus {
   models_available: number;
 }
 
+/* --- econometric results ------------------------------------------------- */
+/* Mirrors `backend/src/econometrica/econ/types.py`. Every number the UI shows
+   comes from one of these: a tool computed it, and the manifest reproduces it. */
+
+export interface Estimate {
+  name: string;
+  value: number;
+  std_error: number | null;
+  t_stat: number | null;
+  p_value: number | null;
+  ci_low: number | null;
+  ci_high: number | null;
+}
+
+export interface Diagnostic {
+  name: string;
+  statistic: number;
+  p_value: number | null;
+  critical_values: Record<string, number>;
+  /** Tri-state. `null` means the tool did not judge it, never that it failed. */
+  passed: boolean | null;
+  interpretation: string;
+}
+
+export interface Table {
+  columns: string[];
+  rows: unknown[][];
+}
+
+/**
+ * `x` is whatever the tool indexed on — dates as ISO strings, lags, horizons.
+ * The Python side types it `list[Any]`; over JSON it can only arrive as one of
+ * these, and narrowing it here is what lets a chart plot it without a cast.
+ */
+export interface Series {
+  name: string;
+  x: (string | number | null)[];
+  y: (number | null)[];
+}
+
+export interface Manifest {
+  data_fingerprint: string;
+  tool: string;
+  tool_version: string;
+  params_hash: string;
+  library_versions: Record<string, string>;
+  seed: number | null;
+  created_at: string;
+}
+
+export interface ResultSet {
+  tool: string;
+  version: string;
+  params: Record<string, unknown>;
+  estimates: Estimate[];
+  diagnostics: Diagnostic[];
+  scalars: Record<string, number>;
+  tables: Record<string, Table>;
+  series: Record<string, Series>;
+  manifest: Manifest;
+}
+
 export interface ModelCapabilities {
   tool_calling: boolean;
   json_mode: boolean;

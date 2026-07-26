@@ -38,25 +38,34 @@ Consequences that keep coming up:
 | 2 — econometrics core (37 tools, 5 families) | done, phase gate green, 97% coverage |
 | 3 — LLM providers + streaming chat | done, e2e gate green |
 | 4 — multi-agent orchestration | done, e2e gate green |
-| 5 — charts and artifact canvas | not started |
+| 5 — charts and artifact canvas | 5.0–5.3 done; 5.4 next |
 | 6 — telemetry, uploads, MCP, exports | not started |
 
-**876 backend tests, 65 frontend tests, 4 Playwright e2e.** ruff and
-`mypy --strict` clean on `src`. `alembic check` reports no drift.
+**876 backend tests, 206 frontend tests, 4 Playwright e2e** (one of them
+currently red — see below). ruff and `mypy --strict` clean on `src`.
+`alembic check` reports no drift.
 
 ### The immediate next task
 
-**Task 5.3 — the chart renderers.** The first frontend work in a while, and
-the first chart code: **load the `dataviz` skill before writing any of it.**
-One React component per `charts/spec.py` type (14 of them), one shared Plotly
-layout module, and a partial Plotly bundle — the full one is ~3 MB.
+**Task 5.4 — the artifact canvas.** Tabbed, with pinning, full-screen and
+re-run — and **this is where the run UI lands**: `POST /api/chats/{id}/runs`
+and `GET /api/runs/{id}` still have no caller in `frontend/src`, which is why
+the Phase 4 gate is API-level.
 
-The palette is already validated against this project's own surfaces; the
-numbers and the three rules that follow from them are in the Phase 5 plan's
-decision 2. Add the eight slots to `src/styles/index.css` as `--series-1…8`
-under *both* the `prefers-color-scheme` query and the `[data-theme]` scope,
-the way the existing tokens do. Then step 7 of the skill's procedure:
-**render it and look at it** — the validator checks colour, not layout.
+The renderers it composes are done: `components/charts/` has one component per
+spec type, `ChartCard` frames them with a table view, and `/gallery.html` is a
+dev-only page rendering all fourteen over fixtures — the fastest way to look at
+a change. Two things the canvas must surface, both computed today and both
+invisible: the **`synthetic_data` risk flag**, and **refusals and unjudged
+checks** (a refused GARCH step is a finding, not an absence).
+
+**The Phase 4 e2e gate is red on this machine, and was before Task 5.3** —
+verified by stashing. With `ministral-3:8b` the Validator refuses
+(`verdict=false`), so nothing is narrated and grounding has no issues to
+report — but `analysis.spec.ts:227` asserts the unpublished branch always
+carries grounding issues. The third path, "the validator refused so there was
+nothing to narrate", is not covered. It is a test-assumption gap rather than a
+product bug, and it needs a decision before Phase 5's gate is written.
 
 Two things Phase 5 inherits that are not in its task table:
 
@@ -72,6 +81,26 @@ Phase 4 is the interesting one: six agent roles, the deterministic
 `DiagnosticsEngine` (already built, `econ/diagnostics/`) feeding a Validator on
 a *different provider*, and the numeric grounding gate that blocks any number
 in narrator prose that is not in `ResultSet.all_numeric_values()`.
+
+### Charts
+
+- **Load the `dataviz` skill before touching chart code.** The palette, the
+  caps and the mark specs all come from it.
+- **The chart card is `bg-surface-1`** — `#fafafa` light, `#121416` dark. Those
+  are the surfaces the palette was validated against, so a card on
+  `surface-0` would make the recorded contrast a number about a different
+  screen. Re-run the validator if either token moves.
+- **`--series-1…8` are hex while every neighbouring token is oklch.** They are
+  the exact steps the validator was run on; converting them rounds the values
+  the colour-blindness separations were measured from. `palette.test.ts`
+  asserts the CSS and the TypeScript fallback agree.
+- **Nothing above the tool boundary fits anything.** A scatter's fit line is
+  drawn from the result's own intercept and slope estimates, or not at all.
+- **Plotly needs `global`.** Its CommonJS build reaches for the Node global, so
+  `vite.config.ts` defines it as `globalThis`; without that the charts throw on
+  first import. The bundle is `lib/core` plus four traces, not the ~3 MB whole.
+- **Vitest runs with `css: false`**, which stubs stylesheets *including*
+  `?raw` to `""`. A test that needs the stylesheet's text reads it off disk.
 
 ---
 
@@ -262,8 +291,8 @@ adding a `ProviderSpec` and a factory.
 Say what you want next; this file loads automatically. A good opener:
 
 > Continue Econometrica. Read CLAUDE.md and
-> `docs/plans/2026-07-25-econometrica-phase-5.md`, then do Task 5.3 (chart
-> renderers). Load the `dataviz` skill first.
+> `docs/plans/2026-07-25-econometrica-phase-5.md`, then do Task 5.4 (the
+> artifact canvas). It is also where the run UI lands.
 
 Task lists do **not** survive across sessions — this file and the plan document
 are the memory. Update the "Where things stand" table when a phase moves.
