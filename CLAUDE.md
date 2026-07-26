@@ -9,7 +9,8 @@ and `docs/plans/2026-07-24-econometrica-implementation.md` for the phase plan.**
 Phases 1–2 are specified there step by step; 3–6 at task level. Each phase gets
 its own step-level document when it is reached — Phase 4's is
 `docs/plans/2026-07-25-econometrica-phase-4.md`, Phase 5's is
-`docs/plans/2026-07-25-econometrica-phase-5.md`.
+`docs/plans/2026-07-25-econometrica-phase-5.md`, Phase 6's is
+`docs/plans/2026-07-27-econometrica-phase-6.md`.
 
 ---
 
@@ -39,51 +40,98 @@ Consequences that keep coming up:
 | 3 — LLM providers + streaming chat | done, e2e gate green |
 | 4 — multi-agent orchestration | done, e2e gate green |
 | 5 — charts and artifact canvas | done, e2e gate green |
-| 6 — telemetry, uploads, MCP, exports | not started |
+| 6 — real data, uploads, telemetry, MCP | in progress — 6.1 of 16 tasks |
 
-**918 backend tests, 249 frontend tests, 5 Playwright e2e.** ruff and
+**938 backend tests, 249 frontend tests, 5 Playwright e2e.** ruff and
 `mypy --strict` clean on `src`. `alembic check` reports no drift.
 
 ### The immediate next task
 
-**Phase 6.** Real market data (yfinance, Stooq, FRED, Ken French), uploads and
-column mapping, telemetry, MCP, and the remaining exports. `yfinance` and
-`pandas-datareader` are already dependencies; nothing imports them yet, and
-`data/synthetic.py` is the only `PriceSource` that exists.
+**Phase 6, Task 6.2** — the price-source registry and the on-disk cache. Read
+`docs/plans/2026-07-27-econometrica-phase-6.md`; it carries all sixteen tasks,
+six decisions, and the live-probe findings below.
 
-The obvious first move is a real adapter behind the same `PriceSource`
-protocol the Data Steward already takes, because everything above it —
-planning, gates, diagnostics, grounding, charts, exports — is finished and
-tested against the synthetic one.
+Task 6.1 landed: `data/yahoo.py` is the first real `PriceSource`. It is not yet
+reachable from the app — `get_price_source` still only knows `none` and
+`synthetic`, and 6.2 is what wires it.
 
 **Phase 5 is closed.** Re-run reproduces a result from its manifest, verified
 through the UI against a live model, which was the last open item in the parent
 plan's definition of done.
 
-Two things left deliberately undone, both needing a decision rather than work:
+### What the market-data probes found (2026-07-27)
 
-- **PDF exports.** Neither a chart nor a report can become one without a new
-  dependency — kaleido for charts, an HTML-to-PDF engine for reports. The
-  browser's print pipeline covers reports for free in the meantime.
+The parent plan's version floors are two years stale and **four of its five
+assumptions about market data are wrong**. All verified against the real
+services on this machine.
+
+- **Stooq is unreachable, and it is not a wiring problem.**
+  `pandas-datareader` resolved to **0.11.1**, which implements only
+  `bankofcanada`, `econdb`, `eurostat`, `famafrench`, `fred`, `oecd` —
+  `DataReader(..., "stooq")` raises `NotImplementedError`. And the CSV endpoint
+  it used to call now answers with a JavaScript **proof-of-work
+  browser-verification challenge**. Stooq is dropped from the project; an
+  adapter whose job includes defeating that is not something to ship. **FRED is
+  the independent cross-check instead** — no API key, a genuinely separate
+  pipeline, and it agreed with yfinance to the cent on `SP500`/`^GSPC`.
+- **`yfinance` is 1.5.2, not 0.2.x.** `auto_adjust=True` is the default and it
+  *removes* `Adj Close`; an unknown ticker returns an empty `(0, 6)` frame and
+  logs rather than raising; columns are a `MultiIndex` even for one ticker; and
+  **`end` is exclusive**, so passing the requested end through loses the last
+  trading day of every window.
+- **The adjustment policy is the thing that moves numbers**, not the vendor.
+  AAPL on 2020-08-25 closes at `124.82` split-adjusted and `121.08`
+  dividend-adjusted — 3.1% apart, same day, same source, and nothing in a
+  `ResultSet` distinguishes them. So a `PriceSource.label` names its policy,
+  and `DataQualityReport.source` carries it.
+- **Ken French values are percent** (`Mkt-RF` of `-0.70` means −0.70%) and its
+  index is `period[D]`. Forgetting the conversion rescales every loading by
+  100. FRED hands back a `datetime64[us]` index and one column named for the
+  series id.
+
+### Two gaps found reading the tree, both open
+
+- **`DatasetSpec.risk_free` is dead.** The field exists, `planner.py` shows it
+  to the model, and `DataSteward.resolve` iterates `spec.tickers` only — so a
+  Planner that sets it is silently ignored, the exact failure `PlanStep`'s
+  unknown-parameter check exists to prevent one layer up. Task 6.3.
+- **`ff3`, `ff5` and `carhart4` can never run.** They are in the catalogue
+  every Planner reads and their params default to `["mkt_rf","smb","hml"]`, but
+  nothing can supply a factor column, so `require_columns` raises and the step
+  lands `failed`. Three of thirty-seven tools are unreachable. Task 6.4.
+
+### Carried-over debts
+
 - **The grounding gate's false positives.** It reads the `3` in a `(s3)`
   citation as a claim about data. `_REFERENCE_WORDS` exempts "step 3" but not
   the `s3` style this project's own prompts encourage, so real narrations get
   withheld over their own citations. The gate itself is sound — it caught a
-  model writing `-15.066` where the computed statistic was `-15.065457`.
-
-Two things worth knowing before starting:
-
+  model writing `-15.066` where the computed statistic was `-15.065457`, so the
+  fix is narrow and **the tolerance does not move**. Task 6.5.
+- **PDF export.** Decided 2026-07-27: a **print stylesheet**, no new dependency
+  in either stack. kaleido is ruled out rather than deferred — the backend holds
+  no Plotly JSON, so it would mean reimplementing all fourteen TypeScript
+  renderers in Python to export a chart nobody looked at. Task 6.14.
 - **The Phase 4 e2e gate is model-dependent, not reliably green.**
   `analysis.spec.ts:227` asserts that an unpublished narration always carries
   grounding issues — but when the Validator refuses there is nothing to
   narrate and no issues to report. It fails on those runs and passes on
   others, and it was failing before Task 5.3 too (verified by stashing). The
-  third path is simply uncovered.
-- **`ECONOMETRICA_PRICE_SOURCE=synthetic`** makes the whole pipeline runnable
-  without market data (Phase 6 owns the real adapters), and it is genuinely
-  reproducible — the seed is a hash of the ticker, so re-running a manifest
-  gets the same series back. Any run using it carries a `synthetic_data` risk
-  flag, which the canvas shows as an alert no tab can hide.
+  third path is simply uncovered. Task 6.16 fixes it.
+
+### The synthetic source is permanent, not a placeholder
+
+**`ECONOMETRICA_PRICE_SOURCE=synthetic`** makes the whole pipeline runnable with
+no network at all, and it is genuinely reproducible — the seed is a hash of the
+ticker, so re-running a manifest gets the same series back. Any run using it
+carries a `synthetic_data` risk flag, which the canvas shows as an alert no tab
+can hide. The real adapters are an **addition**; this one must keep working and
+must keep carrying that flag.
+
+That flag fires on a substring match — `"synthetic" in source.lower()` in
+`DataSteward.resolve` — so **no real adapter's label may contain the word**, or
+it would tell every reader its market data was generated. There is a test per
+source.
 
 Phase 4 is the interesting one: six agent roles, the deterministic
 `DiagnosticsEngine` (already built, `econ/diagnostics/`) feeding a Validator on

@@ -19,7 +19,7 @@ allowlists that are off by default.
 
 | Task | State |
 |---|---|
-| 6.1 yfinance `PriceSource` | ⬜ |
+| 6.1 yfinance `PriceSource` | ✅ |
 | 6.2 source registry, disk cache, offline failures | ⬜ |
 | 6.3 FRED adapter and the dead `risk_free` field | ⬜ |
 | 6.4 Ken French factors — unlocking `ff3`/`ff5`/`carhart4` | ⬜ |
@@ -247,6 +247,32 @@ tz-naive `DatetimeIndex`, drop NaN rows.
   against the real service and not only against the fake.
 
 **Commit:** `feat(data): add yfinance price source`
+
+**Landed.** 20 tests, 15 against a fake downloader and 5 live; the whole file
+runs in 2.4s, so the live ones stay in the default suite rather than becoming a
+thing nobody runs. All five real assertions hold against Yahoo: `AAPL` and
+`BTC-USD` resolve, the window does not over-return, a junk ticker raises, and
+**the split case comes back adjusted** — `121.08`, not the `124.82` raw close,
+with a tolerance tight enough to exclude the wrong one by 3.7.
+
+Three things the implementation had to decide that the plan had not:
+
+- **`end` is exclusive**, confirmed by probe: asking for 2024-01-19 returns
+  data to the 18th. The adapter adds a day. Getting this wrong would have
+  shortened every window by one observation *and* changed every fingerprint,
+  which no test above the adapter could have attributed to its real cause.
+- **A missing `Adj Close` raises rather than falling back to `Close`.** A
+  fallback would make `label` a lie, and the probe showed Yahoo serves the
+  column for equities, indices, FX and crypto alike — so its absence is an
+  anomaly, not a case to paper over.
+- **yfinance is imported on first use, not at module scope.** It pulls in
+  curl_cffi and a certificate bundle; every test that injects a downloader
+  would otherwise pay for an import it never calls.
+
+`_flatten` does not trust `multi_level_index=False`. The flag is honoured on
+1.5.2, but the level's presence for a single ticker has moved between versions,
+and a `ticker` level whose value is a differently-cased symbol still has to
+flatten — so it tries the cross-section and drops the level if that fails.
 
 ---
 

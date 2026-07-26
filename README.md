@@ -6,7 +6,7 @@ React/TypeScript frontend, backed by Postgres with TimescaleDB and pgvector. LLM
 agents select from a registry of typed, versioned econometric tools — they never
 compute statistics themselves.
 
-> **Status.** Phases 0–5 complete.
+> **Status.** Phases 0–5 complete; Phase 6 in progress.
 >
 > **Working today:** projects and chats; the full econometrics core (37 tools
 > across asset pricing, market efficiency, volatility, multivariate and event
@@ -30,26 +30,30 @@ compute statistics themselves.
 > run as JSON, Markdown, CSV, XLSX or a ZIP of all of them, and every one
 > carries the manifest that reproduces it — the data fingerprint, the tool
 > versions, and the source the prices came from. Charts export to PNG and SVG
-> from the browser, so the image is the one on screen. PDF is not built: it
-> needs a dependency this project has not taken.
+> from the browser, so the image is the one on screen. PDF is not built yet —
+> it will come from the browser's own print pipeline rather than from a new
+> dependency in either stack.
 >
 > The end-to-end gate runs it against a live local model. In a typical pass an
 > 8B model plans five steps, four run, and **GARCH is refused** because the
 > data has no ARCH effects to model.
 >
-> **Real market data is Phase 6.** Until those adapters land,
-> `ECONOMETRICA_PRICE_SOURCE=synthetic` generates reproducible random walks so
-> the pipeline can be run and demonstrated; it is never the default, and every
-> run built on it carries a `synthetic_data` risk flag. Left unset, a run
-> refuses with an explanation rather than inventing data.
+> **Real market data is Phase 6, and it is being built now.** The Yahoo adapter
+> exists and is tested against the live service; it is not yet selectable, which
+> is the next task. `ECONOMETRICA_PRICE_SOURCE=synthetic` generates reproducible
+> random walks so the pipeline can be run and demonstrated with no network at
+> all; it is never the default, it is not going away, and every run built on it
+> carries a `synthetic_data` risk flag. Left unset, a run refuses with an
+> explanation rather than inventing data.
 >
 > Every run records its own trace — a DAG of model calls and tool
 > invocations with tokens, latency and parent links, readable at
 > `GET /api/runs/{id}`. Rejected attempts are steps in their own right,
 > because they were billed.
 >
-> **Not started:** Phase 6 — real market data adapters, uploads, telemetry and
-> MCP.
+> **In progress:** Phase 6 — real market data adapters, file uploads with
+> confirmed column mapping, telemetry and a trace viewer, and an MCP client
+> behind a tool allowlist.
 >
 > Working notes for contributors — and for Claude — are in `CLAUDE.md`. The
 > design and phase plans are in `docs/plans/`.
