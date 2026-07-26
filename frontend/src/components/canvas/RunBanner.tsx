@@ -1,8 +1,9 @@
-import { AlertTriangle, RefreshCw } from "lucide-react";
+import { AlertTriangle, Download, RefreshCw } from "lucide-react";
 import { useState } from "react";
 
 import type { RerunReport, RunDetail } from "../../lib/types";
 import { riskFlags } from "./artifacts";
+import { ExportMenu } from "./ExportMenu";
 
 const STATUS_LABEL: Record<string, string> = {
   running: "Running",
@@ -30,6 +31,7 @@ export function RunBanner({
   const [report, setReport] = useState<RerunReport | null>(null);
   const [rerunning, setRerunning] = useState(false);
   const [failure, setFailure] = useState("");
+  const [exporting, setExporting] = useState(false);
 
   const flags = riskFlags(run.outcome);
 
@@ -59,18 +61,36 @@ export function RunBanner({
           </p>
         </div>
 
-        {onRerun && (
+        <div className="flex shrink-0 items-center gap-1">
           <button
             type="button"
-            onClick={() => void rerun()}
-            disabled={rerunning}
-            className="flex shrink-0 items-center gap-1.5 rounded border border-border px-2 py-1 text-2xs text-text-secondary hover:text-text-primary disabled:opacity-60"
+            aria-expanded={exporting}
+            onClick={() => setExporting((open) => !open)}
+            className="flex items-center gap-1.5 rounded border border-border px-2 py-1 text-2xs text-text-secondary hover:text-text-primary"
           >
-            <RefreshCw aria-hidden className={`size-3 ${rerunning ? "animate-spin" : ""}`} />
-            Re-run
+            <Download aria-hidden className="size-3" />
+            Export
           </button>
-        )}
+
+          {onRerun && (
+            <button
+              type="button"
+              onClick={() => void rerun()}
+              disabled={rerunning}
+              className="flex items-center gap-1.5 rounded border border-border px-2 py-1 text-2xs text-text-secondary hover:text-text-primary disabled:opacity-60"
+            >
+              <RefreshCw aria-hidden className={`size-3 ${rerunning ? "animate-spin" : ""}`} />
+              Re-run
+            </button>
+          )}
+        </div>
       </div>
+
+      {exporting && (
+        <div className="rounded-md border border-border bg-surface-1 py-1">
+          <ExportMenu runId={run.id} />
+        </div>
+      )}
 
       {flags.length > 0 && (
         <div

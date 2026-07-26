@@ -1,10 +1,11 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import * as Tabs from "@radix-ui/react-tabs";
-import { Maximize2, Pin, PinOff, X } from "lucide-react";
+import { Download, Maximize2, Pin, PinOff, X } from "lucide-react";
 import { useState } from "react";
 
 import type { RerunReport, RunDetail } from "../../lib/types";
 import { ChartCard } from "../charts/ChartCard";
+import { downloadChartImage, graphIn } from "../charts/exportImage";
 import { ChartHeight } from "../charts/height";
 import { chartArtifacts, type ChartArtifact } from "./artifacts";
 import { Diagnostics } from "./Diagnostics";
@@ -42,6 +43,17 @@ export function ArtifactCanvas({
     setPinned((current) =>
       current.includes(id) ? current.filter((pin) => pin !== id) : [...current, id],
     );
+
+  const saveImage = async (
+    artifact: ChartArtifact,
+    format: "png" | "svg",
+  ): Promise<void> => {
+    // Scoped to this artifact's own panel: a pinned copy of another chart is
+    // on screen too, and exporting the wrong one would be silent.
+    const panel = document.getElementById(`panel-${artifact.id}`);
+    const graph = graphIn(panel);
+    if (graph) await downloadChartImage(graph, artifact.spec.title, format);
+  };
 
   const pinnedArtifacts = artifacts.filter((artifact) => pinned.includes(artifact.id));
 
@@ -97,7 +109,12 @@ export function ArtifactCanvas({
           )}
 
           {artifacts.map((artifact) => (
-            <Tabs.Content key={artifact.id} value={artifact.id} className="space-y-2">
+            <Tabs.Content
+              key={artifact.id}
+              value={artifact.id}
+              id={`panel-${artifact.id}`}
+              className="space-y-2"
+            >
               <div className="flex justify-end gap-1">
                 <ArtifactAction
                   label={`${pinned.includes(artifact.id) ? "Unpin" : "Pin"} ${artifact.spec.title}`}
@@ -117,6 +134,18 @@ export function ArtifactCanvas({
                   <Maximize2 aria-hidden className="size-3" />
                   Full screen
                 </ArtifactAction>
+                {/* Images come from the graph the reader is looking at, so
+                    the export carries their theme and any zoom they set. */}
+                {(["png", "svg"] as const).map((format) => (
+                  <ArtifactAction
+                    key={format}
+                    label={`Download ${artifact.spec.title} as ${format.toUpperCase()}`}
+                    onClick={() => void saveImage(artifact, format)}
+                  >
+                    <Download aria-hidden className="size-3" />
+                    {format.toUpperCase()}
+                  </ArtifactAction>
+                ))}
               </div>
               {/* Pinned above already; drawing it twice would mean two Plotly
                   graphs for one artifact, and two places to look. */}
