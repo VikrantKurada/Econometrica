@@ -185,7 +185,9 @@ export function RunPanel({ chatId, projectId }: { chatId: string; projectId: str
           />
         ) : (
           <p className="px-3 py-8 text-center text-2xs text-text-secondary">
-            {runs.isPending ? "" : "No analysis has been run in this chat yet."}
+            {runs.isPending
+              ? ""
+              : "No analysis has been run in this chat yet. Ask a question above and press Run analysis — the charts, findings and trace land here."}
           </p>
         )}
       </div>

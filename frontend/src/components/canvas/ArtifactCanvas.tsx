@@ -7,12 +7,14 @@ import type { RerunReport, RunDetail } from "../../lib/types";
 import { ChartCard } from "../charts/ChartCard";
 import { ChartHeight } from "../charts/height";
 import { chartArtifacts, type ChartArtifact } from "./artifacts";
+import { Diagnostics } from "./Diagnostics";
 import { Findings } from "./Findings";
 import { Narrative } from "./Narrative";
 import { RunBanner } from "./RunBanner";
 import { TraceTable } from "./TraceTable";
 
 const NARRATIVE = "narrative";
+const DIAGNOSTICS = "diagnostics";
 const TRACE = "trace";
 
 /**
@@ -81,14 +83,16 @@ export function ArtifactCanvas({
             </TabTrigger>
           ))}
           <TabTrigger value={NARRATIVE}>Narrative</TabTrigger>
+          <TabTrigger value={DIAGNOSTICS}>Diagnostics</TabTrigger>
           <TabTrigger value={TRACE}>Trace</TabTrigger>
         </Tabs.List>
 
         <div className="scroll-thin min-h-0 flex-1 overflow-auto pt-3">
           {artifacts.length === 0 && (
             <p className="px-1 py-6 text-center text-2xs text-text-secondary">
-              This run produced no charts. Its results are in the trace, and any refusal above
-              says why nothing could be drawn.
+              This run produced no charts. A hypothesis test has nothing to draw — its finding
+              is a statistic and a p-value, both under Diagnostics — and any refusal above says
+              why a step produced nothing at all.
             </p>
           )}
 
@@ -124,6 +128,9 @@ export function ArtifactCanvas({
 
           <Tabs.Content value={NARRATIVE}>
             <Narrative outcome={run.outcome} />
+          </Tabs.Content>
+          <Tabs.Content value={DIAGNOSTICS}>
+            <Diagnostics outcome={run.outcome} />
           </Tabs.Content>
           <Tabs.Content value={TRACE}>
             <TraceTable steps={run.steps} />

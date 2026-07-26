@@ -11,7 +11,7 @@ from econometrica.charts.propose import propose_charts
 from econometrica.charts.spec import unresolved_references
 from econometrica.econ import load_tools
 from econometrica.econ.registry import get_registry
-from econometrica.econ.types import Manifest, ResultSet, Series
+from econometrica.econ.types import Diagnostic, Manifest, ResultSet, Series
 from econometrica.llm.fake import FakeProvider
 
 load_tools()
@@ -72,31 +72,50 @@ def test_a_var_result_proposes_an_impulse_response_grid():
 # --- the invariant that matters ---------------------------------------------
 
 
-@pytest.mark.parametrize(
-    ("tool", "params"),
-    [
-        ("garch", {"column": "r"}),
-        ("acf", {"column": "r", "nlags": 8}),
-        ("drawdown", {"column": "p"}),
-        ("realized_vol", {"column": "r"}),
-        ("ewma_vol", {"column": "r"}),
-        ("variance_ratio", {"column": "p", "transform": "log"}),
-        ("hurst", {"column": "r"}),
-        ("adf", {"column": "p", "transform": "log"}),
-        ("ljung_box", {"column": "r"}),
-        ("historical_var", {"column": "r"}),
-    ],
-)
+#: Tools whose results carry something a chart type can bind to.
+DRAWABLE = [
+    ("garch", {"column": "r"}),
+    ("acf", {"column": "r", "nlags": 8}),
+    ("drawdown", {"column": "p"}),
+    ("realized_vol", {"column": "r"}),
+    ("ewma_vol", {"column": "r"}),
+    ("variance_ratio", {"column": "p", "transform": "log"}),
+    ("hurst", {"column": "r"}),
+    ("ljung_box", {"column": "r"}),
+    ("historical_var", {"column": "r"}),
+]
+
+#: A pure hypothesis test reports a statistic and a p-value, and both live in
+#: `diagnostics` — which no member of the chart union binds to. It proposes
+#: nothing on purpose; the canvas renders diagnostics directly. Its scalars are
+#: the sample size and the lag order, and tiles of those would be a canvas
+#: leading with the least interesting numbers in the result.
+NOT_DRAWABLE = [("adf", {"column": "p", "transform": "log"})]
+
+
+@pytest.mark.parametrize(("tool", "params"), DRAWABLE + NOT_DRAWABLE)
 def test_every_proposed_chart_binds_to_the_result_it_came_from(tool, params):
     """A chart of data that does not exist is an ungrounded number with a line
     drawn through it."""
     result = run_tool(tool, returns(), **params)
 
-    charts = propose_charts(result)
-
-    assert charts, f"{tool} produced nothing chartable"
-    for chart in charts:
+    for chart in propose_charts(result):
         assert unresolved_references(chart, result) == [], f"{tool} / {chart.type}"
+
+
+@pytest.mark.parametrize(("tool", "params"), DRAWABLE)
+def test_a_tool_that_can_be_drawn_is_drawn(tool, params):
+    """The guard against a tool quietly falling out of every rule."""
+    assert propose_charts(run_tool(tool, returns(), **params)), f"{tool} proposed nothing"
+
+
+@pytest.mark.parametrize(("tool", "params"), NOT_DRAWABLE)
+def test_a_hypothesis_test_proposes_nothing_rather_than_bookkeeping(tool, params):
+    result = run_tool(tool, returns(), **params)
+
+    assert propose_charts(result) == []
+    # Not because the result is empty — because what it found is a diagnostic.
+    assert result.diagnostics
 
 
 def test_multivariate_results_bind_too():
@@ -217,3 +236,37 @@ async def test_the_offered_charts_reach_the_model():
     prompt = "\n".join(message.content for message in provider.calls[0].messages)
     assert "Is volatility persistent?" in prompt
     assert "[panels]" in prompt
+
+
+def test_bookkeeping_scalars_do_not_become_stat_tiles():
+    """An `adf` result's finding is its statistic and p-value, and both live in
+    `diagnostics`. Its *scalars* are the observation count and the lag order —
+    facts about the fit, not answers to anyone's question. Leading a canvas
+    with "Nobs: 5,080" makes the analysis look like it missed the point.
+    """
+    adf_shaped = ResultSet(
+        tool="adf",
+        version="1.0.0",
+        params={},
+        scalars={"nobs": 482.0, "lags_used": 17.0},
+        diagnostics=[
+            Diagnostic(name="adf", statistic=-0.726, p_value=0.84, passed=False)
+        ],
+        manifest=Manifest(data_fingerprint="x", tool="adf", tool_version="1.0.0"),
+    )
+
+    assert propose_charts(adf_shaped) == []
+
+
+def test_an_informative_scalar_beside_a_bookkeeping_one_still_gets_a_tile():
+    mixed = ResultSet(
+        tool="whatever",
+        version="1.0.0",
+        params={},
+        scalars={"nobs": 500.0, "sharpe_ratio": 0.84},
+        manifest=Manifest(data_fingerprint="x", tool="t", tool_version="1.0.0"),
+    )
+
+    charts = propose_charts(mixed)
+
+    assert [chart.scalar for chart in charts] == ["sharpe_ratio"]

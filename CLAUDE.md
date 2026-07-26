@@ -81,6 +81,19 @@ in narrator prose that is not in `ResultSet.all_numeric_values()`.
 
 ### Runs and the canvas
 
+- **The chat pane and the canvas are different things, and users conflate
+  them.** A chat message streams tokens from a model and calls no tools, so it
+  can never produce a chart; runs start from the canvas composer. The chat's
+  empty state used to say "ask for an analysis and the results build up in the
+  canvas", which is what a first user did, getting prose and no charts. If the
+  two are ever unified, unify them deliberately — `runs.py` explains why the
+  endpoints are separate.
+- **Diagnostics have no chart type and are rendered directly.** A pure
+  hypothesis test's finding is a statistic and a p-value in `diagnostics`,
+  which binds to nothing in the chart union, so `propose_charts` returns
+  nothing for `adf` and the canvas's Diagnostics tab shows it instead. The
+  fallback used to emit stat tiles from whatever scalars existed, which for
+  `adf` meant a canvas led by "Nobs: 5,080.0000" — see `_BOOKKEEPING`.
 - **A run's artifacts live in `runs.outcome`**, a JSONB column holding the
   whole serialised `RunOutcome`. `RunDetail` returns it; `RunRead` does not,
   and must not — a result's series are in there, so listing runs would drag

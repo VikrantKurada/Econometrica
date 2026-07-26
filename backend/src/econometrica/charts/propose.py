@@ -238,17 +238,46 @@ def _residual_diagnostics(result: ResultSet) -> list[Any]:
     ]
 
 
+#: Scalars that describe the fit rather than answer the question. Nearly every
+#: tool reports its sample size and its lag order, and a canvas whose first
+#: artifact is "Nobs: 5,080" looks like an analysis that missed the point. The
+#: numbers these results are *about* — a test statistic, a p-value — live in
+#: `diagnostics`, which no chart type can bind to; the canvas renders those
+#: directly rather than through a spec.
+_BOOKKEEPING = frozenset(
+    {
+        "nobs",
+        "n",
+        "n_obs",
+        "num_obs",
+        "observations",
+        "lags",
+        "lags_used",
+        "n_windows",
+        "df",
+        "dof",
+        "degrees_of_freedom",
+    }
+)
+
+
 def _fallback(result: ResultSet) -> list[Any]:
-    """Something readable for a result nothing above could draw."""
+    """Something readable for a result nothing above could draw.
+
+    Returning nothing is a legitimate answer. A step whose only numbers are
+    bookkeeping is not misrepresented by having no chart: its diagnostics and
+    its trace still say what it did, and inventing a tile for the sample size
+    would bury the steps that did produce a finding.
+    """
     if result.tables:
         name = next(iter(result.tables))
         return [TableChart(title=name.replace("_", " ").capitalize(), table=name)]
-    if result.scalars:
-        return [
-            StatTileChart(title=name.replace("_", " ").capitalize(), scalar=name)
-            for name in list(result.scalars)[:4]
-        ]
-    return []
+
+    informative = [name for name in result.scalars if name.lower() not in _BOOKKEEPING]
+    return [
+        StatTileChart(title=name.replace("_", " ").capitalize(), scalar=name)
+        for name in informative[:4]
+    ]
 
 
 _RULES: tuple[Callable[[ResultSet], list[Any]], ...] = (

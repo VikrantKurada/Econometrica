@@ -28,7 +28,7 @@ export function ChatPane({ children, actions, fill = false }: ChatPaneProps) {
           <EmptyState
             icon={MessagesSquare}
             title="Start a conversation"
-            hint="Select a chat on the left, then ask for an analysis."
+            hint="Select a chat on the left. Analyses are run from the canvas, not from here."
           />
         )}
       </div>

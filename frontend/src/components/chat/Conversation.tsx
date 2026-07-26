@@ -92,9 +92,15 @@ export function Conversation({ chatId }: ConversationProps) {
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="scroll-thin min-h-0 flex-1 overflow-y-auto" data-testid="transcript">
+        {/* This used to promise that asking here filled the canvas. It does
+            not: a chat message goes to the model and back, calling no tools,
+            so a question asked here gets prose and no charts. Runs start from
+            the canvas's own composer. */}
         {history.length === 0 && !pendingUser && (
           <p className="px-4 py-6 text-sm text-text-secondary">
-            Ask for an analysis and the results build up in the canvas.
+            A conversation with the model — it answers from what it knows and computes nothing.
+            To run an analysis over real series, with tools and charts, ask in the canvas
+            instead.
           </p>
         )}
 
