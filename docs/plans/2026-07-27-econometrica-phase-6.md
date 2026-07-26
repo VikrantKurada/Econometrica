@@ -1,0 +1,672 @@
+# Phase 6: Platform — step-level plan
+
+> **For Claude:** the parent plan is
+> `docs/plans/2026-07-24-econometrica-implementation.md` (Phase 6 table); the
+> design rationale is `docs/plans/2026-07-24-econometrica-design.md` §3 (market
+> data), §8 (telemetry) and §9 (files, web search, MCP). Phase 4's and Phase 5's
+> step-level plans are the format precedent.
+
+**Goal:** the workbench stops depending on generated data. Real prices, real
+factors and real uploads flow through the pipeline everything above the
+`PriceSource` protocol was already tested against; every run becomes
+inspectable in a trace viewer with its cost and latency; and the two
+integration surfaces the design promises — MCP and retrieval — arrive behind
+allowlists that are off by default.
+
+---
+
+## Progress
+
+| Task | State |
+|---|---|
+| 6.1 yfinance `PriceSource` | ⬜ |
+| 6.2 source registry, disk cache, offline failures | ⬜ |
+| 6.3 FRED adapter and the dead `risk_free` field | ⬜ |
+| 6.4 Ken French factors — unlocking `ff3`/`ff5`/`carhart4` | ⬜ |
+| 6.5 grounding gate: the `(s3)` false positive | ⬜ |
+| 6.6 upload profiling and schema inference | ⬜ |
+| 6.7 column-role mapping the user confirms | ⬜ |
+| 6.8 dataset store — hypertable plus retained blob | ⬜ |
+| 6.9 telemetry — spans to Postgres, OTLP, metrics | ⬜ |
+| 6.10 trace viewer and cost dashboard | ⬜ |
+| 6.11 MCP client with an allowlist | ⬜ |
+| 6.12 project-scoped retrieval over pgvector | ⬜ |
+| 6.13 web search, off by default, attributed | ⬜ |
+| 6.14 PDF export — print stylesheet, no new dependency | ⬜ |
+| 6.15 sandboxed code escape hatch | ⬜ |
+| 6.16 Phase 6 e2e — full regression | ⬜ |
+
+---
+
+## What Phase 6 inherits
+
+Verified in the tree at `7083692`. The seam is already cut and already tested:
+
+| Already true | Consequence for this phase |
+|---|---|
+| `PriceSource` is a `Protocol` in `agents/data_steward.py` with a `label` and one `async prices(ticker, *, start, end) -> pd.Series` | a real adapter is a new class, not a refactor |
+| `DataQualityReport.source` exists and is populated from `PriceSource.label` | attribution needs no schema change |
+| `api/deps.py:get_price_source` is the single selection point, overridable in tests | one function changes, ~918 tests keep passing |
+| `_UnconfiguredPriceSource` refuses with prose rather than returning empty frames | the "no adapter" path is already honest |
+| Anything whose label contains `synthetic` gets a `risk` flag the canvas cannot tab away | the honesty seam is built; real sources must not accidentally trip it |
+| `Dataset.frame` concatenates levels with `_return`-suffixed returns | a factor column arriving from a *non-price* source has to decide which half it belongs to — see decision 4 |
+
+Two gaps found while reading, both real and both closed by this phase:
+
+- **`DatasetSpec.risk_free` is dead.** The field exists, `agents/planner.py`
+  shows it to the model in the example JSON, and `DataSteward.resolve` iterates
+  `spec.tickers` only. A Planner that sets it gets it silently dropped — the
+  exact failure `PlanStep`'s unknown-parameter check exists to prevent, one
+  layer up. Task 6.3.
+- **`ff3`, `ff5` and `carhart4` can never run.** They are in the catalogue every
+  Planner reads and their params default to `["mkt_rf","smb","hml"]`, but no
+  source can produce a factor column, so `require_columns` raises and the step
+  lands as `failed`. Three of thirty-seven tools are unreachable through the
+  pipeline. Task 6.4.
+
+---
+
+## What the machine actually does — live probes, 2026-07-27
+
+Run before writing this plan, against the real services, because the parent
+plan's version floors are two years stale. **Four of its five assumptions about
+market data are wrong.**
+
+| The parent plan assumes | What actually happens |
+|---|---|
+| `yfinance>=0.2.50` | resolves to **1.5.2**. `auto_adjust=True` is the default and there is *no* `Adj Close` column unless you pass `auto_adjust=False` |
+| a bad ticker raises | `yf.download("NOTATICKERXYZ", …)` returns an **empty DataFrame**, shape `(0, 6)`, and logs `possibly delisted` to stderr. Nothing raises |
+| columns are flat | columns are a `MultiIndex(names=["Price","Ticker"])` even for one ticker, unless `multi_level_index=False` |
+| **Stooq via `pandas-datareader`** | `pandas-datareader` resolved to **0.11.1**, which implements only `bankofcanada`, `econdb`, `eurostat`, `famafrench`, `fred`, `oecd`. `DataReader(..., "stooq")` raises `NotImplementedError`. And the CSV endpoint it used to call is gone: `stooq.com/q/d/l/?s=aapl.us&i=d` now returns a JavaScript **proof-of-work browser-verification challenge**, 796 bytes of SHA-256 grinding against a `/__verify` POST |
+| FRED and Ken French need keys | both work with **no API key**. FRED gives a `datetime64[us]` index and one column named for the series id. Ken French returns `{0: frame, "DESCR": str}` with a **`period[D]` index** and values **in percent** |
+
+Confirmed working, with real numbers: `AAPL` 2024-01-02 close `183.562195`;
+`BTC-USD` 2024-01-02 close `44957.96875`; FRED `SP500` and yfinance `^GSPC`
+agree to the cent on 2024-01-02 (`4742.83`); Ken French daily `Mkt-RF` for
+2024-01-02 is `-0.70` **percent**, and its `DESCR` says the file was built from
+the `202605` CRSP database.
+
+### Stooq is out, and it is not a wiring problem
+
+Reaching Stooq now requires solving a bot-detection challenge. **This plan will
+not build that**, and it should not be built later either: an adapter whose job
+includes defeating a site's browser verification is a maintenance liability
+pointed at a moving target, and it is not a thing this project should ship.
+Stooq is removed from the phase.
+
+That costs the parent plan's stated reason for `DataQualityReport.source` —
+"yfinance and Stooq disagree about splits". **The reason survives; the example
+was the weak part.** The probe found a sharper one inside a single vendor: for
+`AAPL` on 2020-08-25, days before the 4-for-1 split,
+
+```
+Close      124.824997      <- split-adjusted only
+Adj Close  121.076965      <- split- and dividend-adjusted
+```
+
+a **3.1% gap on the same day from the same source**. A beta estimated on one is
+not the beta estimated on the other, and nothing in a `ResultSet` distinguishes
+them. So `label` must name the **adjustment policy**, not just the vendor
+(decision 2), and the second-source cross-check becomes FRED — a genuinely
+different pipeline for index levels and macro series, which Task 6.3 tests
+against yfinance on `SP500`/`^GSPC`.
+
+---
+
+## Six decisions this plan settles
+
+### 1. The adapter is sync in a thread, not a rewrite
+
+`yfinance` is synchronous and reaches the network through `curl_cffi`; there is
+no async entry point. `PriceSource.prices` is `async`. The adapter therefore
+calls `asyncio.to_thread`, which is the whole of the impedance match. Doing
+anything cleverer — reimplementing the Yahoo endpoint over `httpx` to stay
+async-native, as `llm/providers/` does — would mean owning an undocumented,
+changing wire format for no measured gain in a single-user local app whose
+fetches are cached.
+
+Consequence worth stating: `yf.download` writes progress and failure notices to
+stdout/stderr through its own logger. The adapter silences it and converts the
+empty-frame case into `DataUnavailableError`, because the Data Steward's
+contract is that a named ticker either resolves or raises with the ticker named.
+
+### 2. `label` names the adjustment policy, and the policy is a fixed choice
+
+`label` is read into `DataQualityReport.source`, which is what a reader uses to
+reproduce a number. Given the 3.1% gap above, `"yfinance"` is not enough
+information to reproduce anything. The label is
+`yfinance (Yahoo, split- and dividend-adjusted close)`.
+
+And the policy is **not** a `DatasetSpec` field. Total-return prices are the
+right input for every tool in the pricing family — a CAPM beta on price-return
+data is measuring the wrong thing — so exposing the choice would only let a
+Planner pick wrongly. One policy, named in the label, changeable in one place.
+
+### 3. The cache is content-addressed parquet on disk, not a hypertable
+
+The design puts price series in Timescale, and Task 6.8 builds that hypertable
+for *datasets*. The fetch cache is a different object and stays separate:
+
+- a cache entry's identity is `(source, symbol, window, adjustment, policy
+  version)` and its only correctness criterion is "the same bytes come back";
+- a dataset's identity is a user-facing id with a name, a retained blob and
+  confirmed column roles;
+- merging them makes cache eviction a data-loss risk, and `storage/` is
+  gitignored and already the home of `keys.enc`, so a cache under it can be
+  deleted without consequence.
+
+`pyarrow` 25 is already a dependency. Cache misses on a *sub-window* of a
+cached window are served from the cache, because a study of 2020–2023 and a
+study of 2021–2022 should not be two fetches.
+
+### 4. Factors are not prices, so they enter through their own frame
+
+`Dataset.frame` is levels plus `_return`-suffixed returns, and a Ken French
+factor is neither: `Mkt-RF` is already a return, and differencing it would be
+wrong. `DatasetSpec` gains a `factors: list[str]` naming a factor set, and the
+Data Steward joins the resolved factor columns onto `Dataset.frame`
+**unsuffixed and undifferenced**, aligned on the same calendar. A test asserts
+`to_returns` is never applied to a factor column — that is the one mistake in
+this area that produces plausible, wrong numbers rather than a crash.
+
+Percent-to-decimal conversion happens in the adapter, at the boundary, with a
+test pinning `-0.70` → `-0.0070`. It is the single most common Ken French error
+and it silently rescales every loading by 100.
+
+### 5. Uploads are profiled deterministically; only the *role guess* is a model
+
+Task 6.6 (dtype inference, date parsing, cardinality, missingness, candidate
+role scoring) is arithmetic and gets no model — same reasoning as the Data
+Steward and `charts/propose.py`. Task 6.7 asks a model only to *rank* candidate
+mappings the profiler already found admissible, and **the user confirms before
+ingest**, as §9 requires. A model may not invent a column, invent a role, or
+map a column the profiler rejected as that role.
+
+### 6. The `synthetic` label check is a substring match, so real labels must not contain it
+
+`DataSteward.resolve` raises the `risk` flag when `"synthetic" in source.lower()`.
+That is fine as long as no real adapter's label contains the word. A test in
+Task 6.2 asserts it of every registered source, so the honesty seam cannot be
+broken by a future label.
+
+---
+
+## Sequencing rationale
+
+Data first, in dependency order (6.1 → 6.4), because everything above the
+protocol is finished and the phase's other work is far more pleasant to build
+and demonstrate against real numbers. The grounding fix (6.5) comes next
+because real data means real runs, and a gate that withholds narrations over
+their own citations makes every subsequent manual verification harder to read.
+Uploads (6.6 → 6.8) follow as the second data intake path, sharing the
+hypertable. Telemetry (6.9, 6.10) then makes the whole thing inspectable.
+Integrations (6.11 → 6.13) are independent of each other and of everything
+before them. PDF (6.14) is one task or none, depending on the decision below.
+The sandbox (6.15) is last, as the design mandates, and gets its own
+step-level treatment when reached — it is the only task in the project whose
+tests are adversarial.
+
+---
+
+## Task 6.1: The yfinance `PriceSource`
+
+**Files:** create `backend/src/econometrica/data/yahoo.py`; test
+`backend/tests/data/test_yahoo.py`
+
+One class, `YahooPriceSource`, implementing the protocol. `asyncio.to_thread`
+around `yf.download(..., auto_adjust=False, progress=False, multi_level_index=False)`
+— `auto_adjust=False` because we want `Adj Close` explicitly (decision 2) and
+the default hides it. Flatten, name the series for the ticker, coerce to a
+tz-naive `DatetimeIndex`, drop NaN rows.
+
+**Tests must cover** (fake `yf.download` via monkeypatch for the unit tests):
+
+- A normal fetch returns a `pd.Series` named for the ticker with a
+  `DatetimeIndex`, and picks `Adj Close`, not `Close` — asserted with a frame
+  where the two differ, so a swap cannot pass.
+- An empty frame raises `DataUnavailableError` naming the ticker.
+- A frame with a `MultiIndex` column header is handled, because
+  `multi_level_index=False` is a request, not a guarantee across versions.
+- A tz-aware index is converted to tz-naive; the Data Steward compares against
+  `pd.Timestamp(spec.start)`, which is naive, and a naive-vs-aware comparison
+  raises.
+- `label` contains `yfinance` and the adjustment policy, and does **not**
+  contain `synthetic`.
+- `end <= start` raises before any network call.
+- Nothing yfinance prints reaches stdout.
+
+**Live tests** (`@pytest.mark.live`, skipping when Yahoo is unreachable):
+
+- `AAPL` over a known window returns ≥ 5 rows of positive finite prices.
+- The **2020-08-25 split case**: `Close` and `Adj Close` differ by ~3%, and the
+  adapter returns the adjusted one. This is the test that makes decision 2
+  mechanical rather than a comment.
+- `BTC-USD` resolves — the Phase 4 gate question is about Bitcoin, and crypto
+  has a 7-day calendar the equity path must not assume away.
+- A junk ticker raises `DataUnavailableError`, proving the empty-frame belief
+  against the real service and not only against the fake.
+
+**Commit:** `feat(data): add yfinance price source`
+
+---
+
+## Task 6.2: Source registry, cache, and offline failures
+
+**Files:** create `data/cache.py`, `data/registry.py`; modify `config.py`,
+`api/deps.py`; tests `tests/data/test_cache.py`, `tests/data/test_registry.py`
+
+`ECONOMETRICA_PRICE_SOURCE` becomes `Literal["none","synthetic","yahoo"]`.
+`data/registry.py` maps the name to a factory, mirroring `llm/registry.py`'s
+one-place-knows-every-provider shape, and `get_price_source` reads it.
+
+`CachingPriceSource` wraps any source: parquet under
+`storage_dir / "prices" / <source>/<symbol>/<hash>.parquet`, sub-window hits
+served from a superset entry, and the wrapper's `label` is the wrapped
+source's, so caching is invisible to the quality report.
+
+**Tests must cover:**
+
+- A second identical fetch does not call through — a counting fake proves it.
+- A sub-window of a cached window is served from cache; a *superset* is not.
+- A corrupt cache file is ignored and refetched rather than raising: a cache
+  that can break the app is worse than no cache.
+- Cache keys separate sources, so `yahoo:AAPL` and a future source's `AAPL`
+  cannot collide.
+- **Offline behaviour:** a wrapped source raising a transport error still
+  serves a cached window, and raises `DataUnavailableError` with a message
+  naming the offline source when there is nothing cached.
+- `ECONOMETRICA_PRICE_SOURCE=yahoo` yields a caching Yahoo source from
+  `get_price_source`; an unknown value fails at settings validation, not at
+  the first run.
+- **Decision 6:** every source the registry can build has a label that does
+  not contain `synthetic`, except the synthetic one, which must.
+
+**Commit:** `feat(data): add price source registry with an on-disk cache`
+
+---
+
+## Task 6.3: FRED, and the dead `risk_free` field
+
+**Files:** create `data/fred.py`; modify `agents/data_steward.py`; tests
+`tests/data/test_fred.py`, extend `tests/agents/test_data_steward.py`
+
+`FredSeriesSource` over `pandas_datareader.data.DataReader(..., "fred")` in a
+thread, same shape as 6.1. It resolves *series*, not prices — `DGS3MO` is a
+rate in percent per annum, `SP500` is an index level — so the adapter carries
+the same percent-to-decimal care as 6.4 and a `kind` on each known series.
+
+Then close the `risk_free` gap: `DataSteward.resolve` resolves
+`spec.risk_free` when set, converts an annualised rate to the frame's
+frequency, and joins it as a column the factor and CAPM tools can bind to.
+A rate is not a price and must not be differenced (decision 4).
+
+**Tests must cover:**
+
+- A FRED fetch returns a named series with a `DatetimeIndex` (the reader hands
+  back `datetime64[us]` and an index named `DATE`).
+- `DGS3MO`'s `5.46` becomes `0.0546` annualised, and the daily de-annualised
+  value used in a frame is the compounding-consistent one, pinned by a test —
+  `5.46/100/252` and `(1.0546)**(1/252)-1` differ in the fourth digit and both
+  appear in published work; the plan picks the compounding form and says so.
+- **`spec.risk_free` reaches the frame.** Currently it does not: a test that
+  sets it and asserts a risk-free column exists must fail first, red, before
+  the wiring is written.
+- A risk-free column is never differenced.
+- `risk_free` naming an unresolvable series raises with the series named.
+- **Live:** FRED `SP500` and yfinance `^GSPC` agree within a tolerance on a
+  fixed window — two independent pipelines for one series, which is what the
+  attribution field is *for*.
+
+**Commit:** `feat(data): add fred series source and wire the risk-free rate`
+
+---
+
+## Task 6.4: Ken French factors
+
+**Files:** create `data/famafrench.py`; modify `agents/schemas.py`,
+`agents/data_steward.py`, `agents/planner.py`; tests
+`tests/data/test_famafrench.py`, extend the steward and planner tests
+
+`FamaFrenchFactorSource` over `pandas_datareader.famafrench.FamaFrenchReader`.
+It must handle three things the probe exposed: the result is
+`{0: frame, "DESCR": str}`; the index is `period[D]`, not a `DatetimeIndex`;
+and **the values are percent**. It maps the library's `Mkt-RF`/`SMB`/`HML`
+headers to the tools' `mkt_rf`/`smb`/`hml` parameter defaults, so a plan naming
+`ff3` with default params works without the model knowing either spelling.
+
+`DatasetSpec` gains `factors: str | None` naming a set (`ff3`, `ff5`,
+`carhart4`), and the steward joins the columns per decision 4.
+
+**Tests must cover:**
+
+- `-0.70` becomes `-0.0070`. Pinned, standalone, with the comment explaining
+  why it is the error worth its own test.
+- `period[D]` becomes a `DatetimeIndex`, and a monthly dataset gets period-end
+  labels consistent with `_RESAMPLE_RULE`.
+- Column names arrive as the tools' parameter defaults.
+- `RF` is available as a risk-free column, so a factor study needs no FRED call.
+- A factor column is never passed through `to_returns` — the decision-4 test.
+- **`ff3` runs end to end.** A `DatasetSpec` with `factors="ff3"` through the
+  Econometrician produces a `ran` step with a beta and an alpha. This must fail
+  first with the current `require_columns` error, which is the proof the gap
+  was real.
+- **Live:** the daily and monthly factor files both load and the daily
+  `Mkt-RF` for 2024-01-02 is `-0.0070` after conversion.
+
+**Commit:** `feat(data): add ken french factor source and unlock the factor models`
+
+---
+
+## Task 6.5: The grounding gate's `(s3)` false positive
+
+**Files:** modify `agents/grounding.py`; extend `tests/agents/test_grounding.py`
+
+Carried from Phase 4. The gate reads the `3` in a `(s3)` step citation as a
+claim about data and withholds the narration — over a citation format this
+project's own prompts ask for. `_REFERENCE_WORDS` exempts `step 3` but not
+`s3`.
+
+**The fix is narrow and the tolerance does not move.** The gate is sound: it
+caught a model writing `-15.066` where the statistic was `-15.065457`, and that
+is the whole reason it exists.
+
+**Tests must cover:**
+
+- `(s3)` and `(s1, s3)` are exempt; the existing `step 3` exemption still is.
+- `s3` where it is *not* a citation — bare, mid-sentence, not parenthesised —
+  stays a claim, so the exemption is the citation form, not the letter.
+- The `-15.066` case still fails. Non-negotiable, and it goes in the same test
+  file next to the fix so nobody widens the tolerance to make a future case
+  pass.
+- A narration citing three steps and quoting three correct statistics
+  publishes — the case that motivated the fix.
+
+**Commit:** `fix(agents): exempt step citations from the numeric grounding gate`
+
+---
+
+## Task 6.6: Upload profiling and schema inference
+
+**Files:** create `services/ingest.py`; test `tests/services/test_ingest.py`
+
+CSV, XLSX and Parquet in, a `FileProfile` out: per column a dtype, a parsed-date
+verdict, cardinality, missingness, min/max, a sample, and **scored candidate
+roles** (`date`, `ticker`, `price`, `return`, `volume`, `factor`, `ignore`).
+Deterministic (decision 5). `pandas`, `openpyxl` and `pyarrow` are already
+dependencies; nothing new is needed.
+
+**Tests must cover:** wide and long layouts; a date column that is text; a
+European decimal comma; a return column detected by being centred near zero
+and bounded, versus a price column that is positive and trending; an ambiguous
+column offered as two candidates rather than guessed; an empty file, a
+one-column file and a file whose header is on row 3 all failing with a message
+naming the problem; and an oversized file refused before it is read into memory.
+
+**Commit:** `feat(services): add upload profiling with candidate column roles`
+
+---
+
+## Task 6.7: Column-role mapping the user confirms
+
+**Files:** create `agents/column_mapper.py`, `api/routers/uploads.py`,
+`frontend/src/components/uploads/*`; tests alongside
+
+The model ranks the profiler's admissible mappings and explains its choice;
+the API returns the proposal, the user edits and confirms, and **only the
+confirmed mapping is ingested**. A model may not invent a column, invent a
+role, or assign a role the profiler scored as inadmissible — a test proves each
+refusal.
+
+**Tests must cover:** a proposal validating against the profile; a proposal
+naming a column that does not exist being rejected and retried with the error
+(the `agents/base.py` loop); ingest refused without a confirmation token;
+the frontend rendering the proposal with every column editable and the
+confirm button disabled until a date column and at least one value column are
+mapped; and a profile with an unambiguous mapping needing **no model call**,
+so the common case is free.
+
+**Commit:** `feat(agents): add confirmed column-role mapping for uploads`
+
+---
+
+## Task 6.8: Dataset store — hypertable plus retained blob
+
+**Files:** create `db/models/dataset.py`, an Alembic revision, and
+`data/uploaded.py`; tests `tests/db/test_dataset_model.py`,
+`tests/data/test_uploaded.py`
+
+`datasets` (id, project, name, source label, column roles, blob path,
+fingerprint) and `observations` as a **Timescale hypertable** on `(dataset_id,
+ts, symbol)` — the first hypertable in the project, so the migration is
+hand-checked, and `alembic check` sees neither hypertable conversion nor a
+CHECK added to an existing table (CLAUDE.md's database note). The original file
+is retained under `storage_dir`, per §9.
+
+`UploadedPriceSource` then exposes an ingested dataset through the *same*
+`PriceSource` protocol, so an uploaded series and a fetched one are
+interchangeable above the seam, and its label names the file and its ingest
+time.
+
+**Tests must cover:** the hypertable exists and is chunked (queried from
+Timescale's catalogue, against the real database); round-tripping a long-format
+dataset; a duplicate `(dataset, ts, symbol)` rejected; deleting a dataset
+cascading its observations and leaving the blob; the blob's bytes matching what
+was uploaded; and every constraint reaching a migration, extending
+`tests/db/test_migrations.py`.
+
+**Commit:** `feat(db): add dataset store with a timescale observations hypertable`
+
+---
+
+## Task 6.9: Telemetry — spans to Postgres, OTLP, metrics
+
+**Files:** create `telemetry/__init__.py`, `telemetry/spans.py`,
+`telemetry/exporter.py`, `api/routers/metrics.py`; modify `main.py`; tests
+under `tests/telemetry/`
+
+`opentelemetry-sdk` 1.44 is already installed and unused. A custom
+`SpanExporter` writes to Postgres; OTLP export is optional and off unless
+`OTEL_EXPORTER_OTLP_ENDPOINT` is set. The metrics the design names: latency
+p50/p95/p99, token spend by provider and role, tool error rates, validator
+rejection rate, plan revision counts, and database timings.
+
+`services/tracing.py` already records the agent DAG with tokens, cost and
+latency per step. **Telemetry must not duplicate it.** The run DAG is the
+domain record and stays; spans cover what it does not — HTTP handlers, database
+timings, tool execution, provider calls at transport level.
+
+**Tests must cover:** a span reaching Postgres with its trace and parent ids
+intact; nesting preserved across an `await`; the exporter's failure never
+breaking the request it was measuring (a test injects one); no OTLP attempt
+when the endpoint is unset; percentiles computed against a known distribution;
+and no token or cost double-counting between spans and `run_steps`.
+
+**Commit:** `feat(telemetry): add opentelemetry spans persisted to postgres`
+
+---
+
+## Task 6.10: Trace viewer and cost dashboard
+
+**Files:** `frontend/src/components/telemetry/*`, extend
+`api/routers/runs.py`; tests alongside
+
+The design's Trace artifact: the run DAG rendered in the canvas so any turn can
+be opened to see which model decided what. Plus a cost and latency dashboard
+over the 6.9 metrics.
+
+The canvas already has a Trace tab from Task 5.4 showing steps as a list. This
+replaces it with the DAG, and the dashboard is a new canvas tab.
+
+**Tests must cover:** a DAG rendering parent links as edges, not just order; a
+step expanding to its prompt and response; provider and model per step; refused
+and failed steps visually distinct from ran ones; cost totals matching the
+sum of the steps; and — per Phase 5's lesson — **screenshot it in both themes
+and look at it** before calling it done.
+
+**Commit:** `feat(frontend): add run trace viewer and cost dashboard`
+
+---
+
+## Task 6.11: MCP client with an allowlist
+
+**Files:** create `mcp/client.py`, `mcp/allowlist.py`; modify
+`db/models/project.py`; tests under `tests/mcp/`
+
+The `mcp` package is **not** currently a dependency and will need adding.
+Discovered tools pass an explicit per-project allowlist before any agent may
+call them; MCP is off by default and inherits/overrides per chat through the
+existing `resolve_capabilities`.
+
+**Tests must cover:** the parent plan's named criterion — **an unlisted tool
+cannot be invoked**, asserted against a server offering one; discovery listing
+tools without exposing them; a server that disappears mid-session failing the
+step rather than the run; allowlist changes taking effect without a restart;
+and every MCP tool call appearing in the trace with its arguments, because a
+tool call nobody can audit is worse than no tool call.
+
+**Commit:** `feat(mcp): add mcp client with a per-project tool allowlist`
+
+---
+
+## Task 6.12: Project-scoped retrieval over pgvector
+
+**Files:** create `services/rag.py`, `db/models/document.py`, a migration;
+tests under `tests/services/`
+
+PDF and text chunked into pgvector, retrieval **scoped to the project** — the
+scoping is the security property and gets its own test. Embeddings come from a
+provider already in `llm/registry.py`; no new vendor.
+
+**Tests must cover:** chunking with overlap preserving sentence boundaries;
+a query never returning another project's chunks; retrieval attributed in the
+trace; an unembeddable document failing at upload with a reason; and — the
+invariant this project cannot break — **retrieved text never becoming a
+number**. A narration citing a statistic that came from a document rather than
+a `ResultSet` must still be blocked by the grounding gate.
+
+**Commit:** `feat(services): add project-scoped document retrieval`
+
+---
+
+## Task 6.13: Web search, off by default, attributed
+
+**Files:** create `tools/web_search.py`; tests alongside
+
+Provider-agnostic behind one interface, off by default, every result
+attributed in the trace with its URL and retrieval time.
+
+**Tests must cover:** disabled by default at project and chat level; a search
+result reaching the trace with its source; **search text never grounding a
+number** (same gate as 6.12); and a search provider being down degrading the
+run rather than failing it.
+
+**Commit:** `feat(tools): add attributed web search behind a capability toggle`
+
+---
+
+## Task 6.14: PDF export — a print stylesheet, no new dependency
+
+**Files:** `frontend/src/styles/print.css`, modify the canvas and export menu;
+tests alongside
+
+**Decided 2026-07-27: the zero-dependency route.** The browser's own pipeline
+produces the report PDF, and the charts on the page print with it. Neither
+stack gains a dependency, and §10's PDF line closes.
+
+The two routes not taken, recorded so they are not relitigated. `jspdf` +
+`svg2pdf.js` over `Plotly.toImage(..., "svg")` would give a true per-chart
+**Download PDF** button for two npm packages — the upgrade path if one is ever
+wanted. **kaleido is ruled out**, not deferred: the backend holds no Plotly
+JSON, so it would mean reimplementing all fourteen TypeScript renderers in
+Python in order to export a chart nobody had looked at.
+
+**Tests must cover:** a print stylesheet that lays out one chart per page
+without clipping; the manifest present in the printed output, because an
+exported artifact that cannot be traced back is what this project exists not to
+produce; canvas chrome, tab strips and buttons suppressed; and both themes
+printing legibly on white — a dark-theme chart printed dark is ten pages of
+toner. Screenshot the print preview and look at it, per Phase 5's lesson.
+
+**Commit:** `feat(exports): add pdf output for reports and charts`
+
+---
+
+## Task 6.15: Sandboxed code escape hatch
+
+**Files:** create `sandbox/runner.py`, `agents/quant_coder.py`; tests under
+`tests/sandbox/`
+
+Built last, as §2 and the parent plan both require. Subprocess isolation, no
+network, no filesystem, an import allowlist, and CPU/memory/wall-clock caps.
+Off by default, project-scoped only (`resolve_capabilities` already refuses to
+let a chat override it), Validator sign-off mandatory, and outputs marked in
+the UI as an unvalidated method.
+
+**Every restriction gets an escape attempt as its test** — the parent plan is
+explicit and it is the right standard. Windows is the awkward part: `resource`
+limits are POSIX-only, so caps come from Job Objects or a watchdog, and this
+task gets its own short design note before implementation rather than
+discovering that mid-task.
+
+**Commit:** `feat(sandbox): add isolated subprocess runner for generated code`
+
+---
+
+## Task 6.16: Phase 6 e2e — full regression
+
+**Files:** `frontend/e2e/platform.spec.ts`, and fixes to
+`frontend/e2e/analysis.spec.ts`
+
+A regression across all six phases on **real data**: create a project, upload a
+CSV and confirm its column mapping, run an analysis on a real ticker, read the
+charts, open the trace DAG, check the cost dashboard, export the archive, and
+re-run from the manifest.
+
+This is also where the flaky Phase 4 assertion gets fixed.
+`analysis.spec.ts:227` asserts an unpublished narration always carries
+grounding issues, but when the Validator refuses there is nothing to narrate
+and no issues to report — a third path the spec does not model. It passes or
+fails on the model's mood, which makes the whole gate unreadable. The fix is to
+assert the *reason* a narration was withheld is one of the three real reasons,
+and annotate which happened, following `canvas.spec.ts`'s
+chart-or-no-chart precedent.
+
+**Commit:** `test(e2e): close phase 6 with a full-stack regression`
+
+---
+
+## Phase 6 definition of done
+
+- `uv run pytest`, `npx vitest run`, `npx tsc --noEmit`, `npm run test:e2e`
+  green; `ruff` and `mypy src` clean; `alembic check` reports no drift.
+- A run on a **real ticker** produces charts, publishes a narration, and
+  re-runs from its manifest.
+- `ff3` runs end to end on real Ken French factors.
+- An uploaded CSV is profiled, mapped with the user's confirmation, and
+  analysed through the same protocol as a fetched ticker.
+- The trace viewer renders a run's DAG and the dashboard totals match the steps.
+- An MCP tool outside the allowlist cannot be invoked, proven by a test.
+- Every sandbox restriction has an escape attempt that fails.
+- `ECONOMETRICA_PRICE_SOURCE=synthetic` **still works and still carries its
+  `synthetic_data` risk flag** — real adapters are an addition, never a
+  replacement, because the synthetic source is what makes the pipeline
+  runnable with no network at all.
+
+---
+
+## Decisions taken 2026-07-27
+
+Both were the two open dependency questions this phase had to settle before the
+tasks they gate. Recorded here so the reasoning survives the session.
+
+1. **PDF export is a print stylesheet** (Task 6.14). No new dependency in
+   either stack. kaleido is ruled out rather than deferred, for the reason
+   given in that task.
+2. **Stooq is dropped; FRED is the independent cross-check.** Stooq's endpoint
+   is behind a browser-verification challenge, and an adapter that defeats one
+   is not something this project should ship. A keyed vendor — Tiingo, Alpha
+   Vantage — was considered and rejected: it breaks the design's "free, no API
+   keys required to start" and puts a signup between a clone and a first run.
+   FRED needs no key, is a genuinely separate pipeline, and already agrees with
+   yfinance to the cent on `SP500`/`^GSPC`, which is what makes it a usable
+   cross-check rather than a second guess.
