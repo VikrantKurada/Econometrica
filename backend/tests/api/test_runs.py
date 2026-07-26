@@ -25,6 +25,15 @@ PLAN = {
     "dataset": {"tickers": ["AAA"], "start": "2020-01-01", "end": "2020-06-30"},
     "steps": [{"id": "s1", "tool": "adf", "params": {"column": "AAA"}}],
 }
+#: A plan whose tool emits a series, so the run has something to chart. `adf`
+#: above returns scalars and diagnostics only.
+VOL_PLAN = {
+    **PLAN,
+    "steps": [
+        {"id": "s1", "tool": "realized_vol", "params": {"column": "AAA_return", "window": 20}}
+    ],
+}
+
 APPROVED = json.dumps({"approved": True, "reasons": ["the diagnostics agree"]})
 NARRATIVE = json.dumps({"prose": "The series wanders.", "citations": ["s1"]})
 
@@ -64,6 +73,17 @@ class ScriptedRegistry:
 @pytest_asyncio.fixture
 async def scripted():
     registry = ScriptedRegistry()
+    app.dependency_overrides[get_provider_registry] = lambda: registry
+    app.dependency_overrides[get_price_source] = lambda: FakeSource()
+    yield registry
+    app.dependency_overrides.pop(get_provider_registry, None)
+    app.dependency_overrides.pop(get_price_source, None)
+
+
+@pytest_asyncio.fixture
+async def charting():
+    """Like `scripted`, but the plan produces a result a chart can be drawn from."""
+    registry = ScriptedRegistry([json.dumps(VOL_PLAN), NARRATIVE])
     app.dependency_overrides[get_provider_registry] = lambda: registry
     app.dependency_overrides[get_price_source] = lambda: FakeSource()
     yield registry
@@ -270,3 +290,124 @@ async def test_every_model_role_must_be_assigned(client, scripted, missing):
 
     assert response.status_code == 503
     assert missing in response.json()["detail"].lower()
+
+
+# --- the artifacts a canvas reads ------------------------------------------
+
+
+async def start_charted_run(client) -> tuple[str, str]:
+    """A finished run whose one step produced a chartable result."""
+    chat_id = await make_chat(client)
+    await client.post(f"/api/chats/{chat_id}/runs", json={"question": QUESTION})
+    run_id = (await client.get(f"/api/chats/{chat_id}/runs")).json()[0]["id"]
+    return chat_id, run_id
+
+
+async def test_reading_a_run_returns_what_it_produced(client, charting):
+    """Not just the step DAG: the plan, the results and the charts.
+
+    Until this landed a run was only readable while its SSE stream was open,
+    so a reload left the canvas with a trace and nothing to draw.
+    """
+    _, run_id = await start_charted_run(client)
+
+    run = (await client.get(f"/api/runs/{run_id}")).json()
+
+    assert run["outcome"]["plan"]["steps"][0]["tool"] == "realized_vol"
+    assert run["outcome"]["execution"]["outcomes"][0]["result"]["tool"] == "realized_vol"
+    assert run["outcome"]["charts"], "the canvas needs something to draw"
+    assert run["outcome"]["charts"][0]["step_id"] == "s1"
+
+
+async def test_the_data_quality_flags_survive_the_round_trip(client, charting):
+    # The synthetic_data flag is the one a canvas must never lose: rendering
+    # generated prices as though they were market data is the failure the Data
+    # Steward exists to prevent.
+    _, run_id = await start_charted_run(client)
+
+    run = (await client.get(f"/api/runs/{run_id}")).json()
+
+    assert "flags" in run["outcome"]["quality"]
+
+
+async def test_listing_runs_does_not_carry_every_series(client, charting):
+    # A run's series are tens to hundreds of KB. A list of runs that dragged
+    # them along would make the sidebar the most expensive request in the app.
+    chat_id, _ = await start_charted_run(client)
+
+    listed = (await client.get(f"/api/chats/{chat_id}/runs")).json()
+
+    assert "outcome" not in listed[0]
+
+
+# --- re-running from the manifest ------------------------------------------
+
+
+class ShiftedSource:
+    """The same shape of data, different numbers — a different fingerprint."""
+
+    async def prices(self, ticker: str, *, start: date, end: date) -> pd.Series:
+        index = pd.date_range("2020-01-01", periods=182, freq="D")
+        rng = np.random.default_rng(11)
+        return pd.Series(100.0 + np.cumsum(rng.normal(size=182)), index=index)
+
+
+async def test_rerunning_a_run_reproduces_its_results(client, charting):
+    """The last open item in the parent plan's definition of done.
+
+    A manifest that cannot be re-run is a promise the project does not keep.
+    """
+    _, run_id = await start_charted_run(client)
+
+    report = (await client.post(f"/api/runs/{run_id}/rerun")).json()
+
+    assert report["reproduced"] is True
+    assert [step["step_id"] for step in report["steps"]] == ["s1"]
+    step = report["steps"][0]
+    assert step["data_fingerprint"] == step["original_data_fingerprint"]
+    assert step["params_hash"] == step["original_params_hash"]
+
+
+async def test_a_rerun_asks_no_model_anything(client, charting):
+    # Reproduction re-executes the recorded plan; it does not re-plan. If it
+    # called a model the script would run dry and the provider would raise, so
+    # this asserts the count as well as the outcome.
+    _, run_id = await start_charted_run(client)
+    spent = len(charting.provider.calls)
+
+    response = await client.post(f"/api/runs/{run_id}/rerun")
+
+    assert response.status_code == 200
+    assert len(charting.provider.calls) == spent
+
+
+async def test_data_that_changed_underneath_is_reported_not_hidden(client, charting):
+    # The failure mode worth catching: a source that quietly revises history.
+    # Saying "reproduced" here would make the manifest worthless.
+    _, run_id = await start_charted_run(client)
+    app.dependency_overrides[get_price_source] = lambda: ShiftedSource()
+
+    report = (await client.post(f"/api/runs/{run_id}/rerun")).json()
+
+    assert report["reproduced"] is False
+    step = report["steps"][0]
+    assert step["data_fingerprint"] != step["original_data_fingerprint"]
+    assert "fingerprint" in step["detail"]
+
+
+async def test_a_run_that_never_planned_cannot_be_rerun(client, scripted):
+    # A run that died before planning has no manifest to re-run, and saying so
+    # is better than returning an empty report that looks like agreement.
+    chat_id = await make_chat(client)
+    scripted.provider.responses = ["not json at all", "still not json"]
+    await client.post(f"/api/chats/{chat_id}/runs", json={"question": QUESTION})
+    run_id = (await client.get(f"/api/chats/{chat_id}/runs")).json()[0]["id"]
+
+    response = await client.post(f"/api/runs/{run_id}/rerun")
+
+    assert response.status_code == 409
+    assert "no plan" in response.json()["detail"]
+
+
+async def test_rerunning_an_unknown_run_is_a_404(client, scripted):
+    assert (await client.post(f"/api/runs/{uuid4()}/rerun")).status_code == 404

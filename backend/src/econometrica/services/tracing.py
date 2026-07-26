@@ -32,6 +32,10 @@ async def record_run(
         tier=tier,
         revisions=outcome.revisions,
         error=outcome.error,
+        # The trace below says what the run did; this says what it produced.
+        # `mode="json"` because the column is JSONB: dates and UUIDs have to be
+        # strings by the time psycopg sees them.
+        outcome=outcome.model_dump(mode="json"),
     )
     session.add(run)
     # The run needs an id before its steps can reference it, and the steps

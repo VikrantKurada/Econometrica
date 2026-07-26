@@ -10,6 +10,9 @@ import type {
   ProjectCreate,
   ProjectUpdate,
   ProviderStatus,
+  RerunReport,
+  Run,
+  RunDetail,
 } from "./types";
 
 /**
@@ -150,6 +153,19 @@ export const api = {
   /** The transcript, already ordered by the server's sequence key. */
   listMessages: (chatId: string): Promise<Message[]> =>
     request<Message[]>(`/chats/${chatId}/messages`),
+
+  /** Most recent first, and without the outcome — see `RunDetail` for why. */
+  listRuns: (chatId: string): Promise<Run[]> => request<Run[]>(`/chats/${chatId}/runs`),
+
+  /** One run with its steps and everything it produced. */
+  getRun: (runId: string): Promise<RunDetail> => request<RunDetail>(`/runs/${runId}`),
+
+  /**
+   * Re-execute a recorded plan and ask whether it still produces the same
+   * numbers. No model is consulted, so this is about the data and the tools.
+   */
+  rerunRun: (runId: string): Promise<RerunReport> =>
+    request<RerunReport>(`/runs/${runId}/rerun`, { method: "POST" }),
 
   listProviders: (): Promise<ProviderStatus[]> => request<ProviderStatus[]>("/providers"),
 

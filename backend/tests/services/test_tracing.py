@@ -156,3 +156,39 @@ async def test_deleting_a_chat_takes_its_runs_with_it(session):
 
     assert (await session.scalars(select(Run))).all() == []
     assert (await session.scalars(select(Step))).all() == []
+
+
+async def test_the_whole_outcome_is_stored_alongside_the_trace(session):
+    """The trace says what happened; the outcome says what it produced.
+
+    Without this a run is only readable while its SSE stream is open: reopening
+    it later would show the step DAG and nothing to draw, so the canvas would
+    have to keep every artifact in browser memory and lose it on reload.
+    """
+    chat = await make_chat(session)
+
+    run = await record_run(
+        session,
+        chat_id=chat.id,
+        tier="critic",
+        outcome=outcome(warnings=["synthetic prices"]),
+    )
+    await session.commit()
+    session.expunge_all()
+
+    stored = await session.get(Run, run.id)
+    assert stored.outcome["status"] == "completed"
+    assert stored.outcome["question"] == "Does BTC follow a random walk?"
+    assert stored.outcome["warnings"] == ["synthetic prices"]
+
+
+async def test_a_run_with_nothing_to_store_still_reads_back(session):
+    # NOT NULL with a default, so a non-ORM insert lands a valid row and a
+    # reader never has to guard against None before indexing.
+    chat = await make_chat(session)
+    run = Run(chat_id=chat.id, question="q", status="failed", tier="single")
+    session.add(run)
+    await session.commit()
+    session.expunge_all()
+
+    assert (await session.get(Run, run.id)).outcome == {}

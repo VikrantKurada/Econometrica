@@ -235,8 +235,11 @@ test("a message to a local model streams back and survives a reload", async ({
   const transcript = page.getByTestId("transcript");
   await expect(transcript).toBeVisible();
 
+  // Exact, because the canvas pane carries its own "Analysis model" and
+  // "Validator model" pickers and getByLabel matches on substring — the same
+  // hazard the Message locator below has always had.
   await page.getByLabel("Provider").selectOption("ollama");
-  await page.getByLabel("Model").selectOption(model);
+  await page.getByLabel("Model", { exact: true }).selectOption(model);
 
   // By role, not by label: "Message" is a substring of "Send message", so a
   // bare label lookup matches the send button too.

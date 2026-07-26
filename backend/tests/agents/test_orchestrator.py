@@ -13,6 +13,7 @@ from econometrica.agents.narrator import Narrator
 from econometrica.agents.orchestrator import Orchestrator, RunEvent
 from econometrica.agents.planner import Planner
 from econometrica.agents.validator import Validator
+from econometrica.charts.spec import unresolved_references
 from econometrica.llm.errors import ProviderUnavailableError
 from econometrica.llm.fake import FakeProvider
 
@@ -30,6 +31,16 @@ PLAN = {
 GARCH_PLAN = {
     **PLAN,
     "steps": [{"id": "s1", "tool": "garch", "params": {"column": "AAA_return"}}],
+}
+
+#: A tool that emits a series, so the run has something chartable. GARCH does
+#: not qualify here: the gates refuse it on a random walk, which is the point
+#: of the refusal test below.
+VOL_PLAN = {
+    **PLAN,
+    "steps": [
+        {"id": "s1", "tool": "realized_vol", "params": {"column": "AAA_return", "window": 20}}
+    ],
 }
 
 APPROVED = json.dumps({"approved": True, "reasons": ["the diagnostics agree"]})
@@ -53,6 +64,19 @@ class FakeSource:
         return pd.Series(100.0 + np.cumsum(rng.normal(size=182)), index=index)
 
 
+@dataclass
+class WindowSource:
+    """Honours the window it is asked for, and remembers every one of them."""
+
+    windows: list[tuple[date, date]] = field(default_factory=list)
+
+    async def prices(self, ticker: str, *, start: date, end: date) -> pd.Series:
+        self.windows.append((start, end))
+        index = pd.date_range(start, end, freq="D")
+        rng = np.random.default_rng(7)
+        return pd.Series(100.0 + np.cumsum(rng.normal(size=len(index))), index=index)
+
+
 def build(
     *,
     plans: list[str] | None = None,
@@ -60,6 +84,7 @@ def build(
     prose: list[str] | None = None,
     tier: str = "critic",
     planner_providers: list[FakeProvider] | None = None,
+    source: object | None = None,
 ) -> tuple[Orchestrator, dict[str, FakeProvider]]:
     planner_fakes = planner_providers or [
         FakeProvider(name="p", responses=plans or [json.dumps(PLAN)])
@@ -69,7 +94,7 @@ def build(
 
     orchestrator = Orchestrator(
         planners=[Planner(fake, "fake-1") for fake in planner_fakes],
-        steward=DataSteward(FakeSource(), min_obs=30),
+        steward=DataSteward(source or FakeSource(), min_obs=30),
         validator=Validator(validator_fake, "fake-1"),
         narrator=Narrator(narrator_fake, "fake-1"),
         tier=tier,
@@ -358,3 +383,97 @@ async def test_an_unknown_tier_is_refused_at_construction():
             narrator=Narrator(FakeProvider(), "fake-1"),
             tier="vibes",
         )
+
+# --- charts -----------------------------------------------------------------
+
+
+async def test_a_run_proposes_charts_bound_to_the_step_that_produced_them():
+    # Without this the canvas has nothing to draw: the Visualizer exists but
+    # no run ever called it, so RunOutcome carried no charts at all.
+    orchestrator, _ = build(plans=[json.dumps(VOL_PLAN)])
+
+    outcome = await orchestrator.run(QUESTION)
+
+    assert outcome.charts, "a volatility path supports a line chart"
+    assert {chart.step_id for chart in outcome.charts} == {"s1"}
+    assert "line" in {chart.type for chart in outcome.charts}
+
+
+async def test_every_proposed_chart_binds_to_the_result_it_cites():
+    # The same invariant charts/propose.py holds, asserted through the whole
+    # pipeline: a chart of data the result does not carry is an ungrounded
+    # number with a line drawn through it.
+    orchestrator, _ = build(plans=[json.dumps(VOL_PLAN)])
+
+    outcome = await orchestrator.run(QUESTION)
+
+    results = outcome.execution.results
+    assert outcome.charts
+    for chart in outcome.charts:
+        assert unresolved_references(chart, results[chart.step_id]) == []
+
+
+async def test_a_refused_step_contributes_no_charts():
+    # Charts come from results. A step the gates refused has none, and drawing
+    # something for it would show a reader an analysis that did not happen.
+    # This plan fits a GARCH to a random walk, which the gates decline.
+    orchestrator, _ = build(plans=[json.dumps(GARCH_PLAN)])
+
+    outcome = await orchestrator.run(QUESTION)
+
+    assert [step.status for step in outcome.execution.outcomes] == ["refused"]
+    assert outcome.charts == []
+
+
+async def test_the_chart_phase_is_announced():
+    orchestrator, _ = build(plans=[json.dumps(VOL_PLAN)])
+
+    names = [event.name async for event in orchestrator.stream(QUESTION)]
+
+    assert names.index("step.finished") < names.index("charts.finished")
+    assert names.index("charts.finished") < names.index("narrate.finished")
+
+
+async def test_a_revised_plan_runs_on_the_data_it_asked_for():
+    """A revision may change the window, and the run must follow it.
+
+    The dataset used to be resolved once, before the revision loop, so a
+    revised plan executed against the *previous* plan's frame. The stored run
+    then contradicted itself: `plan.dataset` named one window and the results
+    came from another, which makes the plan a wrong account of its own numbers
+    and makes re-running it from the manifest disagree for no good reason.
+    """
+    revised = {
+        **PLAN,
+        "dataset": {"tickers": ["AAA"], "start": "2020-03-01", "end": "2020-06-30"},
+    }
+    source = WindowSource()
+    orchestrator, _ = build(
+        plans=[json.dumps(PLAN), json.dumps(revised)],
+        verdicts=[REJECTED, APPROVED],
+        source=source,
+    )
+
+    outcome = await orchestrator.run(QUESTION)
+
+    assert outcome.plan is not None and outcome.quality is not None
+    assert outcome.plan.dataset.start == date(2020, 3, 1)
+    # The window the data actually came from, not the one the first plan asked
+    # for. These two disagreeing is the bug.
+    assert source.windows[-1] == (date(2020, 3, 1), date(2020, 6, 30))
+    assert outcome.quality.start == outcome.plan.dataset.start
+
+
+async def test_an_unchanged_dataset_is_not_fetched_twice():
+    # A revision usually keeps the same data and changes the method. Re-fetching
+    # it would double the cost of every revised run for nothing.
+    source = WindowSource()
+    orchestrator, _ = build(
+        plans=[json.dumps(PLAN), json.dumps(PLAN)],
+        verdicts=[REJECTED, APPROVED],
+        source=source,
+    )
+
+    await orchestrator.run(QUESTION)
+
+    assert len(source.windows) == 1

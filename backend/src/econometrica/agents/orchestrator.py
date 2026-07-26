@@ -30,6 +30,8 @@ from econometrica.agents.planner import Planner
 from econometrica.agents.schemas import AnalysisPlan, ValidationVerdict
 from econometrica.agents.trace import StepRecord, TraceBuilder, tool_call_hash
 from econometrica.agents.validator import Validator, independence_warning
+from econometrica.charts.propose import propose_charts
+from econometrica.charts.spec import ChartSpec
 from econometrica.econ.diagnostics.engine import run_diagnostics
 from econometrica.econ.types import Diagnostic
 
@@ -68,6 +70,10 @@ class RunOutcome(BaseModel):
     execution: ExecutionReport | None = None
     verdict: ValidationVerdict | None = None
     narration: Narration | None = None
+    #: What each result supports being drawn as, decided from its shape. Each
+    #: carries the `step_id` whose `ResultSet` it draws from, because a chart
+    #: that cannot be traced to the numbers under it is decoration.
+    charts: list[ChartSpec] = Field(default_factory=list)
     diagnostics: list[Diagnostic] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
     revisions: int = 0
@@ -183,6 +189,12 @@ class Orchestrator:
                 )
 
             outcome.diagnostics = _diagnostics_for(execution)
+            outcome.charts = _charts_for(execution)
+            yield RunEvent(
+                name="charts.finished",
+                detail=f"{len(outcome.charts)} chart(s)",
+                payload={"charts": [chart.model_dump(mode="json") for chart in outcome.charts]},
+            )
 
             validator = self._reviewer()
             if validator is None:
@@ -223,7 +235,30 @@ class Orchestrator:
                 model=self.planners[0].model,
                 parent=trace.last,
             )
+            previous = plan.dataset
             plan = replan.output
+
+            # A revision may ask for a different window, and running it against
+            # the previous plan's frame would make the recorded plan a wrong
+            # account of its own numbers — `plan.dataset` naming one window
+            # while the results came from another. Re-running such a plan from
+            # its manifest disagrees, and rightly so. Unchanged specs are not
+            # re-fetched: most revisions change the method, not the data.
+            if plan.dataset != previous:
+                dataset = await self.steward.resolve(plan.dataset)
+                outcome.quality = dataset.report
+                trace.add(
+                    StepRecord(
+                        agent="data_steward",
+                        kind="tool",
+                        status="ok",
+                        parent=trace.last,
+                        detail=f"{dataset.report.rows} rows, {len(dataset.report.flags)} flag(s)",
+                    )
+                )
+                yield RunEvent(
+                    name="data.finished", payload=dataset.report.model_dump(mode="json")
+                )
 
         narration = await self.narrator.write(
             plan, execution, verdict=outcome.verdict
@@ -324,6 +359,29 @@ def _revision_context(context: str, verdict: ValidationVerdict) -> str:
     if verdict.revise_steps:
         parts.append(f"Steps needing rework: {', '.join(verdict.revise_steps)}")
     return "\n\n".join(parts)
+
+
+def _charts_for(execution: ExecutionReport) -> list[ChartSpec]:
+    """What each result supports being drawn as.
+
+    Deterministic, and stays that way here. `charts/propose.py` decides from a
+    result's shape, which is settled — asking a model to rediscover it per run
+    buys nothing. The `Visualizer` remains available for the editorial pass it
+    was built for (ordering and retitling), but it curates one result per turn,
+    so wiring it in unconditionally would put a model call behind every result
+    a run produced. That is a cost the canvas should choose, not the pipeline.
+
+    A step that refused or failed has no result, so it contributes no charts:
+    drawing something for it would show an analysis that did not happen.
+    """
+    charts: list[ChartSpec] = []
+    for step_id, result in execution.results.items():
+        # `propose_charts` knows the result, not the plan, so the citation is
+        # attached here — it is what lets a chart be traced back and re-run.
+        charts.extend(
+            chart.model_copy(update={"step_id": step_id}) for chart in propose_charts(result)
+        )
+    return charts
 
 
 def _diagnostics_for(execution: ExecutionReport) -> list[Diagnostic]:

@@ -1,5 +1,7 @@
 /** Wire types for the Econometrica API. UUIDs and timestamps arrive as strings. */
 
+import type { ChartSpec } from "../components/charts/spec";
+
 export interface Health {
   status: string;
   version: string;
@@ -191,6 +193,187 @@ export interface ResultSet {
   tables: Record<string, Table>;
   series: Record<string, Series>;
   manifest: Manifest;
+}
+
+/* --- runs ---------------------------------------------------------------- */
+/* Mirrors the agent pipeline's own models. Note what is *not* here: several
+   backend conveniences (`ExecutionReport.refusals`, `PreconditionVerdict.
+   refused`) are Python properties, so they never reach the wire. The canvas
+   derives them, and `refusals.ts` is the one place that knows the rule. */
+
+export type FlagSeverity = "info" | "warning" | "risk";
+
+export interface QualityFlag {
+  code: string;
+  severity: FlagSeverity;
+  detail: string;
+}
+
+export interface DataQualityReport {
+  tickers: string[];
+  frequency: string;
+  return_method: string;
+  /** Which adapter the prices came from — part of reproducing a number. */
+  source: string;
+  rows: number;
+  start: string;
+  end: string;
+  dropped_rows: number;
+  fingerprint: string;
+  flags: QualityFlag[];
+}
+
+/** One gate's answer. `judged: false` means the check could not be evaluated. */
+export interface PreconditionVerdict {
+  tool: string;
+  check: string;
+  allowed: boolean;
+  judged: boolean;
+  detail: string;
+}
+
+export type StepStatus = "ran" | "refused" | "failed" | "skipped";
+
+export interface StepOutcome {
+  step_id: string;
+  tool: string;
+  status: StepStatus;
+  result: ResultSet | null;
+  verdicts: PreconditionVerdict[];
+  error: string;
+}
+
+export interface ExecutionReport {
+  outcomes: StepOutcome[];
+}
+
+export interface PlanStep {
+  id: string;
+  tool: string;
+  params: Record<string, unknown>;
+  depends_on: string[];
+  rationale: string;
+}
+
+export interface AnalysisPlan {
+  question: string;
+  dataset: {
+    tickers: string[];
+    start: string;
+    end: string;
+    frequency: string;
+    return_method: string;
+    risk_free: string | null;
+  };
+  steps: PlanStep[];
+  hypotheses: string[];
+  chart_intents: string[];
+}
+
+export interface ValidationVerdict {
+  approved: boolean;
+  reasons: string[];
+  revise_steps: string[];
+}
+
+export interface GroundingIssue {
+  value: number;
+  text: string;
+  sentence: string;
+}
+
+export interface GroundingReport {
+  grounded: boolean;
+  issues: GroundingIssue[];
+  checked: number;
+}
+
+export interface Narration {
+  published: boolean;
+  narrative: { prose: string; citations: string[] } | null;
+  grounding: GroundingReport;
+}
+
+export type RunStatus = "running" | "completed" | "blocked" | "failed";
+
+/** Everything a run produced, however far it got. */
+export interface RunOutcome {
+  status: RunStatus;
+  question: string;
+  plan: AnalysisPlan | null;
+  quality: DataQualityReport | null;
+  execution: ExecutionReport | null;
+  verdict: ValidationVerdict | null;
+  narration: Narration | null;
+  charts: ChartSpec[];
+  diagnostics: Diagnostic[];
+  warnings: string[];
+  revisions: number;
+  error: string;
+}
+
+export interface RunStep {
+  id: string;
+  seq: number;
+  parent_id: string | null;
+  agent: string;
+  kind: string;
+  status: string;
+  attempt: number;
+  provider: string | null;
+  model: string | null;
+  input_tokens: number;
+  output_tokens: number;
+  cost_usd: number;
+  latency_ms: number;
+  tool: string | null;
+  tool_call_hash: string | null;
+  detail: string;
+  created_at: string;
+}
+
+export interface Run {
+  id: string;
+  chat_id: string;
+  question: string;
+  status: RunStatus;
+  tier: ValidationTier;
+  revisions: number;
+  error: string;
+  input_tokens: number;
+  output_tokens: number;
+  cost_usd: number;
+  latency_ms: number;
+  created_at: string;
+}
+
+/**
+ * One run with its steps and everything it produced. `outcome` is `{}` for a
+ * run recorded before the column existed, so it is narrowed rather than
+ * assumed.
+ */
+export interface RunDetail extends Run {
+  steps: RunStep[];
+  outcome: Partial<RunOutcome>;
+}
+
+export interface StepReproduction {
+  step_id: string;
+  tool: string;
+  reproduced: boolean;
+  status: string;
+  original_status: string;
+  data_fingerprint: string;
+  original_data_fingerprint: string;
+  params_hash: string;
+  original_params_hash: string;
+  detail: string;
+}
+
+export interface RerunReport {
+  run_id: string;
+  reproduced: boolean;
+  steps: StepReproduction[];
 }
 
 export interface ModelCapabilities {

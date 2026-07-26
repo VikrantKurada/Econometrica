@@ -25,9 +25,11 @@ from sqlalchemy.orm import selectinload
 from sse_starlette.sse import EventSourceResponse
 
 from econometrica.agents.data_steward import DataSteward
+from econometrica.agents.econometrician import Econometrician, StepOutcome
 from econometrica.agents.narrator import Narrator
 from econometrica.agents.orchestrator import TIERS, Orchestrator, RunOutcome, Tier
 from econometrica.agents.planner import Planner
+from econometrica.agents.schemas import AnalysisPlan
 from econometrica.agents.validator import Validator
 from econometrica.api.deps import (
     PriceSourceDep,
@@ -37,9 +39,16 @@ from econometrica.api.deps import (
     get_project_or_404,
 )
 from econometrica.db.models import Project, Run
+from econometrica.econ.types import ResultSet
 from econometrica.llm.base import LLMProvider
 from econometrica.llm.registry import ProviderRegistry
-from econometrica.schemas.run import RunDetail, RunRead, RunStart
+from econometrica.schemas.run import (
+    RerunReport,
+    RunDetail,
+    RunRead,
+    RunStart,
+    StepReproduction,
+)
 from econometrica.services.tracing import record_run
 
 router = APIRouter(prefix="/api/chats", tags=["runs"])
@@ -70,6 +79,111 @@ async def read_run(run_id: UUID, session: SessionDep) -> Run:
             status_code=status.HTTP_404_NOT_FOUND, detail=f"Run {run_id} not found"
         )
     return run
+
+@traces.post("/{run_id}/rerun", response_model=RerunReport)
+async def rerun(run_id: UUID, session: SessionDep, source: PriceSourceDep) -> RerunReport:
+    """Re-execute a recorded plan and report whether it reproduced.
+
+    The whole claim this project makes about its numbers is that they can be
+    got back, so this asks exactly that and nothing more: the recorded plan,
+    freshly resolved data, the same tools. No model is consulted — re-planning
+    would test whether a model repeats itself, which is a different question
+    and not one the manifest makes any promise about.
+
+    Disagreement is reported per step rather than raised. A source that has
+    quietly revised its history is a finding about the data, and the useful
+    answer names which step stopped matching and why.
+    """
+    run = await session.get(Run, run_id)
+    if run is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"Run {run_id} not found"
+        )
+
+    recorded: dict[str, Any] = run.outcome or {}
+    if not recorded.get("plan"):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                "this run recorded no plan, so there is nothing to re-run."
+                " Runs that failed before planning cannot be reproduced."
+            ),
+        )
+
+    plan = AnalysisPlan.model_validate(recorded["plan"])
+    before = {
+        step["step_id"]: step
+        for step in (recorded.get("execution") or {}).get("outcomes", [])
+    }
+
+    dataset = await DataSteward(source).resolve(plan.dataset)
+    execution = await Econometrician().run(plan, dataset.frame)
+
+    steps = [_compare(fresh, before.get(fresh.step_id)) for fresh in execution.outcomes]
+    return RerunReport(
+        run_id=run_id,
+        # An empty run reproduces nothing; saying `True` for it would be the
+        # most misleading answer available.
+        reproduced=bool(steps) and all(step.reproduced for step in steps),
+        steps=steps,
+    )
+
+
+def _compare(fresh: StepOutcome, before: dict[str, Any] | None) -> StepReproduction:
+    """One step, then and now."""
+    recorded = (before or {}).get("result")
+    original = ResultSet.model_validate(recorded) if recorded else None
+    was = manifest_of(original)
+    now = manifest_of(fresh.result)
+
+    problems: list[str] = []
+    if before is None:
+        problems.append("this step was not in the recorded run")
+    elif fresh.status != before["status"]:
+        problems.append(f"the step {before['status']} before and {fresh.status} now")
+
+    if was["data_fingerprint"] != now["data_fingerprint"]:
+        problems.append(
+            "the data fingerprint changed, so the source is not serving the same history"
+        )
+    if was["params_hash"] != now["params_hash"]:
+        problems.append("the parameters hash differently")
+    if was["tool_version"] != now["tool_version"]:
+        problems.append(f"the tool moved from {was['tool_version']} to {now['tool_version']}")
+
+    # The fingerprints agreeing is necessary, not sufficient: the numbers are
+    # the thing being reproduced, so they are compared directly.
+    if (
+        original is not None
+        and fresh.result is not None
+        and original.all_numeric_values() != fresh.result.all_numeric_values()
+    ):
+        problems.append("the numbers differ from the ones recorded")
+
+    return StepReproduction(
+        step_id=fresh.step_id,
+        tool=fresh.tool,
+        reproduced=not problems,
+        status=fresh.status,
+        original_status=str((before or {}).get("status", "")),
+        data_fingerprint=now["data_fingerprint"],
+        original_data_fingerprint=was["data_fingerprint"],
+        params_hash=now["params_hash"],
+        original_params_hash=was["params_hash"],
+        detail="; ".join(problems),
+    )
+
+
+def manifest_of(result: ResultSet | None) -> dict[str, str]:
+    """The identifying parts of a manifest, or blanks where there is no result."""
+    if result is None:
+        return {"data_fingerprint": "", "params_hash": "", "tool_version": ""}
+    return {
+        "data_fingerprint": result.manifest.data_fingerprint,
+        "params_hash": result.manifest.params_hash,
+        "tool_version": result.manifest.tool_version,
+    }
+
 
 #: Roles that need a model assigned. The Data Steward and Econometrician are
 #: deterministic, so they are absent by design rather than by omission.

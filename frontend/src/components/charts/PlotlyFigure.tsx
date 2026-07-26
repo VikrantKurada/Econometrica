@@ -1,6 +1,7 @@
-﻿import { useEffect, useRef } from "react";
+﻿import { useContext, useEffect, useRef } from "react";
 
 import type { ResultSet } from "../../lib/types";
+import { ChartHeight } from "./height";
 import type { Figure } from "./marks";
 import Plotly from "./plotly";
 import type { ChartSpec } from "./spec";
@@ -30,6 +31,8 @@ export function PlotlyFigure<S extends ChartSpec>({
   height,
 }: PlotlyFigureProps<S>) {
   const host = useRef<HTMLDivElement>(null);
+  // The box wins where it has an opinion — full screen is the case that does.
+  const boxed = useContext(ChartHeight);
 
   useEffect(() => {
     const element = host.current;
@@ -52,7 +55,7 @@ export function PlotlyFigure<S extends ChartSpec>({
       observer.disconnect();
       Plotly.purge(element);
     };
-  }, [spec, result, build]);
+  }, [spec, result, build, boxed]);
 
-  return <div ref={host} data-testid="plotly-figure" style={{ height }} />;
+  return <div ref={host} data-testid="plotly-figure" style={{ height: boxed ?? height }} />;
 }

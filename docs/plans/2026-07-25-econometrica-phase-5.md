@@ -20,8 +20,8 @@ manifest that reproduces them.
 | 5.1 chart spec union | ✅ |
 | 5.2 visualizer agent | ✅ |
 | 5.3 chart renderers | ✅ |
-| 5.4 artifact canvas | ⬜ next |
-| 5.5 exports | ⬜ |
+| 5.4 artifact canvas | ✅ |
+| 5.5 exports | ⬜ next |
 | 5.6 phase 5 e2e | ⬜ |
 
 ---
@@ -297,6 +297,54 @@ Two things this must surface, both already computed and currently invisible:
 
 Re-run is the plan's definition-of-done item: re-running a manifest must
 reproduce the result.
+
+**Landed, and it needed more than `components/canvas/*`.** The file list above
+was wrong: none of what the canvas must show was reachable from any API.
+Three things had to exist first.
+
+- **Runs never produced charts.** The Visualizer was built in 5.2 and nothing
+  called it, so `RunOutcome` had no charts at all. `propose_charts` now runs
+  over each step's `ResultSet` in the orchestrator and stamps `step_id` on
+  what it returns, which is what lets a chart be traced back and re-run. It
+  stays deterministic: the `Visualizer` curates *one result per turn*, so
+  wiring it in unconditionally would put a model call behind every result a
+  run produced. That is a cost the canvas should choose, not the pipeline.
+- **The outcome was never persisted.** `record_run` wrote the run row and the
+  step DAG, so a run was only readable while its SSE stream was open. `runs`
+  now carries an `outcome` JSONB column (migration `61162a63a8b7`) and
+  `RunDetail` returns it. `RunRead` deliberately does not: a result's series
+  live in there, so listing runs would drag every one of them along.
+- **Re-run had nothing to re-run from.** `POST /api/runs/{id}/rerun`
+  re-executes the recorded plan against freshly resolved data and compares
+  manifests *and* numbers. It asks no model anything — re-planning would test
+  whether a model repeats itself, which the manifest promises nothing about —
+  and a test asserts the model call count is unchanged.
+
+**Re-run found a real bug in Phase 4 on its first live use.** The dataset was
+resolved once, before the revision loop, so a revised plan executed against
+the *previous* plan's frame. The run recorded that first analysis as
+`plan.dataset: 2020-01-01..2023-12-31` while the numbers came from
+`2000-01-01..2023-12-31` — the plan was a wrong account of its own results,
+and re-running it disagreed for a reason that had nothing to do with the data
+source. The orchestrator now re-resolves when a revision changes the spec, and
+does not re-fetch when it does not. **With that fixed, a live run through the
+UI re-runs and reports `reproduced`**, which closes the last open item in the
+parent plan's definition of done.
+
+Two smaller things the plan did not anticipate:
+
+- **A run needs models assigned before it will start**, and nothing exposed
+  `Project.model_assignments`. The composer writes them just before starting.
+  The Validator gets its own picker, defaulting to the analysis model — when
+  they match, the pipeline's independence warning fires and the canvas shows
+  it, which is the honest outcome rather than a hidden one.
+- **`getByLabel` matches on substring**, so the canvas's "Analysis model"
+  picker broke `chat.spec.ts`'s `getByLabel("Model")`. Fixed with
+  `{ exact: true }` — the same hazard its own `Message` locator documents.
+
+What the canvas refuses to tab away: the risk flags and the findings. They
+qualify every artifact at once, so a reader who never opens the right tab
+still sees that the prices were generated and that a step refused.
 
 **Commit:** `feat(frontend): add tabbed artifact canvas`
 

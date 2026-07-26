@@ -38,49 +38,68 @@ Consequences that keep coming up:
 | 2 — econometrics core (37 tools, 5 families) | done, phase gate green, 97% coverage |
 | 3 — LLM providers + streaming chat | done, e2e gate green |
 | 4 — multi-agent orchestration | done, e2e gate green |
-| 5 — charts and artifact canvas | 5.0–5.3 done; 5.4 next |
+| 5 — charts and artifact canvas | 5.0–5.4 done; 5.5 next |
 | 6 — telemetry, uploads, MCP, exports | not started |
 
-**876 backend tests, 206 frontend tests, 4 Playwright e2e** (one of them
-currently red — see below). ruff and `mypy --strict` clean on `src`.
-`alembic check` reports no drift.
+**892 backend tests, 235 frontend tests, 4 Playwright e2e.** ruff and
+`mypy --strict` clean on `src`. `alembic check` reports no drift.
 
 ### The immediate next task
 
-**Task 5.4 — the artifact canvas.** Tabbed, with pinning, full-screen and
-re-run — and **this is where the run UI lands**: `POST /api/chats/{id}/runs`
-and `GET /api/runs/{id}` still have no caller in `frontend/src`, which is why
-the Phase 4 gate is API-level.
+**Task 5.5 — exports.** PNG, SVG, PDF, CSV, XLSX, JSON, Markdown, and a
+project ZIP. Every export embeds the reproducibility manifest or ships beside
+it: an exported chart that cannot be traced back is exactly what this project
+exists not to produce.
 
-The renderers it composes are done: `components/charts/` has one component per
-spec type, `ChartCard` frames them with a table view, and `/gallery.html` is a
-dev-only page rendering all fourteen over fixtures — the fastest way to look at
-a change. Two things the canvas must surface, both computed today and both
-invisible: the **`synthetic_data` risk flag**, and **refusals and unjudged
-checks** (a refused GARCH step is a finding, not an absence).
+Most of what it needs now exists. `GET /api/runs/{id}` returns the whole
+`RunOutcome` — plan, results, charts, quality, narration — so an export reads
+one row rather than replaying a run. The chart specs are typed on both sides,
+and `buildFigure(spec, result, theme)` in `components/charts/figure.ts` is a
+pure function, so a headless render needs no React.
 
-**The Phase 4 e2e gate is red on this machine, and was before Task 5.3** —
-verified by stashing. With `ministral-3:8b` the Validator refuses
-(`verdict=false`), so nothing is narrated and grounding has no issues to
-report — but `analysis.spec.ts:227` asserts the unpublished branch always
-carries grounding issues. The third path, "the validator refused so there was
-nothing to narrate", is not covered. It is a test-assumption gap rather than a
-product bug, and it needs a decision before Phase 5's gate is written.
+**Re-run reproduces**, verified end to end through the UI against a live
+model, which closes the parent plan's last definition-of-done item.
 
-Two things Phase 5 inherits that are not in its task table:
+Two things worth knowing before starting:
 
-- **There is no UI for runs.** `POST /api/chats/{id}/runs` and
-  `GET /api/runs/{id}` work and nothing in `frontend/src` calls them, which is
-  why the Phase 4 gate is API-level. The canvas (5.4) is where that lands.
+- **The Phase 4 e2e gate is model-dependent, not reliably green.**
+  `analysis.spec.ts:227` asserts that an unpublished narration always carries
+  grounding issues — but when the Validator refuses there is nothing to
+  narrate and no issues to report. It fails on those runs and passes on
+  others, and it was failing before Task 5.3 too (verified by stashing). The
+  third path is simply uncovered.
 - **`ECONOMETRICA_PRICE_SOURCE=synthetic`** makes the whole pipeline runnable
-  today without market data (Phase 6 owns the real adapters). Handy for
-  driving the UI you are building; any run using it carries a `synthetic_data`
-  risk flag, and that flag must stay visible in whatever the canvas renders.
+  without market data (Phase 6 owns the real adapters), and it is genuinely
+  reproducible — the seed is a hash of the ticker, so re-running a manifest
+  gets the same series back. Any run using it carries a `synthetic_data` risk
+  flag, which the canvas shows as an alert no tab can hide.
 
 Phase 4 is the interesting one: six agent roles, the deterministic
 `DiagnosticsEngine` (already built, `econ/diagnostics/`) feeding a Validator on
 a *different provider*, and the numeric grounding gate that blocks any number
 in narrator prose that is not in `ResultSet.all_numeric_values()`.
+
+### Runs and the canvas
+
+- **A run's artifacts live in `runs.outcome`**, a JSONB column holding the
+  whole serialised `RunOutcome`. `RunDetail` returns it; `RunRead` does not,
+  and must not — a result's series are in there, so listing runs would drag
+  every one of them along. Steps say what a run *did*; the outcome says what
+  it *produced*.
+- **Re-run consults no model.** `POST /api/runs/{id}/rerun` re-executes the
+  recorded plan against freshly resolved data and compares manifests and
+  numbers. Re-planning would test whether a model repeats itself, which the
+  manifest promises nothing about; a test asserts the call count is unchanged.
+- **Re-resolve the dataset when a revision changes it.** Resolving once before
+  the revision loop meant a revised plan ran on the previous plan's frame, so
+  the recorded `plan.dataset` described data the results did not come from.
+  Re-run found it. Unchanged specs are not re-fetched.
+- **Several backend conveniences never cross the wire** — `ExecutionReport.
+  results`, `.refusals`, `PreconditionVerdict.refused` are Python properties.
+  `components/canvas/artifacts.ts` restates the rules once for the client.
+- **`getByLabel` matches on substring.** The canvas's "Analysis model" picker
+  silently broke `chat.spec.ts`'s `getByLabel("Model")`; e2e locators for
+  short labels need `{ exact: true }`.
 
 ### Charts
 
@@ -291,8 +310,7 @@ adding a `ProviderSpec` and a factory.
 Say what you want next; this file loads automatically. A good opener:
 
 > Continue Econometrica. Read CLAUDE.md and
-> `docs/plans/2026-07-25-econometrica-phase-5.md`, then do Task 5.4 (the
-> artifact canvas). It is also where the run UI lands.
+> `docs/plans/2026-07-25-econometrica-phase-5.md`, then do Task 5.5 (exports).
 
 Task lists do **not** survive across sessions — this file and the plan document
 are the memory. Update the "Where things stand" table when a phase moves.

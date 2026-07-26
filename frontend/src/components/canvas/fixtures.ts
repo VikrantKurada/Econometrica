@@ -1,0 +1,222 @@
+/**
+ * A finished run, for tests and the dev gallery.
+ *
+ * Shaped like what `GET /api/runs/{id}` returns: the step DAG plus the whole
+ * outcome. It deliberately carries the awkward cases rather than a clean run —
+ * a refusal, an unjudged check, a synthetic-data flag and a withheld
+ * interpretation — because those are what the canvas exists to make visible,
+ * and a fixture where everything went well would exercise none of them.
+ *
+ * Dev and test only; nothing in the shipped app imports it.
+ */
+
+import type { RunDetail, RunOutcome } from "../../lib/types";
+import { FIXTURE_RESULT, GALLERY } from "../charts/fixtures";
+
+const OUTCOME: RunOutcome = {
+  status: "completed",
+  question: "Does AAA follow a random walk, and is its volatility clustered?",
+  plan: {
+    question: "Does AAA follow a random walk?",
+    dataset: {
+      tickers: ["AAA"],
+      start: "2025-07-01",
+      end: "2026-03-31",
+      frequency: "D",
+      return_method: "log",
+      risk_free: null,
+    },
+    steps: [
+      { id: "s1", tool: "garch", params: { column: "AAA_return" }, depends_on: [], rationale: "" },
+      { id: "s2", tool: "hurst", params: { column: "AAA_return" }, depends_on: [], rationale: "" },
+    ],
+    hypotheses: ["Returns are unpredictable", "Volatility clusters"],
+    chart_intents: [],
+  },
+  quality: {
+    tickers: ["AAA"],
+    frequency: "D",
+    return_method: "log",
+    source: "synthetic",
+    rows: 260,
+    start: "2025-07-01",
+    end: "2026-03-31",
+    dropped_rows: 3,
+    fingerprint: "sha256:9f2c…",
+    flags: [
+      {
+        code: "synthetic_data",
+        severity: "risk",
+        detail: "prices were generated, not observed; no conclusion here is about a real market",
+      },
+      {
+        code: "dropped_rows",
+        severity: "info",
+        detail: "3 dates were covered by some series but not all",
+      },
+    ],
+  },
+  execution: {
+    outcomes: [
+      { step_id: "s1", tool: "garch", status: "ran", result: FIXTURE_RESULT, verdicts: [], error: "" },
+      {
+        step_id: "s2",
+        tool: "hurst",
+        status: "refused",
+        result: null,
+        verdicts: [
+          {
+            tool: "hurst",
+            check: "sufficient_observations",
+            allowed: false,
+            judged: true,
+            detail: "the rescaled range needs 500 observations; this window has 260",
+          },
+          {
+            tool: "hurst",
+            check: "stationarity",
+            allowed: false,
+            judged: false,
+            detail: "the unit-root test could not run on a series this short",
+          },
+        ],
+        error: "",
+      },
+    ],
+  },
+  verdict: {
+    approved: true,
+    reasons: ["the diagnostics support the conclusion drawn"],
+    revise_steps: [],
+  },
+  narration: {
+    published: true,
+    narrative: {
+      prose:
+        "Volatility clusters strongly in this series: the fitted GARCH persistence is high and " +
+        "the conditional volatility path shows sustained quiet and turbulent stretches rather " +
+        "than a constant level. The Hurst exponent was not estimated — the window is too short " +
+        "for the rescaled range to mean anything — so no claim is made about long memory.",
+      citations: ["s1"],
+    },
+    grounding: { grounded: true, issues: [], checked: 6 },
+  },
+  charts: GALLERY.map((spec) => ({ ...spec, step_id: "s1" })),
+  diagnostics: FIXTURE_RESULT.diagnostics,
+  warnings: ["the planner and the validator share a provider, so the review is not independent"],
+  revisions: 0,
+  error: "",
+};
+
+export const FIXTURE_RUN: RunDetail = {
+  id: "11111111-1111-4111-8111-111111111111",
+  chat_id: "22222222-2222-4222-8222-222222222222",
+  question: OUTCOME.question,
+  status: "completed",
+  tier: "critic",
+  revisions: 0,
+  error: "",
+  input_tokens: 8420,
+  output_tokens: 1310,
+  cost_usd: 0,
+  latency_ms: 18400,
+  created_at: "2026-07-26T09:00:00Z",
+  steps: [
+    {
+      id: "s-1",
+      seq: 1,
+      parent_id: null,
+      agent: "planner",
+      kind: "llm",
+      status: "ok",
+      attempt: 1,
+      provider: "ollama",
+      model: "ministral-3:8b",
+      input_tokens: 3929,
+      output_tokens: 775,
+      cost_usd: 0,
+      latency_ms: 5000,
+      tool: null,
+      tool_call_hash: null,
+      detail: "",
+      created_at: "2026-07-26T09:00:00Z",
+    },
+    {
+      id: "s-2",
+      seq: 2,
+      parent_id: "s-1",
+      agent: "data_steward",
+      kind: "tool",
+      status: "ok",
+      attempt: 1,
+      provider: null,
+      model: null,
+      input_tokens: 0,
+      output_tokens: 0,
+      cost_usd: 0,
+      latency_ms: 120,
+      tool: null,
+      tool_call_hash: null,
+      detail: "260 rows, 2 flag(s)",
+      created_at: "2026-07-26T09:00:00Z",
+    },
+    {
+      id: "s-3",
+      seq: 3,
+      parent_id: "s-2",
+      agent: "econometrician",
+      kind: "tool",
+      status: "ok",
+      attempt: 1,
+      provider: null,
+      model: null,
+      input_tokens: 0,
+      output_tokens: 0,
+      cost_usd: 0,
+      latency_ms: 340,
+      tool: "garch",
+      tool_call_hash: "a41e…",
+      detail: "",
+      created_at: "2026-07-26T09:00:00Z",
+    },
+    {
+      id: "s-4",
+      seq: 4,
+      parent_id: "s-2",
+      agent: "econometrician",
+      kind: "tool",
+      status: "refused",
+      attempt: 1,
+      provider: null,
+      model: null,
+      input_tokens: 0,
+      output_tokens: 0,
+      cost_usd: 0,
+      latency_ms: 8,
+      tool: "hurst",
+      tool_call_hash: "b52f…",
+      detail: "the rescaled range needs 500 observations; this window has 260",
+      created_at: "2026-07-26T09:00:00Z",
+    },
+    {
+      id: "s-5",
+      seq: 5,
+      parent_id: "s-3",
+      agent: "narrator",
+      kind: "llm",
+      status: "ok",
+      attempt: 1,
+      provider: "ollama",
+      model: "ministral-3:8b",
+      input_tokens: 4491,
+      output_tokens: 535,
+      cost_usd: 0,
+      latency_ms: 12900,
+      tool: null,
+      tool_call_hash: null,
+      detail: "",
+      created_at: "2026-07-26T09:00:00Z",
+    },
+  ],
+  outcome: OUTCOME,
+};

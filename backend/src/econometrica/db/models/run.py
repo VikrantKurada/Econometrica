@@ -19,7 +19,7 @@ Alembic autogenerates none of the CHECK constraints below and ``alembic check``
 cannot verify them either. ``tests/db/test_run_model.py`` is their only gate.
 """
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 from sqlalchemy import (
@@ -30,7 +30,9 @@ from sqlalchemy import (
     Identity,
     String,
     Text,
+    text,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from econometrica.db.base import TimestampedBase
@@ -79,6 +81,19 @@ class Run(TimestampedBase):
     revisions: Mapped[int] = mapped_column(default=0, server_default="0")
     #: Populated when the pipeline stopped early. Empty on a clean run.
     error: Mapped[str] = mapped_column(Text, default="", server_default="")
+
+    #: The whole `RunOutcome` as JSON — plan, data quality, results, charts,
+    #: verdict and narration. The steps beside it say what the run *did*; this
+    #: says what it *produced*, and without it a run is only readable while its
+    #: SSE stream is open. JSONB rather than Text so a later phase can query
+    #: into it (which tools a project actually uses) without a migration.
+    #:
+    #: A result's series are in here, so a row is tens to hundreds of KB. That
+    #: is the price of a canvas that survives a reload, and it is why `RunRead`
+    #: leaves the column out — listing runs must not drag every series with it.
+    outcome: Mapped[dict[str, Any]] = mapped_column(
+        JSONB, default=dict, server_default=text("'{}'::jsonb")
+    )
 
     # Totals over the run's steps, denormalised so a dashboard listing many
     # runs does not aggregate the whole step table to draw one column.
