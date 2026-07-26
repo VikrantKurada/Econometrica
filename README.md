@@ -6,8 +6,7 @@ React/TypeScript frontend, backed by Postgres with TimescaleDB and pgvector. LLM
 agents select from a registry of typed, versioned econometric tools — they never
 compute statistics themselves.
 
-> **Status.** Phases 0–4 complete; Phase 5 is five tasks in, through the
-> artifact canvas.
+> **Status.** Phases 0–5 complete.
 >
 > **Working today:** projects and chats; the full econometrics core (37 tools
 > across asset pricing, market efficiency, volatility, multivariate and event
@@ -27,6 +26,13 @@ compute statistics themselves.
 > whether the numbers came back the same, naming the step and the reason when
 > they did not. It asks no model anything.
 >
+> **And it can be taken away.** `GET /api/runs/{id}/export?format=…` serves the
+> run as JSON, Markdown, CSV, XLSX or a ZIP of all of them, and every one
+> carries the manifest that reproduces it — the data fingerprint, the tool
+> versions, and the source the prices came from. Charts export to PNG and SVG
+> from the browser, so the image is the one on screen. PDF is not built: it
+> needs a dependency this project has not taken.
+>
 > The end-to-end gate runs it against a live local model. In a typical pass an
 > 8B model plans five steps, four run, and **GARCH is refused** because the
 > data has no ARCH effects to model.
@@ -42,8 +48,8 @@ compute statistics themselves.
 > `GET /api/runs/{id}`. Rejected attempts are steps in their own right,
 > because they were billed.
 >
-> **Not started:** exports (the rest of Phase 5), and uploads, telemetry and
-> MCP (Phase 6).
+> **Not started:** Phase 6 — real market data adapters, uploads, telemetry and
+> MCP.
 >
 > Working notes for contributors — and for Claude — are in `CLAUDE.md`. The
 > design and phase plans are in `docs/plans/`.

@@ -38,27 +38,38 @@ Consequences that keep coming up:
 | 2 — econometrics core (37 tools, 5 families) | done, phase gate green, 97% coverage |
 | 3 — LLM providers + streaming chat | done, e2e gate green |
 | 4 — multi-agent orchestration | done, e2e gate green |
-| 5 — charts and artifact canvas | 5.0–5.4 done; 5.5 next |
+| 5 — charts and artifact canvas | done, e2e gate green |
 | 6 — telemetry, uploads, MCP, exports | not started |
 
-**892 backend tests, 235 frontend tests, 4 Playwright e2e.** ruff and
+**918 backend tests, 249 frontend tests, 5 Playwright e2e.** ruff and
 `mypy --strict` clean on `src`. `alembic check` reports no drift.
 
 ### The immediate next task
 
-**Task 5.5 — exports.** PNG, SVG, PDF, CSV, XLSX, JSON, Markdown, and a
-project ZIP. Every export embeds the reproducibility manifest or ships beside
-it: an exported chart that cannot be traced back is exactly what this project
-exists not to produce.
+**Phase 6.** Real market data (yfinance, Stooq, FRED, Ken French), uploads and
+column mapping, telemetry, MCP, and the remaining exports. `yfinance` and
+`pandas-datareader` are already dependencies; nothing imports them yet, and
+`data/synthetic.py` is the only `PriceSource` that exists.
 
-Most of what it needs now exists. `GET /api/runs/{id}` returns the whole
-`RunOutcome` — plan, results, charts, quality, narration — so an export reads
-one row rather than replaying a run. The chart specs are typed on both sides,
-and `buildFigure(spec, result, theme)` in `components/charts/figure.ts` is a
-pure function, so a headless render needs no React.
+The obvious first move is a real adapter behind the same `PriceSource`
+protocol the Data Steward already takes, because everything above it —
+planning, gates, diagnostics, grounding, charts, exports — is finished and
+tested against the synthetic one.
 
-**Re-run reproduces**, verified end to end through the UI against a live
-model, which closes the parent plan's last definition-of-done item.
+**Phase 5 is closed.** Re-run reproduces a result from its manifest, verified
+through the UI against a live model, which was the last open item in the parent
+plan's definition of done.
+
+Two things left deliberately undone, both needing a decision rather than work:
+
+- **PDF exports.** Neither a chart nor a report can become one without a new
+  dependency — kaleido for charts, an HTML-to-PDF engine for reports. The
+  browser's print pipeline covers reports for free in the meantime.
+- **The grounding gate's false positives.** It reads the `3` in a `(s3)`
+  citation as a claim about data. `_REFERENCE_WORDS` exempts "step 3" but not
+  the `s3` style this project's own prompts encourage, so real narrations get
+  withheld over their own citations. The gate itself is sound — it caught a
+  model writing `-15.066` where the computed statistic was `-15.065457`.
 
 Two things worth knowing before starting:
 
@@ -110,9 +121,15 @@ in narrator prose that is not in `ResultSet.all_numeric_values()`.
 - **Several backend conveniences never cross the wire** — `ExecutionReport.
   results`, `.refusals`, `PreconditionVerdict.refused` are Python properties.
   `components/canvas/artifacts.ts` restates the rules once for the client.
-- **`getByLabel` matches on substring.** The canvas's "Analysis model" picker
-  silently broke `chat.spec.ts`'s `getByLabel("Model")`; e2e locators for
-  short labels need `{ exact: true }`.
+- **`getByLabel` and `getByRole` match on substring.** The canvas's "Analysis
+  model" picker silently broke `chat.spec.ts`'s `getByLabel("Model")`, and a
+  chat named `canvas` inside a project named `E2E canvas …` matched both. Short
+  names in e2e locators need `{ exact: true }`.
+- **Exports are built from the stored outcome, never by replaying a run.**
+  `services/exports.py` owns the five data formats and puts the manifest in
+  each; chart images come from the live Plotly graph in the browser, because
+  the renderers are TypeScript and a server render would export a picture
+  nobody looked at.
 
 ### Charts
 
@@ -323,7 +340,8 @@ adding a `ProviderSpec` and a factory.
 Say what you want next; this file loads automatically. A good opener:
 
 > Continue Econometrica. Read CLAUDE.md and
-> `docs/plans/2026-07-25-econometrica-phase-5.md`, then do Task 5.5 (exports).
+> `docs/plans/2026-07-24-econometrica-implementation.md`, then start Phase 6 —
+> write its step-level plan first, as each earlier phase got one.
 
 Task lists do **not** survive across sessions — this file and the plan document
 are the memory. Update the "Where things stand" table when a phase moves.

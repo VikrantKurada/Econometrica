@@ -21,8 +21,8 @@ manifest that reproduces them.
 | 5.2 visualizer agent | ✅ |
 | 5.3 chart renderers | ✅ |
 | 5.4 artifact canvas | ✅ |
-| 5.5 exports | ⬜ next |
-| 5.6 phase 5 e2e | ⬜ |
+| 5.5 exports | ✅ |
+| 5.6 phase 5 e2e | ✅ |
 
 ---
 
@@ -361,6 +361,31 @@ exists not to produce.
 
 **Commit:** `feat(api): add artifact exports with manifests`
 
+**Landed, split by where the artifact lives.** Five formats behind one route,
+`GET /api/runs/{id}/export?format=…`, all built from the stored outcome — so
+an export replays no analysis and asks no model anything. JSON nests the
+manifest, Markdown gives it a Provenance section, XLSX puts it on its own
+sheet, the ZIP ships it as `manifest.json`, and CSV — which has no metadata
+channel — carries it in comment lines that `pandas.read_csv(comment="#")`
+skips and a person can read.
+
+**Chart images are exported by the frontend, not the API.** The fourteen
+renderers are TypeScript; a server-side PNG would mean reimplementing Task 5.3
+in Python, and would export a chart nobody had looked at. `Plotly.toImage` on
+the live graph carries the reader's theme and any zoom they set.
+
+**PDF is the one thing not built.** Neither a chart nor a report can become
+one without a new dependency — kaleido for charts, or a HTML-to-PDF engine for
+reports — and the browser's own print pipeline covers the report case for free
+in the meantime. It needs a dependency decision rather than a quiet omission.
+
+The real output taught two things the tests had not: a refused step has no
+manifest and rendered as blank cells that read like lost provenance rather
+than a step that produced nothing; and the exported report made the grounding
+gate legible for the first time — it had rejected `-15.066` where the computed
+statistic is `-15.065457`, so the model fabricated a digit and the gate caught
+it.
+
 ---
 
 ## Task 5.6: Phase 5 e2e
@@ -371,6 +396,22 @@ Follow `e2e/analysis.spec.ts` for the model-selection and skip-with-a-reason
 pattern, and `ECONOMETRICA_PRICE_SOURCE=synthetic` for data.
 
 **Commit:** `test(e2e): close phase 5 with a chart and an export`
+
+**Landed as `e2e/canvas.spec.ts`**, driving the app the way a person does:
+type the question, pick the model, watch the phases, read the chart, switch it
+to a table, open it full screen, check diagnostics and trace, download the
+archive, open it. ~35s against `ministral-3:8b`.
+
+Two things it is careful about. The **synthetic_data alert is asserted**, so
+the gate proves the honesty seam and not only the pipeline. And it **does not
+assume a chart exists**: which tools a model plans is its choice, and a plan of
+only hypothesis tests legitimately draws nothing — so the spec asserts a chart
+*or* the "produced no charts" message, and annotates which happened. Asserting
+a chart unconditionally would make the gate a test of the model's taste.
+
+The archive is opened with `adm-zip` and its manifest checked for the data
+fingerprint, the tool versions and the `synthetic_data` flag — the claim the
+project rests on, verified on the file a user actually walks away with.
 
 ---
 
