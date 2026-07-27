@@ -41,6 +41,8 @@ class StepRead(BaseModel):
     tool: str | None
     tool_call_hash: str | None
     detail: str
+    prompt: str
+    response: str
     created_at: datetime
 
 

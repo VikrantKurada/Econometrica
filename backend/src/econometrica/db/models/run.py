@@ -173,4 +173,10 @@ class Step(TimestampedBase):
 
     detail: Mapped[str] = mapped_column(Text, default="", server_default="")
 
+    #: What this attempt was sent, and what came back. §8 asks a step to record
+    #: them; without them a trace names the model but not the decision. Cut at
+    #: `agents.base.PROMPT_LIMIT` before they get here.
+    prompt: Mapped[str] = mapped_column(Text, default="", server_default="")
+    response: Mapped[str] = mapped_column(Text, default="", server_default="")
+
     run: Mapped["Run"] = relationship(back_populates="steps")

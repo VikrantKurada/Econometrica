@@ -329,6 +329,9 @@ export interface RunStep {
   tool: string | null;
   tool_call_hash: string | null;
   detail: string;
+  /** What this attempt was sent and what came back. Empty on tool steps. */
+  prompt: string;
+  response: string;
   created_at: string;
 }
 
@@ -455,4 +458,41 @@ export interface Upload {
   observations: number | null;
   symbols: string[];
   fields: string[];
+}
+
+// --- telemetry ---------------------------------------------------------------
+
+export interface SpanMetric {
+  name: string;
+  count: number;
+  p50: number;
+  p95: number;
+  p99: number;
+  error_rate: number;
+}
+
+export interface TokenTotals {
+  input: number;
+  output: number;
+  cache_read: number;
+  cache_write: number;
+}
+
+export interface TokensBy extends TokenTotals {
+  key: string;
+  cost_usd: number;
+}
+
+export interface Metrics {
+  spans: SpanMetric[];
+  tokens: TokenTotals;
+  tokens_by_provider: TokensBy[];
+  tokens_by_agent: TokensBy[];
+  cost_usd: number;
+  runs: number;
+  revisions_total: number;
+  revisions_mean: number | null;
+  /** Null where nothing of that kind has run — not the same as zero. */
+  tool_error_rate: number | null;
+  validator_rejection_rate: number | null;
 }

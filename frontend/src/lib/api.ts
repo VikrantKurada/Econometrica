@@ -5,6 +5,7 @@ import type {
   ChatUpdate,
   ColumnRole,
   Health,
+  Metrics,
   Message,
   ModelInfo,
   Project,
@@ -150,6 +151,8 @@ export const api = {
     }
     return (await readBody(response)) as Upload;
   },
+
+  metrics: (): Promise<Metrics> => request<Metrics>("/metrics"),
 
   readUpload: (uploadId: string): Promise<Upload> =>
     request<Upload>(`/uploads/${uploadId}`),

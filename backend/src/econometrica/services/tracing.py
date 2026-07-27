@@ -79,6 +79,8 @@ def _to_step(record: StepRecord, *, run_id: UUID, written: list[Step]) -> Step:
         tool=record.tool,
         tool_call_hash=record.tool_call_hash,
         detail=record.detail,
+        prompt=record.prompt,
+        response=record.response,
     )
 
 

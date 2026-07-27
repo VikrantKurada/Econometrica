@@ -28,7 +28,7 @@ allowlists that are off by default.
 | 6.7 column-role mapping the user confirms | ✅ |
 | 6.8 dataset store — hypertable plus retained blob | ✅ |
 | 6.9 telemetry — spans to Postgres, OTLP, metrics | ✅ |
-| 6.10 trace viewer and cost dashboard | ⬜ |
+| 6.10 trace viewer and cost dashboard | ✅ |
 | 6.11 MCP client with an allowlist | ⬜ |
 | 6.12 project-scoped retrieval over pgvector | ⬜ |
 | 6.13 web search, off by default, attributed | ⬜ |
@@ -939,6 +939,44 @@ sum of the steps; and — per Phase 5's lesson — **screenshot it in both theme
 and look at it** before calling it done.
 
 **Commit:** `feat(frontend): add run trace viewer and cost dashboard`
+
+**Landed, and it needed a backend prerequisite the plan had not called out.**
+§8 says a step records "the agent, provider, model, prompt and response". The
+first three were captured in Phase 4; **the last two never were** — so a trace
+could name the model that ran and not what it was asked or what it decided,
+which is most of the question the Trace artifact exists to answer. `AgentResult`
+now carries a prompt per attempt (a retry is a different conversation, so
+reusing the first would misreport it), `Step` has `prompt` and `response`
+columns, and both are truncated at 20k characters with a marker — the Planner's
+prompt carries the whole tool catalogue and would otherwise dominate the
+database for text nobody reads in full.
+
+**`TraceTable` is deleted, not deprecated.** It sorted by `seq` and dropped
+`parent_id` on the floor, which made a retry look like the next piece of work
+rather than a second attempt at the same one — and that distinction is the whole
+reason rejected attempts are recorded. `TraceGraph` nests children under their
+parent with a visible connector. A step whose parent is missing is shown at the
+root rather than dropped, because `parent_id` is `ON DELETE SET NULL` and losing
+the work after a hole would be the worse failure.
+
+**Rates render as "not yet", never as 0%.** Zero reads as "nothing has ever
+failed", which is a claim about the system; having run nothing is a statement
+about the sample. The backend already returns `None` for this; the dashboard had
+to not flatten it.
+
+**Looking at it caught one defect the tests did not**, which is the argument for
+step 7 of the chart procedure applying to every component and not only charts:
+each llm step printed its model as its name *and* again in the provider column —
+`planner ministral-3:8b failed ollama · ministral-3:8b` — a stutter no assertion
+would have noticed. Only tool steps are named now; an llm step's identity is its
+provider and model.
+
+Verified in `/gallery.html` over a fixture with a retry, a refusal and a tool
+step: indentation 4 → 18 → 32px, the retry nested under its first attempt, tool
+steps not expandable, `18.4s` rendered as seconds rather than `18400ms`, no
+horizontal overflow, and both themes contrasting correctly. **Still through the
+DOM rather than a screenshot** — the browser pane would not composite frames in
+this session either.
 
 ---
 

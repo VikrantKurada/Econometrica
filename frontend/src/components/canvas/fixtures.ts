@@ -139,6 +139,8 @@ export const FIXTURE_RUN: RunDetail = {
       tool: null,
       tool_call_hash: null,
       detail: "",
+      prompt: "",
+      response: "",
       created_at: "2026-07-26T09:00:00Z",
     },
     {
@@ -158,6 +160,8 @@ export const FIXTURE_RUN: RunDetail = {
       tool: null,
       tool_call_hash: null,
       detail: "260 rows, 2 flag(s)",
+      prompt: "",
+      response: "",
       created_at: "2026-07-26T09:00:00Z",
     },
     {
@@ -177,6 +181,8 @@ export const FIXTURE_RUN: RunDetail = {
       tool: "garch",
       tool_call_hash: "a41e…",
       detail: "",
+      prompt: "",
+      response: "",
       created_at: "2026-07-26T09:00:00Z",
     },
     {
@@ -196,6 +202,8 @@ export const FIXTURE_RUN: RunDetail = {
       tool: "hurst",
       tool_call_hash: "b52f…",
       detail: "the rescaled range needs 500 observations; this window has 260",
+      prompt: "",
+      response: "",
       created_at: "2026-07-26T09:00:00Z",
     },
     {
@@ -215,6 +223,8 @@ export const FIXTURE_RUN: RunDetail = {
       tool: null,
       tool_call_hash: null,
       detail: "",
+      prompt: "",
+      response: "",
       created_at: "2026-07-26T09:00:00Z",
     },
   ],

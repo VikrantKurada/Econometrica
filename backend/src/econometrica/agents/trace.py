@@ -61,6 +61,12 @@ class StepRecord(BaseModel):
     tool: str | None = None
     tool_call_hash: str | None = None
     detail: str = ""
+    #: What this attempt was sent and what came back. §8 of the design asks a
+    #: step to record them, and without them a trace can say which model ran
+    #: but not what it was asked or what it decided — most of the question the
+    #: Trace artifact exists to answer. Truncated at `PROMPT_LIMIT`.
+    prompt: str = ""
+    response: str = ""
 
 
 class TraceBuilder:
@@ -100,6 +106,7 @@ class TraceBuilder:
         `refused`, not `ok`, and the difference is the point of the gate.
         """
         last = parent
+        prompts = getattr(result, "prompts", ()) or ()
         final = len(result.completions) - 1
         for index, completion in enumerate(result.completions):
             is_final = index == final
@@ -115,6 +122,10 @@ class TraceBuilder:
                     usage=completion.usage,
                     latency_ms=completion.latency_ms,
                     detail=final_detail if is_final else "reply rejected; retried",
+                    # Paired by position: a retry is a different conversation,
+                    # so reusing the first prompt would misreport it.
+                    prompt=prompts[index] if index < len(prompts) else "",
+                    response=completion.content,
                 )
             )
         return last if last is not None else self.add(_placeholder(agent, model))

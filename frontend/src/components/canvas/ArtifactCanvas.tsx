@@ -3,7 +3,8 @@ import * as Tabs from "@radix-ui/react-tabs";
 import { Download, Maximize2, Pin, PinOff, X } from "lucide-react";
 import { useState } from "react";
 
-import type { RerunReport, RunDetail } from "../../lib/types";
+import { api } from "../../lib/api";
+import type { Metrics, RerunReport, RunDetail } from "../../lib/types";
 import { ChartCard } from "../charts/ChartCard";
 import { downloadChartImage, graphIn } from "../charts/exportImage";
 import { ChartHeight } from "../charts/height";
@@ -12,11 +13,13 @@ import { Diagnostics } from "./Diagnostics";
 import { Findings } from "./Findings";
 import { Narrative } from "./Narrative";
 import { RunBanner } from "./RunBanner";
-import { TraceTable } from "./TraceTable";
+import { CostDashboard } from "../telemetry/CostDashboard";
+import { TraceGraph } from "../telemetry/TraceGraph";
 
 const NARRATIVE = "narrative";
 const DIAGNOSTICS = "diagnostics";
 const TRACE = "trace";
+const COST = "cost";
 
 /**
  * One run, as something a person can read and interrogate.
@@ -35,9 +38,17 @@ export function ArtifactCanvas({
   onRerun?: (runId: string) => Promise<RerunReport>;
 }) {
   const artifacts = chartArtifacts(run.outcome);
+  // Fetched when the tab is first opened rather than with the run: the numbers
+  // are process-wide, not this run's, and a canvas that loaded them eagerly
+  // would pay for a panel most readers never look at.
+  const [metrics, setMetrics] = useState<Metrics | null>(null);
   const [pinned, setPinned] = useState<string[]>([]);
   const [fullscreen, setFullscreen] = useState<ChartArtifact | null>(null);
   const [active, setActive] = useState(artifacts[0]?.id ?? NARRATIVE);
+
+  const loadMetrics = (): void => {
+    if (metrics === null) void api.metrics().then(setMetrics).catch(() => undefined);
+  };
 
   const togglePin = (id: string): void =>
     setPinned((current) =>
@@ -82,7 +93,10 @@ export function ArtifactCanvas({
 
       <Tabs.Root
         value={active}
-        onValueChange={setActive}
+        onValueChange={(value) => {
+          setActive(value);
+          if (value === COST) loadMetrics();
+        }}
         className="flex min-h-0 flex-1 flex-col"
       >
         <Tabs.List
@@ -97,6 +111,7 @@ export function ArtifactCanvas({
           <TabTrigger value={NARRATIVE}>Narrative</TabTrigger>
           <TabTrigger value={DIAGNOSTICS}>Diagnostics</TabTrigger>
           <TabTrigger value={TRACE}>Trace</TabTrigger>
+          <TabTrigger value={COST}>Cost</TabTrigger>
         </Tabs.List>
 
         <div className="scroll-thin min-h-0 flex-1 overflow-auto pt-3">
@@ -162,7 +177,16 @@ export function ArtifactCanvas({
             <Diagnostics outcome={run.outcome} />
           </Tabs.Content>
           <Tabs.Content value={TRACE}>
-            <TraceTable steps={run.steps} />
+            <TraceGraph steps={run.steps} />
+          </Tabs.Content>
+          <Tabs.Content value={COST}>
+            {metrics ? (
+              <CostDashboard metrics={metrics} />
+            ) : (
+              <p className="px-1 py-6 text-center text-2xs text-text-secondary">
+                Loading measurements…
+              </p>
+            )}
           </Tabs.Content>
         </div>
       </Tabs.Root>

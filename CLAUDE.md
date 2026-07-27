@@ -40,17 +40,30 @@ Consequences that keep coming up:
 | 3 — LLM providers + streaming chat | done, e2e gate green |
 | 4 — multi-agent orchestration | done, e2e gate green |
 | 5 — charts and artifact canvas | done, e2e gate green |
-| 6 — real data, uploads, telemetry, MCP | in progress — 6.9 of 16 tasks |
+| 6 — real data, uploads, telemetry, MCP | in progress — 6.10 of 16 tasks |
 
-**1223 backend tests, 260 frontend tests, 5 Playwright e2e.** ruff and
+**1227 backend tests, 282 frontend tests, 5 Playwright e2e.** ruff and
 `mypy --strict` clean on `src`. `alembic check` reports no drift.
 
 ### The immediate next task
 
-**Phase 6, Task 6.10** — the trace viewer and cost dashboard: render the run
-DAG and the 6.9 metrics in the canvas. Read
+**Phase 6, Task 6.11** — the MCP client with a per-project tool allowlist. The
+`mcp` package is **not** yet a dependency. Read
 `docs/plans/2026-07-27-econometrica-phase-6.md`; it carries all sixteen tasks,
 six decisions, and the live-probe findings below.
+
+**A step now records its prompt and response.** §8 asked for them from the
+start and nothing captured them until 6.10, so a trace could name the model but
+not the decision. `AgentResult.prompts` pairs one prompt per attempt — a retry
+is a different conversation — and both are truncated at
+`agents.base.PROMPT_LIMIT`, because the Planner's prompt carries the whole tool
+catalogue.
+
+**The canvas Trace tab is a DAG, not a table.** `TraceGraph` nests children
+under `parent_id` so a retry reads as a second attempt rather than as new work;
+a step whose parent is missing shows at the root, since `parent_id` is
+`ON DELETE SET NULL`. The Cost tab renders `GET /api/metrics`, fetched only when
+opened.
 
 **Telemetry is not a second run trace.** `run_steps` records every model call
 with its agent, provider, tokens and cost — that stays. Spans cover what it

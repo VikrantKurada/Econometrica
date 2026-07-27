@@ -31,6 +31,11 @@ RETRY_PROMPT = (
     "Reply again with the corrected JSON object only — no prose, no code fence."
 )
 
+#: Longest prompt kept on a step. The Planner's carries the whole tool
+#: catalogue, and stored verbatim on every attempt it would dominate the
+#: database for text nobody reads in full — so it is cut, and says so.
+PROMPT_LIMIT = 20_000
+
 
 class AgentAttemptsExhaustedError(AgentOutputError):
     """Every attempt produced output that could not be used.
@@ -46,6 +51,7 @@ class AgentAttemptsExhaustedError(AgentOutputError):
         replies: tuple[str, ...],
         problems: tuple[str, ...],
         completions: tuple[Completion, ...] = (),
+        prompts: tuple[str, ...] = (),
     ) -> None:
         last = problems[-1] if problems else "no attempts were made"
         super().__init__(
@@ -58,6 +64,9 @@ class AgentAttemptsExhaustedError(AgentOutputError):
         #: Carried so a failed agent's cost is still recordable. Every attempt
         #: was billed whether or not any of them was usable.
         self.completions = completions
+        #: And what each attempt was asked, which is the case where a trace is
+        #: most worth reading.
+        self.prompts = prompts
 
 
 class AgentRefusedError(AgentOutputError):
@@ -76,6 +85,10 @@ class AgentResult[OutputT: BaseModel]:
     output: OutputT
     #: Every completion, including the rejected ones.
     completions: tuple[Completion, ...]
+    #: What each attempt was actually sent, paired with `completions` by
+    #: position. A retry carries the rejected reply and the problem, so reusing
+    #: the first prompt for every attempt would misreport the conversation.
+    prompts: tuple[str, ...] = ()
 
     @property
     def attempts(self) -> int:
@@ -133,9 +146,11 @@ class Agent[OutputT: BaseModel](ABC):
         """Run the conversation until the reply parses, or the budget is spent."""
         conversation = list(messages)
         completions: list[Completion] = []
+        prompts: list[str] = []
         problems: list[str] = []
 
         for attempt in range(1, self.max_attempts + 1):
+            prompts.append(render_prompt(conversation))
             completion = await self.provider.complete(
                 conversation,
                 model=self.model,
@@ -162,11 +177,29 @@ class Agent[OutputT: BaseModel](ABC):
                     conversation.append(Message.user(RETRY_PROMPT.format(problem=exc)))
                 continue
 
-            return AgentResult(output=output, completions=tuple(completions))
+            return AgentResult(
+                output=output,
+                completions=tuple(completions),
+                prompts=tuple(prompts),
+            )
 
         raise AgentAttemptsExhaustedError(
             self.role,
             tuple(c.content for c in completions),
             tuple(problems),
             tuple(completions),
+            tuple(prompts),
         )
+
+
+def render_prompt(conversation: Sequence[Message]) -> str:
+    """A conversation as the text a person would read in a trace.
+
+    Truncated rather than stored whole: see `PROMPT_LIMIT`. The marker matters —
+    a silently cut prompt would read as a model that was asked less than it was.
+    """
+    blocks = [f"[{message.role}]\n{message.content}" for message in conversation]
+    text = "\n\n".join(blocks)
+    if len(text) <= PROMPT_LIMIT:
+        return text
+    return f"{text[:PROMPT_LIMIT]}\n\n… truncated at {PROMPT_LIMIT} characters"

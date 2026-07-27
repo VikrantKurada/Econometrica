@@ -12,6 +12,9 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 
 import { ChartCard } from "./components/charts/ChartCard";
+import { CostDashboard } from "./components/telemetry/CostDashboard";
+import { TraceGraph } from "./components/telemetry/TraceGraph";
+import { METRICS_FIXTURE, TRACE_FIXTURE } from "./components/telemetry/fixtures";
 import { ColumnMapping } from "./components/uploads/ColumnMapping";
 import { UPLOAD_FIXTURE } from "./components/uploads/fixtures";
 import { FIXTURE_RESULT, GALLERY } from "./components/charts/fixtures";
@@ -44,6 +47,20 @@ function Gallery() {
         {GALLERY.map((spec) => (
           <ChartCard key={spec.type} spec={spec} result={FIXTURE_RESULT} />
         ))}
+      </div>
+
+      <h2 className="mt-8 mb-2 text-base font-semibold">Run trace</h2>
+      <p className="mb-3 text-2xs text-text-secondary">
+        Parent links as structure, with a retry nested under the attempt it followed
+        and a refusal marked. Click an agent to see what it was asked.
+      </p>
+      <div className="rounded-lg border border-border bg-surface-1 p-4">
+        <TraceGraph steps={TRACE_FIXTURE} />
+      </div>
+
+      <h2 className="mt-8 mb-2 text-base font-semibold">Cost and latency</h2>
+      <div className="rounded-lg border border-border bg-surface-1 p-4">
+        <CostDashboard metrics={METRICS_FIXTURE} />
       </div>
 
       <h2 className="mt-8 mb-2 text-base font-semibold">Upload column mapping</h2>

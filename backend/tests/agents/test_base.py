@@ -173,3 +173,59 @@ async def test_a_refusal_is_not_retried():
         await ScoringAgent(provider, "fake-1").ask(conversation())
 
     assert len(provider.calls) == 1
+
+
+# --- what the trace can show afterwards ---------------------------------------
+#
+# §8 of the design says a step records "the agent, provider, model, prompt and
+# response". The first three were captured from Phase 4; the last two were not,
+# so a trace viewer could say which model ran and not what it was asked or what
+# it said — which is most of the question the Trace artifact exists to answer.
+
+
+async def test_the_result_carries_the_prompt_and_the_reply():
+    reply = '{"verdict": "ok", "score": 5}'
+    provider = FakeProvider(responses=[reply])
+
+    result = await ScoringAgent(provider, "fake-1").ask([Message.user("score this")])
+
+    assert "score this" in result.prompts[0]
+    assert result.completions[0].content == reply
+
+
+async def test_each_attempt_carries_the_prompt_it_was_actually_sent():
+    """A retry is a different conversation — it carries the rejected reply and
+    the problem. Pairing every attempt with the first prompt would misreport
+    what the model was asked the second time."""
+    provider = FakeProvider(responses=["not json", '{"verdict": "ok", "score": 5}'])
+
+    result = await ScoringAgent(provider, "fake-1").ask([Message.user("score")])
+
+    assert len(result.prompts) == 2
+    assert "not json" in result.prompts[1]
+    assert "not json" not in result.prompts[0]
+
+
+async def test_a_very_long_prompt_is_truncated_rather_than_stored_whole():
+    """The planner's prompt carries the whole tool catalogue. Stored verbatim
+    per attempt it would dominate the database for a trace nobody reads in
+    full, so it is cut with a marker that says so."""
+    from econometrica.agents.base import PROMPT_LIMIT
+
+    provider = FakeProvider(responses=['{"verdict": "ok", "score": 5}'])
+    huge = "x" * (PROMPT_LIMIT + 5_000)
+
+    result = await ScoringAgent(provider, "fake-1").ask([Message.user(huge)])
+
+    assert len(result.prompts[0]) <= PROMPT_LIMIT + 100
+    assert "truncated" in result.prompts[0]
+
+
+async def test_the_prompts_of_a_failed_agent_survive():
+    """The case where a trace is most worth reading."""
+    provider = FakeProvider(responses=["not json"] * 2)
+
+    with pytest.raises(AgentAttemptsExhaustedError) as raised:
+        await ScoringAgent(provider, "fake-1").ask([Message.user("score")])
+
+    assert len(raised.value.prompts) == 2
