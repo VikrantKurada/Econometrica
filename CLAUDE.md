@@ -40,16 +40,30 @@ Consequences that keep coming up:
 | 3 — LLM providers + streaming chat | done, e2e gate green |
 | 4 — multi-agent orchestration | done, e2e gate green |
 | 5 — charts and artifact canvas | done, e2e gate green |
-| 6 — real data, uploads, telemetry, MCP | in progress — 6.12 of 16 tasks |
+| 6 — real data, uploads, telemetry, MCP | in progress — 6.13 of 16 tasks |
 
-**1286 backend tests, 282 frontend tests, 5 Playwright e2e.** ruff and
+**1305 backend tests, 282 frontend tests, 5 Playwright e2e.** ruff and
 `mypy --strict` clean on `src`. `alembic check` reports no drift.
 
 ### The immediate next task
 
-**Phase 6, Task 6.13** — web search, off by default and attributed in the
-trace. Read `docs/plans/2026-07-27-econometrica-phase-6.md`; it carries all
+**Phase 6, Task 6.14** — PDF export as a print stylesheet, the decision taken
+2026-07-27. Read `docs/plans/2026-07-27-econometrica-phase-6.md`; it carries all
 sixteen tasks, six decisions, and the live-probe findings below.
+
+**`tools/` is context, `econ/` is computation.** Nothing under `tools/` may
+become a source of numbers — the grounding gate admits only what a registry tool
+computed, and both web search and retrieval have a test proving a figure quoted
+verbatim out of their text is still blocked.
+
+**Web search reads the *resolved* capability**, so a chat that turned it off is
+honoured, and a disabled search never reaches the provider. A failed search
+degrades the run rather than failing it: search is context, and losing the
+analysis to a search outage would be the worse trade. The keyless DuckDuckGo
+provider scrapes an HTML page with no API contract — it answers a plain POST
+with no bot check, unlike Stooq, but it is the fragile part and has a live test
+for that reason. Its markup uses **single** quotes (`class='result-link'`),
+which is how the parser was wrong the first time.
 
 **Retrieval is scoped by a column, not a join.** `document_chunks.project_id` is
 denormalised so a query filters on the row it ranks — a join can be forgotten,

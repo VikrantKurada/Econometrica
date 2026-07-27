@@ -31,7 +31,7 @@ allowlists that are off by default.
 | 6.10 trace viewer and cost dashboard | ✅ |
 | 6.11 MCP client with an allowlist | ✅ |
 | 6.12 project-scoped retrieval over pgvector | ✅ |
-| 6.13 web search, off by default, attributed | ⬜ |
+| 6.13 web search, off by default, attributed | ✅ |
 | 6.14 PDF export — print stylesheet, no new dependency | ⬜ |
 | 6.15 sandboxed code escape hatch | ⬜ |
 | 6.16 Phase 6 e2e — full regression | ⬜ |
@@ -1137,6 +1137,42 @@ number** (same gate as 6.12); and a search provider being down degrading the
 run rather than failing it.
 
 **Commit:** `feat(tools): add attributed web search behind a capability toggle`
+
+**Landed.** 19 tests, one live. No new dependency — httpx was already here.
+
+**The gate reads the *resolved* capability**, not the project's own flag, so a
+chat that turned search off is honoured; and a disabled search never reaches the
+provider at all, which a test asserts by checking the fake was never queried.
+Discarding results afterwards would satisfy the letter of "off" and none of it.
+
+**A failed search degrades the run rather than failing it.** Search is context,
+not a result: a run that could not reach a search engine has less to say, not
+nothing, and raising would lose the analysis the user actually asked for. It
+still becomes a trace step, with `failed` status and the reason.
+
+**The same invariant as retrieval.** A figure read on a web page is exactly as
+ungrounded as one invented, and the test proves the gate still blocks `1.8100`
+quoted verbatim out of a result's snippet. `tools/__init__.py` states the rule
+for the package: nothing here may become a source of numbers.
+
+### On the keyless provider, and what was learned from Stooq
+
+DuckDuckGo's lite endpoint answers a plain POST with real results — Wikipedia,
+Investopedia — with **no bot check to defeat**. That distinction is the whole
+reason this is acceptable where Stooq was not: nothing here evades anything. But
+it is an HTML page with no API contract behind it, so it is the fragile part of
+the module and it says so in its own docstring. If it ever grows a challenge, it
+should be dropped rather than made to work.
+
+The parser was wrong the first time in a way worth recording: the served markup
+uses **single** quotes — `class='result-link'` — so a pattern written with double
+quotes matched nothing and the first probe reported zero results from a page
+that plainly had them. The live test is what keeps that honest.
+
+`brave` is registered as the keyed alternative over a documented JSON API, which
+is what makes "provider-agnostic" real rather than aspirational. A keyed
+provider without a key is refused at construction, rather than sending an
+unauthenticated request and reporting whatever the vendor's error page says.
 
 ---
 
