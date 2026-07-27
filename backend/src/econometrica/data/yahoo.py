@@ -31,7 +31,7 @@ from datetime import date, timedelta
 
 import pandas as pd
 
-from econometrica.agents.data_steward import DataUnavailableError
+from econometrica.data.base import DataUnavailableError
 
 #: Takes `yfinance.download`'s arguments and returns its frame. Injected so the
 #: adapter's own logic is testable without the network, and typed loosely

@@ -16,14 +16,31 @@ ways a study of returns flatters itself, and neither shows up in a p-value.
 from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import date
-from typing import Literal, Protocol, runtime_checkable
+from typing import Literal
 
 import pandas as pd
 from pydantic import BaseModel, Field
 
 from econometrica.agents.schemas import DatasetSpec
+from econometrica.data.base import DataUnavailableError, PriceSource
 from econometrica.econ.fingerprint import fingerprint_frame
 from econometrica.econ.returns import to_returns
+
+# Re-exported, not merely imported. Both names were defined here until the
+# fifth adapter made the layering plain: `data/` is the lower layer and had been
+# reaching up into `agents/` for its own vocabulary. They now live in
+# `data/base.py`, and keeping them importable from here means none of the
+# sixteen existing import sites had to change.
+__all__ = [
+    "LATE_START_DAYS",
+    "MIN_USABLE_OBS",
+    "DataQualityReport",
+    "DataSteward",
+    "DataUnavailableError",
+    "Dataset",
+    "PriceSource",
+    "QualityFlag",
+]
 
 #: `DatasetSpec.frequency` uses the classic pandas letters, which pandas 3
 #: rejects outright — `resample("M")` is a ValueError, not a warning. Period
@@ -38,44 +55,6 @@ LATE_START_DAYS = 30
 
 #: Below this, nothing in the tool registry produces a trustworthy estimate.
 MIN_USABLE_OBS = 30
-
-
-class DataUnavailableError(ValueError):
-    """The requested data could not be assembled into a usable frame."""
-
-
-@runtime_checkable
-class PriceSource(Protocol):
-    """Where price history comes from.
-
-    Injected rather than imported: `data/registry.py` owns the adapters, and
-    this agent's own behaviour — alignment, frequency, returns, quality — needs
-    no network to be tested.
-
-    Runtime-checkable so the registry's own tests can assert that everything it
-    builds satisfies the protocol. That check is structural — it sees that
-    `label` and `prices` exist, not that their signatures match — which is
-    enough for its purpose and is what mypy covers properly.
-    """
-
-    @property
-    def label(self) -> str:
-        """Names the adapter in the quality report.
-
-        Which source produced a number, and under which adjustment policy, is
-        part of reproducing it: Yahoo's split-adjusted and dividend-adjusted
-        closes for AAPL days before its 2020 split differ by 3.1%.
-
-        Read-only, so an implementation may satisfy it with a plain class
-        attribute — as most do — or delegate, as the cache wrapper does.
-        Declaring it settable would rule the second out for no gain; nothing
-        writes to it.
-        """
-        ...
-
-    async def prices(self, ticker: str, *, start: date, end: date) -> pd.Series:
-        """Price history for one ticker, indexed by date."""
-        ...
 
 
 class QualityFlag(BaseModel):

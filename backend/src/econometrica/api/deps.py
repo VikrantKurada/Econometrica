@@ -9,8 +9,8 @@ from fastapi import Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm.interfaces import ORMOption
 
-from econometrica.agents.data_steward import PriceSource
 from econometrica.config import get_settings
+from econometrica.data.base import PriceSource
 from econometrica.data.registry import build_price_source
 from econometrica.db.models import Chat, Project
 from econometrica.db.session import get_session

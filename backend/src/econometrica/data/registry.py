@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from datetime import timedelta
 from pathlib import Path
 
-from econometrica.agents.data_steward import PriceSource
+from econometrica.data.base import PriceSource
 from econometrica.data.cache import DEFAULT_MAX_AGE, CachingPriceSource
 from econometrica.data.synthetic import SyntheticPriceSource
 from econometrica.data.unconfigured import UnconfiguredPriceSource

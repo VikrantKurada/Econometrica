@@ -21,7 +21,7 @@ from datetime import date
 
 import pandas as pd
 
-from econometrica.agents.data_steward import DataUnavailableError
+from econometrica.data.base import DataUnavailableError
 
 #: Takes `pandas_datareader.data.DataReader`'s arguments and returns its frame.
 Reader = Callable[..., "pd.DataFrame | None"]

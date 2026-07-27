@@ -26,7 +26,7 @@ from datetime import date
 
 import pandas as pd
 
-from econometrica.agents.data_steward import DataUnavailableError, PriceSource
+from econometrica.data.base import DataUnavailableError, PriceSource
 
 
 @dataclass(frozen=True)

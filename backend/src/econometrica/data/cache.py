@@ -29,7 +29,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from econometrica.agents.data_steward import DataUnavailableError, PriceSource
+from econometrica.data.base import DataUnavailableError, PriceSource
 
 #: Long enough that a run, its re-run and its exports share one fetch; short
 #: enough that yesterday's adjusted closes are not presented as today's.

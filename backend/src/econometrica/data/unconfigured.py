@@ -11,7 +11,7 @@ from datetime import date
 
 import pandas as pd
 
-from econometrica.agents.data_steward import DataUnavailableError
+from econometrica.data.base import DataUnavailableError
 
 
 class UnconfiguredPriceSource:
