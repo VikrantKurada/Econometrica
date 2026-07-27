@@ -24,7 +24,7 @@ allowlists that are off by default.
 | 6.3 FRED adapter and the dead `risk_free` field | ✅ |
 | 6.4 Ken French factors — unlocking `ff3`/`ff5`/`carhart4` | ✅ |
 | 6.5 grounding gate: the `(s3)` false positive | ✅ |
-| 6.6 upload profiling and schema inference | ⬜ |
+| 6.6 upload profiling and schema inference | ✅ |
 | 6.7 column-role mapping the user confirms | ⬜ |
 | 6.8 dataset store — hypertable plus retained blob | ⬜ |
 | 6.9 telemetry — spans to Postgres, OTLP, metrics | ⬜ |
@@ -650,6 +650,51 @@ one-column file and a file whose header is on row 3 all failing with a message
 naming the problem; and an oversized file refused before it is read into memory.
 
 **Commit:** `feat(services): add upload profiling with candidate column roles`
+
+**Landed, 36 tests.** `profile_upload` describes a file and scores every role
+each column *could* play; it never picks one. That separation is what leaves
+Task 6.7's model a real job with no room to invent — it may reorder candidates
+this module found admissible and nothing else.
+
+### The delimiter sniffer was the real hazard
+
+`pandas.read_csv(sep=None)` delegates to `csv.Sniffer`, which chooses from the
+whole alphabet when there is no delimiter to find. On a file whose only column
+is `price` **it split on the `r`**, returning columns `p` and `ice` — a file
+that read successfully and wrongly, which is far worse than one that refuses.
+Found by a test expecting the single-column refusal and not getting it.
+
+The delimiter now comes from a closed set (`,` `;` tab `|`) with comma as the
+fallback, and that turned out to settle a second question too. `1,200` is `1.2`
+under a decimal comma and `1200` under a thousands comma, and **the string alone
+cannot say which** — but a file using commas for decimals cannot also use them
+to separate fields, which is exactly why such exports are semicolon-separated.
+So a comma-delimited file means thousands and any other delimiter admits
+decimals. Both spellings have a test.
+
+`encoding="utf-8-sig"` because Excel writes a BOM on nearly every CSV it
+exports, and without it the first column is named `﻿date` and matches no
+hint.
+
+### Verified against real files, not only constructed ones
+
+A genuine `yfinance` CSV export: `Date` → `date`, and `Adj Close`, `Close`,
+`High`, `Low`, `Open` all → `price` at 1.00 from their name hints, with `Volume`
+correctly ambiguous but correctly *ordered* — `volume` 1.00 ahead of `price`
+0.60. A real Ken French `ff5` export: all five factors → `factor` 1.00 with
+`return` 0.85 offered second, which is honest because a factor is shaped like a
+return. A long-format panel: `symbol` → `ticker`, layout `long`.
+
+A test also round-trips **this project's own export shape** through the
+profiler, since a user's likeliest upload is a file they exported from here:
+`AAPL`, `AAPL_return` and `risk_free` all have to land correctly, and they do.
+It uses the synthetic source, so it needs no network.
+
+Refusals carry the reason: empty, header-not-on-row-one (detected from
+`Unnamed: N` columns, the commonest broken export), one column, no rows,
+unknown extension, corrupt parquet, and oversized — the last checked against
+the file's size on disk **before it is opened**, so a hostile upload cannot
+exhaust memory on its way to being rejected.
 
 ---
 
