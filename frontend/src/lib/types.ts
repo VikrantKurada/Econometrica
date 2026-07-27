@@ -255,6 +255,19 @@ export interface PlanStep {
   rationale: string;
 }
 
+/**
+ * A calculation no registry tool performs.
+ *
+ * Empty in every plan unless the project has the code sandbox enabled — the
+ * Planner is only told the field exists when it is.
+ */
+export interface CodeStep {
+  id: string;
+  intent: string;
+  depends_on: string[];
+  rationale: string;
+}
+
 export interface AnalysisPlan {
   question: string;
   dataset: {
@@ -266,6 +279,7 @@ export interface AnalysisPlan {
     risk_free: string | null;
   };
   steps: PlanStep[];
+  code_steps: CodeStep[];
   hypotheses: string[];
   chart_intents: string[];
 }

@@ -125,3 +125,49 @@ async def test_the_result_carries_what_the_planning_cost():
 
     assert result.usage.input_tokens > 0
     assert result.usage.output_tokens > 0
+
+
+# --- the escape hatch is invisible unless it is on ---------------------------
+
+
+async def test_the_planner_is_not_told_about_code_steps_by_default():
+    """Off by default has to reach the prompt, not only the executor.
+
+    A Planner that knows the field exists will reach for it on a hard
+    question, and every such plan would then be refused after the model call
+    was already paid for.
+    """
+    provider = FakeProvider(responses=[json.dumps(PLAN)])
+
+    await Planner(provider, "fake-1").plan("Does BTC follow a random walk?")
+
+    assert "code_steps" not in system_message(provider)
+
+
+async def test_the_planner_learns_about_code_steps_when_the_sandbox_is_on():
+    provider = FakeProvider(responses=[json.dumps(PLAN)])
+
+    await Planner(provider, "fake-1", code_sandbox=True).plan("Something exotic")
+
+    text = system_message(provider)
+    assert "code_steps" in text
+    # It has to read as a last resort, or the registry stops being the default.
+    assert "no tool" in text.lower()
+    assert "unvalidated" in text.lower()
+
+
+async def test_the_escape_hatch_section_renders_as_real_json():
+    """`str.format` does not recurse into a substituted value.
+
+    So the braces in `_ESCAPE_HATCH` must be single, not doubled the way the
+    surrounding template's are — doubled ones would reach the model as
+    `{{"id": "c1"...`, which is not JSON and is exactly the kind of prompt
+    defect no assertion about wording would catch.
+    """
+    provider = FakeProvider(responses=[json.dumps(PLAN)])
+
+    await Planner(provider, "fake-1", code_sandbox=True).plan("Something exotic")
+
+    text = system_message(provider)
+    assert '{"id": "c1"' in text
+    assert "{{" not in text

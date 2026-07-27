@@ -30,6 +30,10 @@ AGENTS = (
     "econometrician",
     "validator",
     "narrator",
+    # The escape hatch. Its steps are the ones a reader most needs to find,
+    # so it is a first-class agent in the trace rather than folded into the
+    # econometrician's rows.
+    "quant_coder",
 )
 
 

@@ -176,3 +176,19 @@ async def test_a_step_cannot_be_its_own_parent(session):
     step.parent_id = step.id
     with pytest.raises((IntegrityError, DBAPIError)):
         await session.flush()
+
+
+async def test_a_quant_coder_step_is_accepted(session):
+    """The escape hatch's steps have to reach the trace.
+
+    This exercises the *model's* constraint against Postgres — the test
+    database is built with `create_all`, not from the migrations, so it says
+    nothing about whether the hand-written revision widening
+    `ck_run_steps_agent_known` exists. That is
+    `test_every_value_in_a_check_constraint_vocabulary_reaches_a_migration`'s
+    job, and the two together are the whole gate: `alembic check` sees neither.
+    """
+    run = await make_run(session)
+    session.add(Step(run_id=run.id, agent="quant_coder", kind="llm", status="ok"))
+
+    await session.flush()

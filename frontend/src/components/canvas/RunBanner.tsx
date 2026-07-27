@@ -2,7 +2,7 @@ import { AlertTriangle, Download, RefreshCw } from "lucide-react";
 import { useState } from "react";
 
 import type { RerunReport, RunDetail } from "../../lib/types";
-import { riskFlags } from "./artifacts";
+import { riskFlags, unvalidatedMethods } from "./artifacts";
 import { ExportMenu } from "./ExportMenu";
 
 const STATUS_LABEL: Record<string, string> = {
@@ -34,6 +34,7 @@ export function RunBanner({
   const [exporting, setExporting] = useState(false);
 
   const flags = riskFlags(run.outcome);
+  const generated = unvalidatedMethods(run.outcome);
 
   const rerun = async (): Promise<void> => {
     if (!onRerun) return;
@@ -105,6 +106,27 @@ export function RunBanner({
               </span>
             </p>
           ))}
+        </div>
+      )}
+
+      {generated.length > 0 && (
+        // Beside the risk flags rather than in a tab, and for the same reason:
+        // it qualifies every artifact below it at once. A reader must not have
+        // to notice a tool name beginning `sandbox:` to learn that a number
+        // came from code a model wrote for this run.
+        <div
+          role="alert"
+          aria-label="Unvalidated method"
+          className="rounded-md border border-negative/40 bg-negative/8 px-3 py-2 text-2xs"
+        >
+          <p className="flex gap-2">
+            <AlertTriangle aria-hidden className="mt-0.5 size-3.5 shrink-0 text-negative" />
+            <span>
+              <span className="font-medium">unvalidated method</span> — computed by generated
+              code in the sandbox, not by a tested tool:{" "}
+              {generated.map((method) => `${method.method} (${method.stepId})`).join(", ")}
+            </span>
+          </p>
         </div>
       )}
 

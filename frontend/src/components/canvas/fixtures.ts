@@ -30,6 +30,7 @@ const OUTCOME: RunOutcome = {
       { id: "s1", tool: "garch", params: { column: "AAA_return" }, depends_on: [], rationale: "" },
       { id: "s2", tool: "hurst", params: { column: "AAA_return" }, depends_on: [], rationale: "" },
     ],
+    code_steps: [],
     hypotheses: ["Returns are unpredictable", "Volatility clusters"],
     chart_intents: [],
   },

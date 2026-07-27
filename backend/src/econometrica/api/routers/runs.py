@@ -29,6 +29,7 @@ from econometrica.agents.econometrician import Econometrician, StepOutcome
 from econometrica.agents.narrator import Narrator
 from econometrica.agents.orchestrator import TIERS, Orchestrator, RunOutcome, Tier
 from econometrica.agents.planner import Planner
+from econometrica.agents.quant_coder import QuantCoder
 from econometrica.agents.schemas import AnalysisPlan
 from econometrica.agents.validator import Validator
 from econometrica.api.deps import (
@@ -40,7 +41,7 @@ from econometrica.api.deps import (
     get_chat_or_404,
     get_project_or_404,
 )
-from econometrica.db.models import Project, Run
+from econometrica.db.models import Chat, Project, Run
 from econometrica.econ.types import ResultSet
 from econometrica.llm.base import LLMProvider
 from econometrica.llm.registry import ProviderRegistry
@@ -51,6 +52,7 @@ from econometrica.schemas.run import (
     RunStart,
     StepReproduction,
 )
+from econometrica.services.capabilities import resolve_capabilities
 from econometrica.services.tracing import record_run
 
 router = APIRouter(prefix="/api/chats", tags=["runs"])
@@ -215,7 +217,7 @@ async def start_run(
     chat = await get_chat_or_404(session, chat_id)
     project = await get_project_or_404(session, chat.project_id)
 
-    orchestrator = _build(project, registry, source, rate_source, factor_source)
+    orchestrator = _build(project, chat, registry, source, rate_source, factor_source)
 
     async def events() -> AsyncIterator[dict[str, str]]:
         outcome: RunOutcome | None = None
@@ -260,6 +262,7 @@ async def start_run(
 
 def _build(
     project: Project,
+    chat: Chat,
     registry: ProviderRegistry,
     source: PriceSourceDep,
     rate_source: PriceSourceDep,
@@ -274,13 +277,26 @@ def _build(
         provider, model = _bind("validator", project, registry)
         validator = Validator(provider, model)
 
+    # Read through the resolver rather than off the column, even though the
+    # sandbox is the one capability a chat cannot override: the rule about
+    # which scope decides belongs in `services.capabilities` and nowhere else.
+    capabilities = resolve_capabilities(project, chat)
+    coder = None
+    if capabilities.code_sandbox and "quant_coder" in (project.model_assignments or {}):
+        provider, model = _bind("quant_coder", project, registry)
+        coder = QuantCoder(provider, model)
+
     return Orchestrator(
-        planners=[Planner(planner_provider, planner_model)],
+        planners=[
+            Planner(planner_provider, planner_model, code_sandbox=capabilities.code_sandbox)
+        ],
         steward=DataSteward(
             source, rate_source=rate_source, factor_source=factor_source
         ),
         validator=validator,
         narrator=Narrator(narrator_provider, narrator_model),
+        coder=coder,
+        code_sandbox=capabilities.code_sandbox,
         tier=tier,
     )
 

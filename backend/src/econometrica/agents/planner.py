@@ -11,6 +11,7 @@ from datetime import date
 from econometrica.agents.base import Agent, AgentResult
 from econometrica.agents.catalogue import render_tool_catalogue
 from econometrica.agents.schemas import AnalysisPlan
+from econometrica.llm.base import LLMProvider
 from econometrica.llm.types import Message
 
 _SYSTEM = """\
@@ -75,9 +76,36 @@ Two more columns appear only if you ask for them in `dataset`:
   brings its own `risk_free` column, so do not set both.
 
 `carhart4` is available at monthly frequency only.
-
+{escape_hatch}
 # Tool catalogue
 {catalogue}\
+"""
+
+#: Appended only when the project has the code sandbox enabled. Omitted
+#: otherwise, and that is not tidiness: a Planner told the field exists reaches
+#: for it on a hard question, and every such plan would then be refused after
+#: the model call had already been paid for. Off by default has to reach the
+#: prompt, not only the executor.
+_ESCAPE_HATCH = """
+# When no tool fits
+
+This project has the code sandbox enabled, so you may add a `code_steps` list
+alongside `steps`:
+
+  "code_steps": [
+    {"id": "c1", "intent": "what to compute, in prose",
+     "depends_on": ["s1"], "rationale": "why no tool fits"}
+  ]
+
+A later agent writes and runs code for each intent. Use it **only** when no
+tool in the catalogue computes what is being asked for. Its results are marked
+as an unvalidated method — no tested implementation, no version, no
+precondition gate — and the reader is told so. Where a catalogue tool exists,
+it is always the better answer.
+
+Ids share one namespace with `steps`, so a `code_steps` id may not repeat an
+`s` id. A `code_steps` entry may depend on a regular step; a regular step may
+not depend on a `code_steps` entry.
 """
 
 
@@ -85,6 +113,19 @@ class Planner(Agent[AnalysisPlan]):
     """Turns intent plus project context into a validated `AnalysisPlan`."""
 
     role = "planner"
+
+    def __init__(
+        self,
+        provider: LLMProvider,
+        model: str,
+        *,
+        max_attempts: int = 2,
+        code_sandbox: bool = False,
+    ) -> None:
+        super().__init__(provider, model, max_attempts=max_attempts)
+        #: Whether this project may use the escape hatch. Decides whether the
+        #: prompt mentions `code_steps` at all — see `_ESCAPE_HATCH`.
+        self.code_sandbox = code_sandbox
 
     def output_model(self) -> type[AnalysisPlan]:
         return AnalysisPlan
@@ -104,7 +145,12 @@ class Planner(Agent[AnalysisPlan]):
         """
         return await self.ask(
             [
-                Message.system(_SYSTEM.format(catalogue=render_tool_catalogue())),
+                Message.system(
+                    _SYSTEM.format(
+                        catalogue=render_tool_catalogue(),
+                        escape_hatch=_ESCAPE_HATCH if self.code_sandbox else "",
+                    )
+                ),
                 Message.user(self._request(question, context, today)),
             ]
         )

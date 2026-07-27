@@ -10,7 +10,10 @@ Phases 1–2 are specified there step by step; 3–6 at task level. Each phase g
 its own step-level document when it is reached — Phase 4's is
 `docs/plans/2026-07-25-econometrica-phase-4.md`, Phase 5's is
 `docs/plans/2026-07-25-econometrica-phase-5.md`, Phase 6's is
-`docs/plans/2026-07-27-econometrica-phase-6.md`.
+`docs/plans/2026-07-27-econometrica-phase-6.md`. Task 6.15 also has its own
+design note, `docs/plans/2026-07-27-econometrica-sandbox-design.md` — **read it
+before touching anything under `sandbox/`**; every constant there comes from a
+probe recorded in it.
 
 ---
 
@@ -40,17 +43,62 @@ Consequences that keep coming up:
 | 3 — LLM providers + streaming chat | done, e2e gate green |
 | 4 — multi-agent orchestration | done, e2e gate green |
 | 5 — charts and artifact canvas | done, e2e gate green |
-| 6 — real data, uploads, telemetry, MCP | in progress — 6.14 of 16 tasks |
+| 6 — real data, uploads, telemetry, MCP | in progress — 6.15 of 16 tasks |
 
-**1305 backend tests, 307 frontend tests, 5 Playwright e2e.** ruff and
+**1401 backend tests, 314 frontend tests, 5 Playwright e2e.** ruff and
 `mypy --strict` clean on `src`. `alembic check` reports no drift.
 
 ### The immediate next task
 
-**Phase 6, Task 6.15** — the sandboxed code escape hatch. Built last by design,
-and the only task whose tests are adversarial: every restriction gets an escape
-attempt. Read `docs/plans/2026-07-27-econometrica-phase-6.md`; it carries all
-sixteen tasks, six decisions, and the live-probe findings below.
+**Phase 6, Task 6.16** — the full-stack e2e regression on real data, which
+closes the phase. It also carries the fix for the flaky Phase 4 assertion at
+`analysis.spec.ts:227` described under "Carried-over debts" below.
+
+### The code escape hatch, and the one thing it cannot promise
+
+**The sandbox is not a correctness check, and the marking is the deliverable.**
+A live probe asked `ministral-3:8b` for a Gini coefficient at temperature 0: it
+wrote correct code four runs out of five, and the fifth ran cleanly and reported
+**−42.49 as a Gini coefficient**. Every restriction held — numpy only, the frame
+only, milliseconds, contract satisfied. So a sandbox result must never look like
+a registry result: `ResultSet.tool` is `sandbox:<method>`, the manifest's
+version is `unvalidated`, the run banner alerts exactly as `synthetic_data`
+does, and the print-only `Provenance` says it in words. All of it derived from
+the result itself — a marker that travels separately is a marker that can be
+lost. The live test asserts the code *runs and is marked*, never that the
+arithmetic is right; asserting that would claim a property this feature does not
+have and would fail one run in five.
+
+**Three layers, and only two are security controls.** The process with its OS
+caps is the real boundary; a PEP 578 audit hook is what stops the operations
+(it fires from C and cannot be unregistered); **the import allowlist is
+bypassable and the tests say so** — `SMUGGLE` in `tests/sandbox/test_escapes.py`
+defeats it deliberately so every test under it proves the hook holds after the
+weak layer has fallen. Neutering the hook fails 12 of 28 escape tests, which is
+how they were shown to bite.
+
+**Windows facts that cost a probe each.** `resource` does not exist, so caps
+come from a Job Object via ctypes. Its CPU limit is *not* a timeout — a 1 s cap
+fired at 5.9/7.4/8.1 s — so the wall clock is the parent's. `ActiveProcessLimit`
+must be **2**: under `uv`, `sys.executable` is a trampoline that spawns the real
+interpreter, and 1 refuses the sandbox its own Python. And **OpenBLAS blows a
+1 GB cap on this 24-CPU machine**, so the runner pins BLAS to one thread; the
+whole stack then fits in 256 MB.
+
+**The `import` audit event cannot enforce an allowlist.** It is raised by
+`_find_and_load`, which never runs on a `sys.modules` cache hit, so
+`import socket` after pandas has loaded it fires nothing. The allowlist is a
+gated `__import__` in the generated code's own builtins. And **blocking `open`
+outright breaks `arch`**, which imports `pyarrow.pandas_compat` at *fit* time —
+so writes are denied and reads are permitted only under `sys.prefix` and
+`sys.base_prefix`, both of which exclude `storage/`.
+
+**Three conditions gate the path, and all refuse rather than degrade**: the
+project enables it (a chat cannot), the tier has a Validator (`single` is
+refused outright), and a Quant Coder is configured. `AnalysisPlan.code_steps` is
+default-empty and **the Planner is only told the field exists when the
+capability is on** — otherwise it reaches for it on a hard question and every
+such plan is refused after the model call was already paid for.
 
 **Printing is a stylesheet, not a dependency.** `styles/print.css` forces light
 surfaces whatever theme the reader used, drops chrome, and keeps a chart card
@@ -553,6 +601,14 @@ adding a `ProviderSpec` and a factory.
   `tests/db/test_run_model.py` exercises each constraint against Postgres, and
   `tests/db/test_migrations.py` asserts every constraint in the models reaches
   some migration at all.
+- **Asserting the constraint *names* is not enough**, and Task 6.15 found out
+  how. `ck_run_steps_agent_known` has been in the initial revision since Phase
+  4, so adding `quant_coder` to `STEP_AGENTS` left that test green while a
+  fresh database rejected every sandbox step. `test_migrations.py` now asserts
+  every *value* of each vocabulary reaches a migration too. Note also that the
+  test database is built by `Base.metadata.create_all`, **not** from the
+  migrations — so a constraint test passing against Postgres says nothing about
+  whether a revision exists.
 
 ### The tool registry
 

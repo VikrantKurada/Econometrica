@@ -33,7 +33,7 @@ allowlists that are off by default.
 | 6.12 project-scoped retrieval over pgvector | ✅ |
 | 6.13 web search, off by default, attributed | ✅ |
 | 6.14 PDF export — print stylesheet, no new dependency | ✅ |
-| 6.15 sandboxed code escape hatch | ⬜ |
+| 6.15 sandboxed code escape hatch | ✅ |
 | 6.16 Phase 6 e2e — full regression | ⬜ |
 
 ---
@@ -1230,7 +1230,7 @@ flags, so a printed report of synthetic data still says so.
 browser **already parsed** out of `document.styleSheets` and applies them to the
 real DOM. The first attempt at this was wrong in an instructive way: fetching
 `/src/styles/print.css` in dev returns Vite's **JS module wrapper**, so the text
-came back with literal `
+came back with literal `
 ` escapes and every rule body parsed empty — a
 harness that measured nothing and would have reported success.
 
@@ -1275,6 +1275,131 @@ task gets its own short design note before implementation rather than
 discovering that mid-task.
 
 **Commit:** `feat(sandbox): add isolated subprocess runner for generated code`
+
+**Landed.** 53 sandbox tests, 17 for the Quant Coder, 12 for the orchestrator
+gate — and a **design note written before any of it**,
+`docs/plans/2026-07-27-econometrica-sandbox-design.md`. Every constant in the
+package comes from a probe recorded there rather than from a guess, and that
+note is where to start before changing anything here.
+
+### The layering, and which layer actually holds
+
+The plan asked for an escape attempt per restriction. Writing them settled
+something the plan had not: **the three layers are not equally strong, and only
+two of them are security controls.**
+
+- **The process, capped by the OS, is the real boundary** — a Job Object on
+  Windows, `setrlimit` on POSIX.
+- **A PEP 578 audit hook is what stops the operations.** It fires from
+  CPython's own C code, cannot be unregistered, and refuses however the
+  callable was obtained.
+- **The import allowlist is a clarity control, and it is bypassable.** With a
+  fully gated `__import__`, an allowlisted module's own globals still hand back
+  the real one, and `().__class__.__base__.__subclasses__()` still finds
+  `subprocess.Popen` without importing anything at all.
+
+So the escape tests are written against the layer that holds. `SMUGGLE` in
+`tests/sandbox/test_escapes.py` **defeats the import allowlist on purpose**, and
+every test built on it asserts the audit hook still refuses after the weakest
+layer has already fallen. One test performs the `__subclasses__` walk, asserts
+`Popen` **was** reachable — so it cannot pass by the class merely being absent —
+and then asserts that calling it is refused.
+
+Verified by neutering rather than by assertion: with `_install_audit_hook`
+returning immediately, **12 of the 28 escape tests fail** — the sandbox reaches
+DNS, opens sockets, writes and deletes real files, and runs `Popen`. That is the
+evidence they bite.
+
+### What the probes found that the plan could not have
+
+- **`resource` is absent on Windows**, as expected — and the Job Object
+  replacement is better in one respect: a child over its memory cap gets a
+  `MemoryError` at the allocation rather than being killed, so the failure is
+  attributable to a line.
+- **The CPU cap is not a timeout.** A 1 s `PerProcessUserTimeLimit` fired at
+  5.9 s, 7.4 s and 8.1 s across three runs. The wall-clock cap is the parent's;
+  the CPU cap is a backstop and makes no timing claim.
+- **`ActiveProcessLimit` must be 2, not 1.** Under `uv`, `sys.executable` is a
+  45 KB trampoline that spawns the real interpreter, so a limit of 1 refuses the
+  sandbox its own Python (`os error 1816`). At 2 the sandbox starts and a
+  grandchild is refused *by the kernel* — proven in `test_limits.py` with no
+  audit hook installed at all, so the two claims stay independent.
+- **OpenBLAS blows a 1 GB cap on a 24-CPU machine.** `import numpy` dies inside
+  one, reproducibly; pinned to a single thread the whole stack — numpy, pandas,
+  scipy, statsmodels, arch — fits in 256 MB. The runner sets the thread count
+  rather than leaving it to the environment.
+- **Blocking `open` outright breaks `arch`**, which imports
+  `pyarrow.pandas_compat` at *fit* time. The rule is a path rule: all writes
+  denied, reads permitted only under `sys.prefix` and `sys.base_prefix`. Those
+  two hold the interpreter and its site-packages; `storage/`, which holds
+  `keys.enc`, is outside both.
+- **The `import` audit event is useless as an allowlist.** It is raised by
+  `_find_and_load`, which never runs on a `sys.modules` cache hit — so
+  `import socket` after pandas has loaded it fires nothing at all. The allowlist
+  lives in a gated `__import__` in the generated code's own builtins instead.
+
+Two bugs the tests found, both of the same shape — **the sandbox tripping its
+own rules.** `traceback.format_exc` goes through `linecache`, which opens the
+source of every frame including `child.py`, so an ordinary `ZeroDivisionError`
+in generated code came back as a filesystem denial and a dead child; frame
+summaries are built by hand now. And code that assigned no `result` was reported
+as a *successful* empty run, which would have had the Validator sign off on
+silence.
+
+### Six decisions this task settled
+
+- **`SandboxDenied` derives from `BaseException`.** Generated code wrapping its
+  escape attempt in `except Exception` must not be able to swallow the refusal —
+  and any denial at all makes the outcome `denied` even where the code recovered
+  and returned numbers. A run that reached for a socket is not a run whose
+  numbers anyone should read.
+- **The child is launched by path, not as `-m`.** With `-I` the script's own
+  directory stays off `sys.path`, so the `econometrica` package never enters the
+  sandbox process; the policy travels in the payload instead. One source of
+  truth, and no route to our settings or `keys.enc`.
+- **The payload arrives on stdin, and that closes the assignment race.**
+  `AssignProcessToJobObject` needs a process that already exists and `Popen`
+  cannot start one suspended, so the child's first act is a blocking read: the
+  uncapped window contains no work.
+- **`code_steps` is a separate list on `AnalysisPlan`**, default empty, and the
+  Planner is told the field exists **only when the capability is on**. A Planner
+  that knows about it reaches for it on a hard question, and every such plan
+  would then be refused after the model call had already been paid for.
+- **A registry step may not depend on a code step.** The Econometrician runs
+  first and knows nothing about the sandbox, so that edge would be a hang
+  discovered at runtime rather than a plan rejected at the boundary.
+- **`quant_coder` needed a hand-written migration**, and it exposed a hole in
+  the drift gate. `ck_run_steps_agent_known` has been in the initial revision
+  since Phase 4, so widening `STEP_AGENTS` left the "every constraint reaches a
+  migration" test green and a fresh database rejecting every sandbox step.
+  `test_migrations.py` now asserts the *values*, not only the names — verified
+  by hiding the new revision and watching it fail.
+
+### What the live probe found, and why no test asserts the answer
+
+Asked for a Gini coefficient — deliberately something **no registry tool
+computes** — `ministral-3:8b` at temperature 0 wrote correct code four runs out
+of five. The fifth ran cleanly and reported **−42.49 as a Gini coefficient**,
+from a formula that divides by the largest observation instead of the mean.
+
+A Gini coefficient lies in [0, 1]. Every restriction held: the code imported
+only numpy, touched only the frame, finished in milliseconds and satisfied the
+contract exactly. **The sandbox is not, and cannot be, a correctness check.**
+
+That is the argument for the rest of the design rather than a defect in it, and
+it is why the live test asserts that a real model can produce runnable code
+under the contract and that the result comes back marked — not that the
+arithmetic is right. Asserting the arithmetic would claim a property this
+feature does not have, and would fail one run in five saying so.
+
+**The marking is therefore the deliverable.** `ResultSet.tool` is
+`sandbox:<method>` and the manifest's version is `unvalidated`; the run banner
+shows an alert no tab can hide, exactly as `synthetic_data` does; and the
+print-only `Provenance` says it in words, because on paper the banner is gone.
+It is derived from the result itself rather than carried beside it — a marker
+that travels separately is a marker that can be lost. The Validator is shown the
+**code**, not only the number, because a registry tool's name is a promise and a
+code step's name promises nothing.
 
 ---
 

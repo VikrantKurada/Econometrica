@@ -99,7 +99,12 @@ class Validator(Agent[ValidationVerdict]):
         *,
         diagnostics: list[Diagnostic] | None = None,
     ) -> AgentResult[ValidationVerdict]:
-        self._known_steps = frozenset(step.id for step in plan.steps)
+        # Both kinds, because a Validator that could not name a code step in
+        # `revise_steps` could reject the work it was added to review and have
+        # no way to say which part.
+        self._known_steps = frozenset(
+            [step.id for step in plan.steps] + [step.id for step in plan.code_steps]
+        )
         return await self.ask(
             [
                 Message.system(_SYSTEM),
@@ -122,6 +127,18 @@ def _render(
         "\n# Steps\n" + "\n".join(_step_lines(plan, report)),
     ]
 
+    if plan.code_steps:
+        # Sign-off on this path is mandatory, so it is stated rather than left
+        # to be inferred from a tool name beginning `sandbox:`.
+        blocks.append(
+            "\n# Generated code — UNVALIDATED METHOD\n"
+            "These steps were computed by code a model wrote for this run. There is"
+            " no tested implementation, no version and no precondition gate behind"
+            " them. Judge the method itself, and reject if the code does not compute"
+            " what the step claims.\n"
+            + "\n".join(_code_step_lines(plan, report))
+        )
+
     if report.refusals:
         blocks.append(
             "\n# Refused by precondition\n"
@@ -143,18 +160,50 @@ def _render(
 def _step_lines(plan: AnalysisPlan, report: ExecutionReport) -> list[str]:
     lines: list[str] = []
     for step in plan.steps:
+        lines.extend(_one_step(step.id, step.tool, report))
+    return lines
+
+
+def _code_step_lines(plan: AnalysisPlan, report: ExecutionReport) -> list[str]:
+    """Generated code, rendered with the code itself.
+
+    Shown separately and in full rather than mixed in with the registry steps.
+    A registry tool's name is a promise the Validator can rely on — `capm` is
+    the CAPM — and a code step's name promises nothing, so the only way to
+    judge the method is to read it.
+    """
+    lines: list[str] = []
+    for step in plan.code_steps:
+        lines.append(f"- {step.id}: {step.intent}")
+        lines.extend(f"  {line}" for line in _one_step(step.id, "generated code", report))
         try:
             outcome = report.outcome(step.id)
         except KeyError:
-            lines.append(f"- {step.id} ({step.tool}): not reached")
             continue
+        if outcome.result is None:
+            continue
+        code = str(outcome.result.params.get("code", ""))
+        assumptions = outcome.result.params.get("assumptions") or []
+        if code:
+            lines.append("  code:")
+            lines.extend(f"      {line}" for line in code.splitlines())
+        if isinstance(assumptions, list) and assumptions:
+            lines.append("  stated assumptions: " + "; ".join(str(a) for a in assumptions))
+    return lines
 
-        head = f"- {step.id} ({step.tool}): {outcome.status}"
-        if outcome.error:
-            head = f"{head} — {outcome.error}"
-        lines.append(head)
-        if outcome.result is not None:
-            lines.extend(f"    {line}" for line in _result_lines(outcome.result))
+
+def _one_step(step_id: str, label: str, report: ExecutionReport) -> list[str]:
+    try:
+        outcome = report.outcome(step_id)
+    except KeyError:
+        return [f"- {step_id} ({label}): not reached"]
+
+    head = f"- {step_id} ({outcome.tool or label}): {outcome.status}"
+    if outcome.error:
+        head = f"{head} — {outcome.error}"
+    lines = [head]
+    if outcome.result is not None:
+        lines.extend(f"    {line}" for line in _result_lines(outcome.result))
     return lines
 
 

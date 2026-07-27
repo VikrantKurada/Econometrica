@@ -1,4 +1,5 @@
 import type { RunOutcome } from "../../lib/types";
+import { unvalidatedMethods } from "./artifacts";
 
 /**
  * Where every number in this report came from.
@@ -50,6 +51,7 @@ export function stepProvenance(outcome: Partial<RunOutcome>): StepProvenance[] {
 export function Provenance({ outcome, visible = false }: ProvenanceProps) {
   const steps = stepProvenance(outcome);
   const quality = outcome.quality;
+  const generated = unvalidatedMethods(outcome);
 
   return (
     <section
@@ -85,6 +87,19 @@ export function Provenance({ outcome, visible = false }: ProvenanceProps) {
           ))}
         </ul>
       ) : null}
+
+      {generated.length > 0 && (
+        // The `unvalidated` in the version column below says this too, but a
+        // reader would have to know what it means. On paper the banner is gone
+        // and the trace is unreachable, so this is the only place left to say
+        // it in words.
+        <p className="text-2xs text-text-secondary">
+          <span className="font-medium">Unvalidated method:</span>{" "}
+          {generated.map((method) => `${method.method} (${method.stepId})`).join(", ")} —
+          computed by code generated for this run, with no tested implementation, no
+          version and no precondition gate behind it.
+        </p>
+      )}
 
       {steps.length > 0 && (
         <table className="w-full text-left text-2xs" aria-label="Result manifests">

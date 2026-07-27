@@ -2,7 +2,13 @@ import { describe, expect, it } from "vitest";
 
 import type { PreconditionVerdict, RunOutcome, StepOutcome } from "../../lib/types";
 import { FIXTURE_RESULT } from "../charts/fixtures";
-import { chartArtifacts, refusals, riskFlags, unjudged } from "./artifacts";
+import {
+  chartArtifacts,
+  refusals,
+  riskFlags,
+  unjudged,
+  unvalidatedMethods,
+} from "./artifacts";
 
 function verdict(overrides: Partial<PreconditionVerdict> = {}): PreconditionVerdict {
   return {
@@ -153,3 +159,60 @@ function blank(type: "line") {
     y_label: "",
   } as const;
 }
+
+describe("unvalidatedMethods", () => {
+  const sandboxStep = {
+    step_id: "c1",
+    tool: "sandbox:rolling_hurst",
+    status: "ran" as const,
+    verdicts: [],
+    error: "",
+    result: {
+      tool: "sandbox:rolling_hurst",
+      version: "unvalidated",
+      params: { method: "Rolling Hurst exponent", code: "result = {}" },
+      estimates: [],
+      diagnostics: [],
+      scalars: { hurst: 0.61 },
+      tables: {},
+      series: {},
+      manifest: {
+        data_fingerprint: "a".repeat(64),
+        tool: "sandbox:rolling_hurst",
+        tool_version: "unvalidated",
+        params_hash: "b".repeat(64),
+        library_versions: {},
+        seed: null,
+        created_at: "2026-07-27T00:00:00Z",
+      },
+    },
+  };
+
+  it("names a step whose numbers came from generated code", () => {
+    const found = unvalidatedMethods({ execution: { outcomes: [sandboxStep] } } as never);
+
+    expect(found).toEqual([
+      { stepId: "c1", tool: "sandbox:rolling_hurst", method: "Rolling Hurst exponent" },
+    ]);
+  });
+
+  it("does not label an ordinary registry result", () => {
+    // The property that must never regress: a CAPM marked unvalidated would
+    // be as wrong as a sandbox result that was not.
+    expect(unvalidatedMethods(outcome())).toEqual([]);
+  });
+
+  it("falls back to the tool name when the method was not recorded", () => {
+    const step = { ...sandboxStep, result: { ...sandboxStep.result, params: {} } };
+
+    const found = unvalidatedMethods({ execution: { outcomes: [step] } } as never);
+
+    expect(found[0].method).toBe("sandbox:rolling_hurst");
+  });
+
+  it("ignores a step that produced no result", () => {
+    const refused = { ...sandboxStep, status: "refused" as const, result: null };
+
+    expect(unvalidatedMethods({ execution: { outcomes: [refused] } } as never)).toEqual([]);
+  });
+});

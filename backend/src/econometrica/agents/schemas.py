@@ -14,7 +14,7 @@ import json
 import re
 from collections.abc import Iterator
 from datetime import date
-from typing import Any, Literal, Self
+from typing import Any, Literal, Protocol, Self
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 from pydantic import ValidationError as PydanticValidationError
@@ -185,32 +185,88 @@ class PlanStep(BaseModel):
         return self
 
 
+class CodeStep(BaseModel):
+    """A calculation no registry tool performs.
+
+    Deliberately thin. A `PlanStep` binds to a tested function with declared
+    parameters, and the whole point of this one is that no such function
+    exists — so it carries an intent for the Quant Coder to write against and
+    nothing that would imply a contract it cannot keep.
+
+    It is a *separate list* rather than a variant of `PlanStep` because
+    `PlanStep`'s validator resolves the registry at construction time, and the
+    two must not be able to be confused: everything that iterates `steps`
+    today would otherwise start seeing unvalidated work without being changed.
+    """
+
+    id: str = Field(min_length=1)
+    #: What to compute, in prose. The Quant Coder writes code for this.
+    intent: str = Field(min_length=1)
+    depends_on: list[str] = Field(default_factory=list)
+    rationale: str = ""
+
+
 class AnalysisPlan(BaseModel):
     """A whole analysis, before any of it has run."""
 
     question: str
     dataset: DatasetSpec
-    steps: list[PlanStep] = Field(min_length=1)
+    steps: list[PlanStep] = Field(default_factory=list)
+    #: The escape hatch. Empty in every plan unless the project has the code
+    #: sandbox enabled, because the Planner is only told this field exists when
+    #: it does — see `agents/planner.py`.
+    code_steps: list[CodeStep] = Field(default_factory=list)
     hypotheses: list[str] = Field(default_factory=list)
     chart_intents: list[str] = Field(default_factory=list)
 
+    def uses_generated_code(self) -> bool:
+        return bool(self.code_steps)
+
     @model_validator(mode="after")
     def steps_must_form_a_dag(self) -> Self:
+        if not self.steps and not self.code_steps:
+            raise ValueError("a plan needs at least one step")
+
+        # Ids address results across both kinds — a narration cites `s3`
+        # whether s3 ran a tool or ran code — so the namespace is shared and a
+        # collision would make a citation ambiguous.
+        every: list[_Orderable] = [*self.steps, *self.code_steps]
         known: set[str] = set()
-        for step in self.steps:
+        for step in every:
             if step.id in known:
                 raise ValueError(f"duplicate step id {step.id!r}")
             known.add(step.id)
 
-        for step in self.steps:
+        for step in every:
             for dependency in step.depends_on:
                 if dependency not in known:
                     raise ValueError(
                         f"step {step.id!r} depends on unknown step {dependency!r}"
                     )
 
+        # The Econometrician runs the registry steps and knows nothing about
+        # generated code, so a tool step waiting on a code step would wait for
+        # ever. Refused at the boundary rather than discovered as a hang.
+        code_ids = {step.id for step in self.code_steps}
+        for step in self.steps:
+            waiting = sorted(set(step.depends_on) & code_ids)
+            if waiting:
+                raise ValueError(
+                    f"step {step.id!r} depends on generated code ({', '.join(waiting)});"
+                    " registry steps run first and cannot wait on the sandbox"
+                )
+
         self._topological_order()  # raises on a cycle
+        _order(self.code_steps)  # raises on a cycle among the code steps
         return self
+
+    def ordered_code_steps(self) -> list[CodeStep]:
+        """Code steps in an order satisfying their dependencies on each other.
+
+        Their dependencies on *registry* steps need no ordering: those have all
+        run by the time any of these do.
+        """
+        return _order(self.code_steps)
 
     def ordered_steps(self) -> list[PlanStep]:
         """The steps in an order that satisfies every dependency.
@@ -222,25 +278,43 @@ class AnalysisPlan(BaseModel):
         return self._topological_order()
 
     def _topological_order(self) -> list[PlanStep]:
-        by_id = {step.id: step for step in self.steps}
-        pending = {step.id: set(step.depends_on) for step in self.steps}
-        ordered: list[PlanStep] = []
+        return _order(self.steps)
 
-        while pending:
-            ready = [
-                step.id for step in self.steps if step.id in pending and not pending[step.id]
-            ]
-            if not ready:
-                raise ValueError(
-                    f"steps form a dependency cycle: {', '.join(sorted(pending))}"
-                )
-            for step_id in ready:
-                ordered.append(by_id[step_id])
-                del pending[step_id]
-            for dependencies in pending.values():
-                dependencies.difference_update(ready)
 
-        return ordered
+class _Orderable(Protocol):
+    """What the shared topological sort needs of a step.
+
+    Structural rather than a union of the two step classes: mypy reads
+    `list[PlanStep | CodeStep]` as `list[BaseModel]` inside the function and
+    loses both attributes.
+    """
+
+    id: str
+    depends_on: list[str]
+
+
+def _order[StepT: _Orderable](steps: list[StepT]) -> list[StepT]:
+    """Topological sort within one kind of step, ties breaking on declared
+    order so two runs of the same plan execute identically.
+
+    Dependencies pointing outside `steps` are ignored: a code step waiting on a
+    registry step is waiting on something that has already finished.
+    """
+    by_id = {step.id: step for step in steps}
+    pending = {step.id: set(step.depends_on) & set(by_id) for step in steps}
+    ordered: list[StepT] = []
+
+    while pending:
+        ready = [step.id for step in steps if step.id in pending and not pending[step.id]]
+        if not ready:
+            raise ValueError(f"steps form a dependency cycle: {', '.join(sorted(pending))}")
+        for step_id in ready:
+            ordered.append(by_id[step_id])
+            del pending[step_id]
+        for dependencies in pending.values():
+            dependencies.difference_update(ready)
+
+    return ordered
 
 
 class ValidationVerdict(BaseModel):

@@ -46,7 +46,14 @@ if TYPE_CHECKING:
 RUN_STATUSES = ("running", "completed", "blocked", "failed")
 RUN_TIERS = ("single", "critic", "consensus")
 
-STEP_AGENTS = ("planner", "data_steward", "econometrician", "validator", "narrator")
+STEP_AGENTS = (
+    "planner",
+    "data_steward",
+    "econometrician",
+    "validator",
+    "narrator",
+    "quant_coder",
+)
 STEP_KINDS = ("llm", "tool")
 STEP_STATUSES = ("ok", "refused", "failed", "skipped")
 

@@ -24,9 +24,14 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 from econometrica.agents.data_steward import DataQualityReport, DataSteward
-from econometrica.agents.econometrician import Econometrician, ExecutionReport
+from econometrica.agents.econometrician import Econometrician, ExecutionReport, StepOutcome
 from econometrica.agents.narrator import Narration, Narrator
 from econometrica.agents.planner import Planner
+from econometrica.agents.quant_coder import (
+    QuantCoder,
+    SandboxNotPermittedError,
+    check_permitted,
+)
 from econometrica.agents.schemas import AnalysisPlan, ValidationVerdict
 from econometrica.agents.trace import StepRecord, TraceBuilder, tool_call_hash
 from econometrica.agents.validator import Validator, independence_warning
@@ -92,6 +97,8 @@ class Orchestrator:
         steward: DataSteward,
         validator: Validator | None,
         narrator: Narrator,
+        coder: QuantCoder | None = None,
+        code_sandbox: bool = False,
         tier: Tier = "critic",
         max_revisions: int = 1,
     ) -> None:
@@ -104,6 +111,12 @@ class Orchestrator:
         self.steward = steward
         self.validator = validator
         self.narrator = narrator
+        self.coder = coder
+        #: The resolved capability, passed in rather than read here: `agents/`
+        #: knows nothing about projects or chats, and `services.capabilities`
+        #: is the one place that decides. Default False keeps every existing
+        #: caller off the escape hatch without changing a line.
+        self.code_sandbox = code_sandbox
         self.econometrician = Econometrician()
         self.tier: Tier = tier
         self.max_revisions = max_revisions
@@ -145,6 +158,11 @@ class Orchestrator:
             yield RunEvent(name="run.warning", detail=warning)
 
         plan = await self._plan(question, context, outcome, trace)
+        # Before the data is fetched, not after: a run that is not permitted to
+        # execute the code it planned should say so without spending a fetch on
+        # it, and refusing beats silently dropping the step — that would leave
+        # a plan whose recorded steps do not match its results.
+        self._check_code_permission(plan)
         yield RunEvent(name="plan.finished", payload=plan.model_dump(mode="json"))
         for warning in outcome.warnings[len(outcome.warnings) - 1 :]:
             if "disagree" in warning:
@@ -187,6 +205,11 @@ class Orchestrator:
                     detail=f"{step.step_id} ({step.tool}): {step.status}",
                     payload=step.model_dump(mode="json"),
                 )
+
+            async for event in self._run_code_steps(
+                plan, dataset.frame, execution, outcome, trace, parent=after_data
+            ):
+                yield event
 
             outcome.diagnostics = _diagnostics_for(execution)
             outcome.charts = _charts_for(execution)
@@ -285,6 +308,104 @@ class Orchestrator:
 
     # --- internals ----------------------------------------------------------
 
+    def _check_code_permission(self, plan: AnalysisPlan) -> None:
+        """The three conditions §2 puts on generated code, checked together.
+
+        Two of them are `check_permitted`'s; the third is having a Quant Coder
+        wired at all. All three refuse rather than degrade — see the call site.
+        """
+        if not plan.uses_generated_code():
+            return
+        check_permitted(enabled=self.code_sandbox, tier=self.tier)
+        if self.coder is None:
+            raise SandboxNotPermittedError(
+                "the plan asks for generated code but no quant coder is configured"
+                " for this run"
+            )
+
+    async def _run_code_steps(
+        self,
+        plan: AnalysisPlan,
+        frame: Any,
+        execution: ExecutionReport,
+        outcome: RunOutcome,
+        trace: TraceBuilder,
+        *,
+        parent: int | None,
+    ) -> AsyncIterator[RunEvent]:
+        """The escape hatch, after every registry step has finished.
+
+        Ordered after them deliberately: `AnalysisPlan` refuses a tool step
+        that waits on a code step, so by the time any of this runs the
+        registry's own results are complete and a code step's dependencies are
+        all settled.
+        """
+        if not plan.code_steps or self.coder is None:
+            return
+
+        produced = {step.step_id for step in execution.outcomes if step.status == "ran"}
+        for step in plan.ordered_code_steps():
+            upstream = sorted(set(step.depends_on) - produced)
+            if upstream:
+                execution.outcomes.append(
+                    StepOutcome(
+                        step_id=step.id,
+                        tool="sandbox",
+                        status="skipped",
+                        error=f"depends on {', '.join(upstream)},"
+                        " which did not produce a result",
+                    )
+                )
+                continue
+
+            run = await self.coder.compute(step.intent, frame, context=plan.question)
+            trace.add_agent_turn(
+                run,
+                agent="quant_coder",
+                provider=getattr(self.coder.provider, "name", None),
+                model=self.coder.model,
+                parent=parent,
+                final_status="ok" if run.published else "refused",
+                final_detail=run.error,
+            )
+
+            status = _code_status(run.published, run.status)
+            tool = run.result.tool if run.result is not None else "sandbox"
+            trace.add(
+                StepRecord(
+                    agent="quant_coder",
+                    kind="tool",
+                    status=_STEP_STATE[status],
+                    parent=trace.last,
+                    tool=tool,
+                    tool_call_hash=tool_call_hash(tool, {"intent": step.intent}),
+                    detail=run.error or f"{len(run.denials)} denial(s)",
+                )
+            )
+            execution.outcomes.append(
+                StepOutcome(
+                    step_id=step.id,
+                    tool=tool,
+                    status=status,
+                    result=run.result,
+                    error=run.error,
+                )
+            )
+            if run.published:
+                produced.add(step.id)
+                # A reader must not have to notice a tool name to learn that a
+                # number came from code a model wrote this morning.
+                outcome.warnings.append(
+                    f"step {step.id} used an unvalidated method: {run.method!r} was"
+                    " computed by generated code in the sandbox, not by a registry"
+                    " tool, and carries no tested implementation or version"
+                )
+            yield RunEvent(
+                name="step.finished",
+                detail=f"{step.id} ({tool}): {status}",
+                payload=execution.outcomes[-1].model_dump(mode="json"),
+            )
+
     def _reviewer(self) -> Validator | None:
         """The Validator, if this tier uses one.
 
@@ -343,6 +464,18 @@ class Orchestrator:
                 " run; the others are reported for comparison."
             )
         return plans[0]
+
+
+def _code_status(published: bool, sandbox_status: str) -> str:
+    """A refused escape attempt is not a crash.
+
+    The Econometrician already draws this line for precondition gates —
+    `refused` means the system declined, `failed` means something broke — and
+    a reader of the trace needs the same distinction here most of all.
+    """
+    if published:
+        return "ran"
+    return "refused" if sandbox_status == "denied" else "failed"
 
 
 def _signature(plan: AnalysisPlan) -> str:

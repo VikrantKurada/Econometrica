@@ -30,9 +30,12 @@ compute statistics themselves.
 > run as JSON, Markdown, CSV, XLSX or a ZIP of all of them, and every one
 > carries the manifest that reproduces it — the data fingerprint, the tool
 > versions, and the source the prices came from. Charts export to PNG and SVG
-> from the browser, so the image is the one on screen. PDF is not built yet —
-> it will come from the browser's own print pipeline rather than from a new
-> dependency in either stack.
+> from the browser, so the image is the one on screen. **PDF comes from the
+> browser's own print pipeline** — a stylesheet, not a dependency in either
+> stack: it forces light surfaces whatever theme you were reading in, keeps a
+> chart card whole across a page break, and always prints the provenance block,
+> because an exported artifact that cannot be traced back is what this project
+> exists not to produce.
 >
 > The end-to-end gate runs it against a live local model. In a typical pass an
 > 8B model plans five steps, four run, and **GARCH is refused** because the
@@ -50,8 +53,15 @@ compute statistics themselves.
 > set** — `ff3`, `ff5` or `carhart4` — fetched from Ken French's data library.
 > With those, all 37 tools are reachable: AAPL against the three-factor set over
 > 2018–2023 gives a market loading of 1.30 with negative size and value
-> loadings, which is what a large-cap growth stock should look like. File
-> uploads are the task in flight.
+> loadings, which is what a large-cap growth stock should look like.
+>
+> **A CSV, XLSX or Parquet file can be analysed the same way.** An upload is
+> profiled, every column scored for the roles it *could* play, and the mapping
+> confirmed by a person before anything is stored — a model may only reorder
+> candidates the profiler already found admissible, and only a confirmed
+> mapping is ever ingested. The observations land in a Timescale hypertable and
+> are served through the same `PriceSource` protocol as Yahoo, so nothing above
+> that seam knows whether a series was fetched or uploaded.
 >
 > `ECONOMETRICA_PRICE_SOURCE=synthetic` still generates reproducible random
 > walks so the pipeline runs with no network at all; it is never the default, it
@@ -63,9 +73,20 @@ compute statistics themselves.
 > `GET /api/runs/{id}`. Rejected attempts are steps in their own right,
 > because they were billed.
 >
-> **In progress:** Phase 6 — real market data adapters, file uploads with
-> confirmed column mapping, telemetry and a trace viewer, and an MCP client
-> behind a tool allowlist.
+> **When no tool fits, a model may write code** — the escape hatch §2 of the
+> design chose, built last and off by default. It runs in a separate process
+> with no network, no filesystem to speak of, an import allowlist and
+> OS-enforced memory, CPU and wall-clock caps, and every restriction has a test
+> that tries to get out of it. Three conditions gate it: the project must
+> enable it (a chat cannot), the Validator must sign off, and the result is
+> **marked `unvalidated` everywhere it surfaces** — in the manifest, in the run
+> banner and in the printed provenance. That marking is the point. A live probe
+> found a real local model producing a plausible, cleanly-running and badly
+> wrong formula one run in five; nothing in a sandbox can catch that, which is
+> why the number never gets to look like one a tested tool produced.
+>
+> **In progress:** Phase 6 — one task left, a full-stack end-to-end regression
+> on real data.
 >
 > Working notes for contributors — and for Claude — are in `CLAUDE.md`. The
 > design and phase plans are in `docs/plans/`.

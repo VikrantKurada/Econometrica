@@ -94,3 +94,42 @@ export function riskFlags(outcome: Partial<RunOutcome>): QualityFlag[] {
     (flag) => flag.severity === "risk" || flag.severity === "warning",
   );
 }
+
+/**
+ * Every prefix a result's tool name can carry that means "no tested function
+ * produced this". One entry, and it mirrors `SANDBOX_TOOL_PREFIX` in
+ * `agents/quant_coder.py`. A colon cannot appear in a registry tool name, so
+ * nothing in `econ/` can collide with it.
+ */
+const SANDBOX_TOOL_PREFIX = "sandbox:";
+
+export interface UnvalidatedMethod {
+  stepId: string;
+  tool: string;
+  /** What the model called it, or the tool name when it did not say. */
+  method: string;
+}
+
+/**
+ * Results computed by code a model wrote, rather than by a registry tool.
+ *
+ * Derived from the results themselves rather than from a flag carried
+ * alongside them — the same reasoning as `synthetic_data` being read off the
+ * source label. A marker that travels separately is a marker that can be lost,
+ * and this is the one the whole escape hatch depends on: a sandbox number that
+ * looked like a `capm` beta would undo the point of having a registry at all.
+ */
+export function unvalidatedMethods(outcome: Partial<RunOutcome>): UnvalidatedMethod[] {
+  return steps(outcome).flatMap((step) => {
+    const result = step.result;
+    if (!result || !result.tool.startsWith(SANDBOX_TOOL_PREFIX)) return [];
+    const method = result.params?.method;
+    return [
+      {
+        stepId: step.step_id,
+        tool: result.tool,
+        method: typeof method === "string" && method ? method : result.tool,
+      },
+    ];
+  });
+}

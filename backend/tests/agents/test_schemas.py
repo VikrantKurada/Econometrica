@@ -14,6 +14,7 @@ from pydantic import ValidationError
 from econometrica.agents.schemas import (
     AgentOutputError,
     AnalysisPlan,
+    CodeStep,
     DatasetSpec,
     PlanStep,
     ValidationVerdict,
@@ -200,3 +201,118 @@ def test_parse_agent_json_rejects_a_json_array():
     """Every agent contract in this phase is an object; a list is a misread."""
     with pytest.raises(AgentOutputError):
         parse_agent_json("[1, 2, 3]")
+
+
+# --- code steps: the escape hatch's place in a plan --------------------------
+
+
+def test_a_plan_has_no_code_steps_by_default():
+    """Additive, and default-empty on purpose.
+
+    Every plan written before the sandbox existed must keep validating
+    unchanged, and a project that never turns the sandbox on must not be able
+    to acquire a code step by accident.
+    """
+    plan = AnalysisPlan(
+        question="q",
+        dataset=DatasetSpec(tickers=["AAA"], start="2020-01-01", end="2021-01-01"),
+        steps=[PlanStep(id="s1", tool="adf", params={"column": "AAA"})],
+    )
+
+    assert plan.code_steps == []
+    assert plan.uses_generated_code() is False
+
+
+def test_a_code_step_may_depend_on_a_registry_step():
+    plan = AnalysisPlan(
+        question="q",
+        dataset=DatasetSpec(tickers=["AAA"], start="2020-01-01", end="2021-01-01"),
+        steps=[PlanStep(id="s1", tool="adf", params={"column": "AAA"})],
+        code_steps=[CodeStep(id="c1", intent="rolling Hurst exponent", depends_on=["s1"])],
+    )
+
+    assert plan.uses_generated_code() is True
+    assert plan.code_steps[0].intent == "rolling Hurst exponent"
+
+
+def test_a_code_step_may_not_reuse_a_registry_step_id():
+    """Ids address results across both kinds, so a collision would make a
+    citation ambiguous and a `depends_on` silently point at the wrong thing."""
+    with pytest.raises(ValidationError, match="duplicate step id"):
+        AnalysisPlan(
+            question="q",
+            dataset=DatasetSpec(tickers=["AAA"], start="2020-01-01", end="2021-01-01"),
+            steps=[PlanStep(id="s1", tool="adf", params={"column": "AAA"})],
+            code_steps=[CodeStep(id="s1", intent="something else")],
+        )
+
+
+def test_a_code_step_cannot_depend_on_a_step_that_does_not_exist():
+    with pytest.raises(ValidationError, match="unknown step"):
+        AnalysisPlan(
+            question="q",
+            dataset=DatasetSpec(tickers=["AAA"], start="2020-01-01", end="2021-01-01"),
+            steps=[PlanStep(id="s1", tool="adf", params={"column": "AAA"})],
+            code_steps=[CodeStep(id="c1", intent="x", depends_on=["s9"])],
+        )
+
+
+def test_a_plan_may_be_nothing_but_code_steps():
+    """The case the escape hatch exists for: no registry tool fits at all."""
+    plan = AnalysisPlan(
+        question="q",
+        dataset=DatasetSpec(tickers=["AAA"], start="2020-01-01", end="2021-01-01"),
+        steps=[],
+        code_steps=[CodeStep(id="c1", intent="rolling Hurst exponent")],
+    )
+
+    assert plan.uses_generated_code() is True
+
+
+def test_a_plan_with_neither_kind_of_step_is_not_a_plan():
+    with pytest.raises(ValidationError, match="at least one step"):
+        AnalysisPlan(
+            question="q",
+            dataset=DatasetSpec(tickers=["AAA"], start="2020-01-01", end="2021-01-01"),
+            steps=[],
+        )
+
+
+def test_a_registry_step_cannot_wait_on_generated_code():
+    """The Econometrician runs first and knows nothing about the sandbox.
+
+    Allowing the edge would produce a step that waits for ever, discovered as
+    a hang rather than as a rejected plan.
+    """
+    with pytest.raises(ValidationError, match="registry steps run first"):
+        AnalysisPlan(
+            question="q",
+            dataset=DatasetSpec(tickers=["AAA"], start="2020-01-01", end="2021-01-01"),
+            steps=[PlanStep(id="s1", tool="adf", params={"column": "AAA"}, depends_on=["c1"])],
+            code_steps=[CodeStep(id="c1", intent="x")],
+        )
+
+
+def test_code_steps_are_ordered_by_their_dependencies():
+    plan = AnalysisPlan(
+        question="q",
+        dataset=DatasetSpec(tickers=["AAA"], start="2020-01-01", end="2021-01-01"),
+        code_steps=[
+            CodeStep(id="c2", intent="second", depends_on=["c1"]),
+            CodeStep(id="c1", intent="first"),
+        ],
+    )
+
+    assert [step.id for step in plan.ordered_code_steps()] == ["c1", "c2"]
+
+
+def test_a_cycle_among_code_steps_is_refused():
+    with pytest.raises(ValidationError, match="cycle"):
+        AnalysisPlan(
+            question="q",
+            dataset=DatasetSpec(tickers=["AAA"], start="2020-01-01", end="2021-01-01"),
+            code_steps=[
+                CodeStep(id="c1", intent="a", depends_on=["c2"]),
+                CodeStep(id="c2", intent="b", depends_on=["c1"]),
+            ],
+        )
