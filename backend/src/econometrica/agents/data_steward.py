@@ -23,8 +23,12 @@ from pydantic import BaseModel, Field
 
 from econometrica.agents.schemas import DatasetSpec
 from econometrica.data.base import DataUnavailableError, PriceSource
+
+# Imported at module level, which is only possible because the protocol moved
+# down into `data/base.py`. While it lived here, this line was a cycle.
+from econometrica.data.rates import resolve_rate
 from econometrica.econ.fingerprint import fingerprint_frame
-from econometrica.econ.returns import to_returns
+from econometrica.econ.returns import PERIODS_PER_YEAR, to_returns
 
 # Re-exported, not merely imported. Both names were defined here until the
 # fifth adapter made the layering plain: `data/` is the lower layer and had been
@@ -76,6 +80,10 @@ class DataQualityReport(BaseModel):
     end: date
     #: Dates covered by at least one series but not by all of them.
     dropped_rows: int = 0
+    #: The series id the risk-free column was built from, or None. The column
+    #: itself is named for the tool parameter, so this is the only record of
+    #: *which* rate an excess return was taken against.
+    risk_free: str | None = None
     #: Of the aligned frame, so a result can be tied back to its input.
     fingerprint: str = ""
     flags: list[QualityFlag] = Field(default_factory=list)
@@ -103,9 +111,18 @@ class Dataset:
     prices: pd.DataFrame
     returns: pd.DataFrame
     report: DataQualityReport
+    #: Per-period risk-free returns, already rescaled and re-based to the
+    #: frame's frequency. Not in `returns`: it is a return already, and
+    #: differencing it would give the change in the rate.
+    risk_free: pd.Series | None = None
 
     #: Suffix distinguishing a return column from the level it came from.
     RETURN_SUFFIX = "_return"
+
+    #: `capm` and every factor model call this parameter `risk_free`, so the
+    #: column has to carry that name for a plan to bind to it without knowing
+    #: which series was fetched. The series id goes in the quality report.
+    RISK_FREE_COLUMN = "risk_free"
 
     @property
     def frame(self) -> pd.DataFrame:
@@ -116,8 +133,10 @@ class Dataset:
         the distinction. The first return is NaN rather than absent, so the
         two stay index-aligned; every tool drops it.
         """
-        renamed = self.returns.add_suffix(self.RETURN_SUFFIX)
-        return pd.concat([self.prices, renamed], axis=1)
+        parts = [self.prices, self.returns.add_suffix(self.RETURN_SUFFIX)]
+        if self.risk_free is not None:
+            parts.append(self.risk_free.rename(self.RISK_FREE_COLUMN))
+        return pd.concat(parts, axis=1)
 
 
 class DataSteward:
@@ -125,10 +144,16 @@ class DataSteward:
         self,
         source: PriceSource,
         *,
+        rate_source: PriceSource | None = None,
         min_obs: int = MIN_USABLE_OBS,
         late_start_days: int = LATE_START_DAYS,
     ) -> None:
         self.source = source
+        # Separate from `source` because a rate lives somewhere else: Yahoo
+        # cannot serve DGS3MO, and FRED cannot serve an equity. None is
+        # allowed, and a spec that then asks for a rate is refused rather than
+        # quietly analysed without one.
+        self.rate_source = rate_source
         self.min_obs = min_obs
         self.late_start_days = late_start_days
 
@@ -173,6 +198,14 @@ class DataSteward:
             )
 
         returns = resampled.apply(lambda column: to_returns(column, method=spec.return_method))
+        risk_free = await self._resolve_risk_free(spec, pd.DatetimeIndex(resampled.index))
+
+        # The rate is part of the input the results came from, so it belongs in
+        # the fingerprint: without it, a CAPM on excess returns and the same
+        # CAPM on raw returns would claim to be the same analysis.
+        fingerprinted = (
+            resampled if risk_free is None else pd.concat([resampled, risk_free], axis=1)
+        )
 
         report = DataQualityReport(
             tickers=list(spec.tickers),
@@ -183,12 +216,59 @@ class DataSteward:
             start=resampled.index.min().date(),
             end=resampled.index.max().date(),
             dropped_rows=dropped,
-            fingerprint=fingerprint_frame(resampled),
+            risk_free=spec.risk_free,
+            fingerprint=fingerprint_frame(fingerprinted),
             flags=flags,
         )
-        return Dataset(prices=resampled, returns=returns, report=report)
+        return Dataset(
+            prices=resampled, returns=returns, report=report, risk_free=risk_free
+        )
 
     # --- internals ----------------------------------------------------------
+
+    async def _resolve_risk_free(
+        self, spec: DatasetSpec, index: pd.DatetimeIndex
+    ) -> pd.Series | None:
+        """The risk-free rate as per-period returns on the frame's calendar.
+
+        Nothing happens unless the plan asked for one. When it did and no rate
+        source is configured, this refuses: dropping it would run a CAPM on raw
+        rather than excess returns, which answers a different question, and
+        nothing downstream could tell that it had happened. That silent drop is
+        what this field did for the whole of Phases 4 and 5.
+        """
+        if not spec.risk_free:
+            return None
+
+        if self.rate_source is None:
+            raise DataUnavailableError(
+                f"the plan asks for a risk-free rate ({spec.risk_free}) but no rate"
+                " source is configured, so excess returns cannot be built. Either"
+                " supply one or plan without a risk-free rate — running on raw"
+                " returns instead would answer a different question silently."
+            )
+
+        try:
+            rate = await resolve_rate(
+                self.rate_source,
+                spec.risk_free,
+                start=spec.start,
+                end=spec.end,
+                periods_per_year=PERIODS_PER_YEAR.get(spec.frequency, 252),
+            )
+        except DataUnavailableError:
+            raise
+        except Exception as exc:
+            raise DataUnavailableError(f"{spec.risk_free}: {exc}") from exc
+
+        # Forward-filled onto the price calendar: a treasury series has a gap on
+        # every market holiday, and a rate persists across one rather than
+        # vanishing. `bfill` covers a frame that opens before the rate's first
+        # published date.
+        aligned = rate.reindex(index, method="ffill")
+        if bool(aligned.isna().any()):
+            aligned = aligned.bfill()
+        return aligned
 
     async def _fetch(self, spec: DatasetSpec) -> dict[str, pd.Series]:
         fetched: dict[str, pd.Series] = {}

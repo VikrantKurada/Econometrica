@@ -40,24 +40,42 @@ Consequences that keep coming up:
 | 3 — LLM providers + streaming chat | done, e2e gate green |
 | 4 — multi-agent orchestration | done, e2e gate green |
 | 5 — charts and artifact canvas | done, e2e gate green |
-| 6 — real data, uploads, telemetry, MCP | in progress — 6.2 of 16 tasks |
+| 6 — real data, uploads, telemetry, MCP | in progress — 6.3 of 16 tasks |
 
-**971 backend tests, 249 frontend tests, 5 Playwright e2e.** ruff and
+**1016 backend tests, 249 frontend tests, 5 Playwright e2e.** ruff and
 `mypy --strict` clean on `src`. `alembic check` reports no drift.
 
 ### The immediate next task
 
-**Phase 6, Task 6.3** — the FRED adapter, and wiring the dead
-`DatasetSpec.risk_free` field. Read
+**Phase 6, Task 6.4** — the Ken French factor adapter, which is what makes
+`ff3`, `ff5` and `carhart4` reachable at all. Read
 `docs/plans/2026-07-27-econometrica-phase-6.md`; it carries all sixteen tasks,
 six decisions, and the live-probe findings below.
 
-**Real market data works.** `ECONOMETRICA_PRICE_SOURCE=yahoo` fetches
-dividend-adjusted closes through `data/yahoo.py`, and a live test drives it
-through the Data Steward to a quality report with no flags. `data/registry.py`
-is now the one place that knows every source — add a `SourceSpec` and a factory,
-as `llm/registry.py` does for providers — and it decides which sources are
-wrapped in the cache.
+**Real market data works, end to end.** `ECONOMETRICA_PRICE_SOURCE=yahoo`
+fetches dividend-adjusted closes; `DatasetSpec.risk_free` resolves a FRED
+treasury series into a per-period `risk_free` column; and
+`tests/data/test_live_integration.py` drives both through the Data Steward into
+`capm` — AAPL against the S&P 500, 2018–2023 monthly, beta 1.273, no quality
+flags. That file is the place to extend when a new source lands: the adapters
+each have their own tests, but only that one checks the composition.
+
+`data/registry.py` is the one place that knows every source — add a `SourceSpec`
+and a factory, as `llm/registry.py` does for providers — and it decides which
+sources are wrapped in the cache. `data/base.py` holds `PriceSource` and
+`DataUnavailableError`; **import them from there, never from
+`agents/data_steward`**, which only re-exports them. `data/` is the lower layer
+and importing upward is a cycle the moment the steward needs to call down —
+`tests/data/test_layering.py` enforces it, including a subprocess check of both
+import orders, because in-process both modules are already in `sys.modules` by
+collection time.
+
+**Rates are not prices.** `data/rates.py` declares a convention per series id
+rather than inferring a scale from magnitude, and de-annualises by compounding —
+`(1+r)^(1/n)-1`, not `r/n` — to match Ken French's own definition of `RF`. An
+unlisted series raises instead of guessing. The rate goes into the data
+fingerprint, because a CAPM on excess returns and one on raw returns are
+different analyses.
 
 **Cache entries expire, and that is a correctness property rather than
 housekeeping.** A vendor recomputes adjusted closes on every split and
@@ -105,10 +123,11 @@ services on this machine.
 
 ### Two gaps found reading the tree, both open
 
-- **`DatasetSpec.risk_free` is dead.** The field exists, `planner.py` shows it
-  to the model, and `DataSteward.resolve` iterates `spec.tickers` only — so a
-  Planner that sets it is silently ignored, the exact failure `PlanStep`'s
-  unknown-parameter check exists to prevent one layer up. Task 6.3.
+- ~~**`DatasetSpec.risk_free` is dead.**~~ Closed by Task 6.3. It now resolves
+  through a rate source into a `risk_free` column, and a spec that asks for one
+  with no rate source configured is **refused** rather than analysed without it
+  — running on raw instead of excess returns answers a different question and
+  nothing downstream could tell.
 - **`ff3`, `ff5` and `carhart4` can never run.** They are in the catalogue
   every Planner reads and their params default to `["mkt_rf","smb","hml"]`, but
   nothing can supply a factor column, so `require_columns` raises and the step

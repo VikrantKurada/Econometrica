@@ -11,7 +11,7 @@ from sqlalchemy.orm.interfaces import ORMOption
 
 from econometrica.config import get_settings
 from econometrica.data.base import PriceSource
-from econometrica.data.registry import build_price_source
+from econometrica.data.registry import RATE_SOURCE, build_price_source
 from econometrica.db.models import Chat, Project
 from econometrica.db.session import get_session
 from econometrica.llm.registry import ProviderRegistry
@@ -56,6 +56,25 @@ def get_price_source() -> PriceSource:
 
 
 PriceSourceDep = Annotated[PriceSource, Depends(get_price_source)]
+
+
+def get_rate_source() -> PriceSource:
+    """Where a plan's risk-free rate comes from.
+
+    Always FRED, and deliberately not a setting: it is the only source here that
+    publishes a risk-free rate, it needs no API key, and a price source cannot
+    substitute — Yahoo has no `DGS3MO`. Resolved separately from prices for that
+    reason, and cached in its own directory so the two do not share keys.
+
+    Unconditional even when the prices are synthetic. A generated-price run that
+    asks for a real rate still carries its `synthetic_data` risk flag, and the
+    report names the rate series, so nothing about it reads as market data.
+    """
+    settings = get_settings()
+    return build_price_source(RATE_SOURCE, cache_root=settings.storage_dir / "rates")
+
+
+RateSourceDep = Annotated[PriceSource, Depends(get_rate_source)]
 
 
 def _not_found(entity: str, entity_id: UUID) -> HTTPException:

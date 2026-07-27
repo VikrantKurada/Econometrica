@@ -185,3 +185,164 @@ async def test_the_report_fingerprints_the_frame_it_describes():
 
     assert first.report.fingerprint == second.report.fingerprint
     assert len(first.report.fingerprint) == 64
+
+
+# --- the risk-free rate ------------------------------------------------------
+#
+# `DatasetSpec.risk_free` existed from Phase 4 and reached nothing: the field
+# was declared, the planner prompt showed it, and `resolve` iterated
+# `spec.tickers` only. A Planner that set it had it silently dropped — the
+# exact failure `PlanStep`'s unknown-parameter check exists to prevent, one
+# layer up. These are the tests that closed it.
+
+
+@dataclass
+class FakeRateSource:
+    """A rate source is an ordinary `PriceSource`; only the convention differs."""
+
+    data: dict[str, pd.Series] = field(default_factory=dict)
+    asked: list[str] = field(default_factory=list)
+    label: str = "fake rates (as published)"
+
+    async def prices(self, series_id: str, *, start: date, end: date) -> pd.Series:
+        self.asked.append(series_id)
+        if series_id not in self.data:
+            raise LookupError(f"{series_id} is not published")
+        return self.data[series_id]
+
+
+def published_rate(value: float = 5.46, start: str = "2020-01-01", periods: int = 60):
+    index = pd.date_range(start, periods=periods, freq="D")
+    return pd.Series([value] * periods, index=index, dtype=float, name="DGS3MO")
+
+
+async def test_the_risk_free_series_reaches_the_frame():
+    source = FakeSource({"AAA": series()})
+    rates = FakeRateSource({"DGS3MO": published_rate()})
+
+    dataset = await DataSteward(source, rate_source=rates).resolve(
+        spec(risk_free="DGS3MO")
+    )
+
+    assert "risk_free" in dataset.frame.columns
+    assert rates.asked == ["DGS3MO"]
+
+
+async def test_the_risk_free_column_is_named_for_the_tool_parameter_not_the_series():
+    """`capm` and every factor model take `risk_free`, so that is what the
+    column has to be called for a plan to bind to it without knowing which
+    series was fetched. Which series it was belongs in the report."""
+    source = FakeSource({"AAA": series()})
+    rates = FakeRateSource({"DGS3MO": published_rate()})
+
+    dataset = await DataSteward(source, rate_source=rates).resolve(
+        spec(risk_free="DGS3MO")
+    )
+
+    assert list(dataset.frame.columns) == ["AAA", "AAA_return", "risk_free"]
+    assert dataset.report.risk_free == "DGS3MO"
+
+
+async def test_the_risk_free_rate_is_converted_to_the_frames_frequency():
+    """5.46% per annum is not 5.46 per day. Subtracting the published number
+    would leave an alpha wrong by a factor of a hundred, with no error to
+    show for it."""
+    source = FakeSource({"AAA": series()})
+    rates = FakeRateSource({"DGS3MO": published_rate(5.46)})
+
+    dataset = await DataSteward(source, rate_source=rates).resolve(
+        spec(risk_free="DGS3MO")
+    )
+
+    assert dataset.frame["risk_free"].iloc[0] == pytest.approx(
+        1.0546 ** (1 / 252) - 1, rel=1e-12
+    )
+
+
+async def test_a_monthly_frame_gets_a_monthly_risk_free_rate():
+    source = FakeSource({"AAA": series(periods=400)})
+    rates = FakeRateSource({"DGS3MO": published_rate(5.46, periods=400)})
+
+    dataset = await DataSteward(source, rate_source=rates, min_obs=3).resolve(
+        spec(risk_free="DGS3MO", frequency="M", end=date(2021, 1, 31))
+    )
+
+    assert dataset.frame["risk_free"].iloc[0] == pytest.approx(
+        1.0546 ** (1 / 12) - 1, rel=1e-12
+    )
+
+
+async def test_the_risk_free_rate_is_never_differenced():
+    """It is already a return. `to_returns` over it would produce the change in
+    the rate, which is not what any tool's `risk_free` parameter means — and
+    the result would look plausible."""
+    source = FakeSource({"AAA": series()})
+    rates = FakeRateSource({"DGS3MO": published_rate()})
+
+    dataset = await DataSteward(source, rate_source=rates).resolve(
+        spec(risk_free="DGS3MO")
+    )
+
+    assert "risk_free_return" not in dataset.frame.columns
+    assert "risk_free" not in dataset.returns.columns
+    # A constant rate differenced would be zero everywhere.
+    assert dataset.frame["risk_free"].iloc[0] > 0
+
+
+async def test_the_risk_free_rate_is_aligned_onto_the_price_calendar():
+    """A treasury series has a gap on every market holiday, and the price frame
+    has its own. The rate persists across a gap rather than vanishing."""
+    source = FakeSource({"AAA": series(periods=40)})
+    sparse = published_rate(periods=40).drop(
+        pd.date_range("2020-01-10", periods=3, freq="D")
+    )
+    rates = FakeRateSource({"DGS3MO": sparse})
+
+    dataset = await DataSteward(source, rate_source=rates).resolve(
+        spec(risk_free="DGS3MO")
+    )
+
+    assert len(dataset.frame) == 40
+    assert dataset.frame["risk_free"].notna().all()
+
+
+async def test_asking_for_a_risk_free_rate_with_no_rate_source_is_refused():
+    """Refusing beats dropping it. A CAPM run on raw rather than excess returns
+    answers a different question, and nothing downstream could tell."""
+    source = FakeSource({"AAA": series()})
+
+    with pytest.raises(DataUnavailableError, match="risk-free"):
+        await DataSteward(source).resolve(spec(risk_free="DGS3MO"))
+
+
+async def test_an_unresolvable_risk_free_series_names_it():
+    source = FakeSource({"AAA": series()})
+    rates = FakeRateSource({})
+
+    with pytest.raises(DataUnavailableError, match="NOTASERIES"):
+        await DataSteward(source, rate_source=rates).resolve(spec(risk_free="NOTASERIES"))
+
+
+async def test_no_risk_free_column_appears_when_none_was_asked_for():
+    source = FakeSource({"AAA": series()})
+    rates = FakeRateSource({"DGS3MO": published_rate()})
+
+    dataset = await DataSteward(source, rate_source=rates).resolve(spec())
+
+    assert "risk_free" not in dataset.frame.columns
+    assert rates.asked == []
+    assert dataset.report.risk_free is None
+
+
+async def test_the_risk_free_rate_changes_the_fingerprint():
+    """It is part of the input the results came from, so a manifest that
+    ignored it would claim two different analyses were the same one."""
+    source = FakeSource({"AAA": series()})
+    rates = FakeRateSource({"DGS3MO": published_rate()})
+
+    without = await DataSteward(source, rate_source=rates).resolve(spec())
+    with_rate = await DataSteward(source, rate_source=rates).resolve(
+        spec(risk_free="DGS3MO")
+    )
+
+    assert without.report.fingerprint != with_rate.report.fingerprint

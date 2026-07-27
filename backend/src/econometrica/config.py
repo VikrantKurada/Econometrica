@@ -45,7 +45,7 @@ class Settings(BaseSettings):
     #: reproducible random walks so the pipeline can be run with no network at
     #: all, and any run built on it is flagged as such in its quality report.
     #: The values must match `data.registry.names()` — a test asserts it.
-    price_source: Literal["none", "synthetic", "yahoo"] = Field(
+    price_source: Literal["none", "synthetic", "yahoo", "fred"] = Field(
         default="none",
         validation_alias=AliasChoices("ECONOMETRICA_PRICE_SOURCE", "PRICE_SOURCE"),
     )

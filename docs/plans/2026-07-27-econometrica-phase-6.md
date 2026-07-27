@@ -21,7 +21,7 @@ allowlists that are off by default.
 |---|---|
 | 6.1 yfinance `PriceSource` | ✅ |
 | 6.2 source registry, disk cache, offline failures | ✅ |
-| 6.3 FRED adapter and the dead `risk_free` field | ⬜ |
+| 6.3 FRED adapter and the dead `risk_free` field | ✅ |
 | 6.4 Ken French factors — unlocking `ff3`/`ff5`/`carhart4` | ⬜ |
 | 6.5 grounding gate: the `(s3)` false positive | ⬜ |
 | 6.6 upload profiling and schema inference | ⬜ |
@@ -398,6 +398,79 @@ A rate is not a price and must not be differenced (decision 4).
   attribution field is *for*.
 
 **Commit:** `feat(data): add fred series source and wire the risk-free rate`
+
+**Landed in three commits**, because a refactor had to come first.
+
+**The de-annualisation question resolved to the compounding form**, and Ken
+French settles it: its own file description defines `RF` as "the simple daily
+rate that, over the number of trading days in the month, compounds to" the
+monthly bill rate. So `(1+r)^(1/n)-1`, not `r/n`, and a study mixing our rate
+with their factors stays internally consistent when 6.4 lands. A test pins the
+value and asserts it differs from the naive form.
+
+**The convention is a table, not a heuristic.** `DGS3MO` at `5.46` and a decimal
+rate at `0.0546` are the same rate; `SP500` at `4742.83` is not a rate at all.
+Inferring the scale from magnitude is precisely how a rate becomes an index
+level, so an unlisted series raises and names the seventeen that are known.
+Negative rates survive the conversion — policy rates have been below zero and a
+clamp would misstate a decade of European work.
+
+**`resolve_rate` takes an ordinary `PriceSource`.** A rate needed no protocol of
+its own, only a convention, and taking the existing one means it inherits the
+on-disk cache unchanged.
+
+### The refactor the wiring forced: `data/base.py`
+
+`PriceSource` and `DataUnavailableError` were defined in
+`agents/data_steward.py`, so all five adapters imported *up* into `agents/` for
+their own vocabulary. That was cosmetic until the steward needed to call *down*
+into `data.rates.resolve_rate` — at which point it is a hard `ImportError`:
+importing `data_steward` reaches the `data.rates` import before
+`DataUnavailableError` is defined, and `data.rates` then asks a half-initialised
+module for a name that is not there yet.
+
+Both names moved to `data/base.py`, with `data_steward` re-exporting them, so
+none of the sixteen existing import sites changed. Three guards in
+`tests/data/test_layering.py`, each watched failing first:
+
+- no module in `data/` may import from `agents/` — parsed with `ast`, because
+  `data/base.py`'s own docstring discusses `agents/data_steward`;
+- the re-export must be the *same object*, or an `except DataUnavailableError`
+  would quietly stop catching what the adapters raise — and would keep passing
+  in most tests, which import from one side only;
+- **both import orders must succeed, in a subprocess.** In-process this proves
+  nothing: by the time any test runs, both modules are already in `sys.modules`
+  from collection. The same trap `tests/api/test_app_startup.py` documents for
+  the tool registry.
+
+The cycle guard was verified by recreating the exact cycle and watching it fail,
+then confirming the same steward-imports-down change passes with `data/base.py`
+in place — which is the check that proves the refactor *enabled* the feature
+rather than merely tidying imports.
+
+### Two smaller things
+
+- **The rate is in the fingerprint.** A CAPM on excess returns and the same CAPM
+  on raw returns are different analyses; a manifest that could not tell them
+  apart would be claiming otherwise.
+- **The rate source is not a setting.** FRED is the only source here that
+  publishes a rate, needs no key, and cannot be substituted — Yahoo has no
+  `DGS3MO` — so `get_rate_source` is unconditional and cached in its own
+  directory. A synthetic-price run that asks for a real rate still carries its
+  `synthetic_data` flag, and the report names the series.
+
+**Verified on the composition, not just the adapters.**
+`tests/data/test_live_integration.py` takes real Yahoo prices and a real FRED
+yield through the steward into `capm`: AAPL against the S&P 500 over 2018–2023
+monthly gives **beta 1.273** (se 0.139, t 9.17), alpha +1.57%/month, R² 0.55,
+no quality flags, and a monthly risk-free peaking at 0.4543% — **5.59%
+annualised**, which is where 3-month treasuries actually were in 2023. That last
+number is the one that proves the conversion: skipping it would leave values
+near 5.0 and every alpha catastrophically wrong.
+
+It also caught a real mistake in its own first draft — a two-year window gives
+23 aligned monthly observations once the undefined first return is dropped,
+below `capm`'s `min_obs=30`. The window is six years for that reason.
 
 ---
 

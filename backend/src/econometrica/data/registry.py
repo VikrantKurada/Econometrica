@@ -18,6 +18,7 @@ from pathlib import Path
 
 from econometrica.data.base import PriceSource
 from econometrica.data.cache import DEFAULT_MAX_AGE, CachingPriceSource
+from econometrica.data.fred import FredSeriesSource
 from econometrica.data.synthetic import SyntheticPriceSource
 from econometrica.data.unconfigured import UnconfiguredPriceSource
 from econometrica.data.yahoo import YahooPriceSource
@@ -41,13 +42,21 @@ SPECS: tuple[SourceSpec, ...] = (
     SourceSpec(name="none", label="None configured", cached=False),
     SourceSpec(name="synthetic", label="Synthetic (generated, not market data)", cached=False),
     SourceSpec(name="yahoo", label="Yahoo Finance", cached=True),
+    SourceSpec(name="fred", label="FRED (St. Louis Fed)", cached=True),
 )
 
 DEFAULT_FACTORIES: dict[str, SourceFactory] = {
     "none": UnconfiguredPriceSource,
     "synthetic": SyntheticPriceSource,
     "yahoo": YahooPriceSource,
+    "fred": FredSeriesSource,
 }
+
+#: Where a risk-free rate comes from. Not a setting: FRED is the only source
+#: that publishes one, it needs no API key, and `data/rates.py` declares a
+#: convention for seventeen of its series. A price source cannot serve this —
+#: Yahoo has no DGS3MO — so the two are resolved separately.
+RATE_SOURCE = "fred"
 
 _SPECS = {entry.name: entry for entry in SPECS}
 

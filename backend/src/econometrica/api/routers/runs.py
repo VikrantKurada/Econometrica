@@ -34,6 +34,7 @@ from econometrica.agents.validator import Validator
 from econometrica.api.deps import (
     PriceSourceDep,
     ProviderRegistryDep,
+    RateSourceDep,
     SessionDep,
     get_chat_or_404,
     get_project_or_404,
@@ -81,7 +82,12 @@ async def read_run(run_id: UUID, session: SessionDep) -> Run:
     return run
 
 @traces.post("/{run_id}/rerun", response_model=RerunReport)
-async def rerun(run_id: UUID, session: SessionDep, source: PriceSourceDep) -> RerunReport:
+async def rerun(
+    run_id: UUID,
+    session: SessionDep,
+    source: PriceSourceDep,
+    rate_source: RateSourceDep,
+) -> RerunReport:
     """Re-execute a recorded plan and report whether it reproduced.
 
     The whole claim this project makes about its numbers is that they can be
@@ -116,7 +122,7 @@ async def rerun(run_id: UUID, session: SessionDep, source: PriceSourceDep) -> Re
         for step in (recorded.get("execution") or {}).get("outcomes", [])
     }
 
-    dataset = await DataSteward(source).resolve(plan.dataset)
+    dataset = await DataSteward(source, rate_source=rate_source).resolve(plan.dataset)
     execution = await Econometrician().run(plan, dataset.frame)
 
     steps = [_compare(fresh, before.get(fresh.step_id)) for fresh in execution.outcomes]
@@ -198,12 +204,13 @@ async def start_run(
     session: SessionDep,
     registry: ProviderRegistryDep,
     source: PriceSourceDep,
+    rate_source: RateSourceDep,
 ) -> EventSourceResponse:
     """Run the full pipeline for one question, streaming progress as SSE."""
     chat = await get_chat_or_404(session, chat_id)
     project = await get_project_or_404(session, chat.project_id)
 
-    orchestrator = _build(project, registry, source)
+    orchestrator = _build(project, registry, source, rate_source)
 
     async def events() -> AsyncIterator[dict[str, str]]:
         outcome: RunOutcome | None = None
@@ -247,7 +254,10 @@ async def start_run(
 
 
 def _build(
-    project: Project, registry: ProviderRegistry, source: PriceSourceDep
+    project: Project,
+    registry: ProviderRegistry,
+    source: PriceSourceDep,
+    rate_source: PriceSourceDep,
 ) -> Orchestrator:
     planner_provider, planner_model = _bind("planner", project, registry)
     narrator_provider, narrator_model = _bind("narrator", project, registry)
@@ -260,7 +270,7 @@ def _build(
 
     return Orchestrator(
         planners=[Planner(planner_provider, planner_model)],
-        steward=DataSteward(source),
+        steward=DataSteward(source, rate_source=rate_source),
         validator=validator,
         narrator=Narrator(narrator_provider, narrator_model),
         tier=tier,
