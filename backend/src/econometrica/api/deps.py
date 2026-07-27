@@ -18,6 +18,7 @@ from econometrica.db.models import Chat, Project
 from econometrica.db.session import get_session
 from econometrica.llm.registry import ProviderRegistry
 from econometrica.services.keystore import KeyStore
+from econometrica.services.uploads import UploadStore
 
 # Declared as an ``Annotated`` alias rather than a ``Depends()`` default so that
 # route signatures stay free of mutable-looking defaults and the tests can
@@ -90,6 +91,19 @@ def get_factor_source() -> FactorSource:
 
 
 FactorSourceDep = Annotated[FactorSource, Depends(get_factor_source)]
+
+
+def get_upload_store() -> UploadStore:
+    """Where uploaded files and their profiles live.
+
+    Under the storage directory beside the keystore and the price cache. §9 of
+    the design retains the original blob, so this is not a staging area that
+    gets swept — a mapping revisited later must not need the file again.
+    """
+    return UploadStore(root=get_settings().storage_dir / "uploads")
+
+
+UploadStoreDep = Annotated[UploadStore, Depends(get_upload_store)]
 
 
 def _not_found(entity: str, entity_id: UUID) -> HTTPException:

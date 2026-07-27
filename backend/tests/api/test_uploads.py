@@ -1,0 +1,230 @@
+"""The upload endpoints, and the confirmation nobody may skip.
+
+Three requests: post the file and get back a profile plus a suggested mapping;
+optionally edit it; confirm it. The middle step is the point — §9 of the design
+puts a person between what a profiler guessed and what gets stored, and these
+tests are what stop a later refactor quietly removing them from the loop.
+
+The blob is retained, also per §9, so a mapping can be revisited without asking
+the user to upload the same file twice.
+"""
+
+from pathlib import Path
+
+import pytest
+
+from econometrica.api.deps import get_upload_store
+from econometrica.main import app
+from econometrica.services.uploads import UploadStore
+
+WIDE = (
+    "date,AAPL,MSFT\n"
+    "2024-01-01,100.0,200.0\n"
+    "2024-01-02,101.0,201.0\n"
+    "2024-01-03,102.5,202.5\n"
+    "2024-01-04,101.5,201.5\n"
+)
+
+AMBIGUOUS = (
+    "date,v\n2024-01-01,1200\n2024-01-02,1300\n2024-01-03,1250\n2024-01-04,1400\n"
+)
+
+
+@pytest.fixture(autouse=True)
+def store(tmp_path):
+    """A store per test, so uploads never touch the real storage directory."""
+    app.dependency_overrides[get_upload_store] = lambda: UploadStore(root=tmp_path)
+    yield UploadStore(root=tmp_path)
+    app.dependency_overrides.pop(get_upload_store, None)
+
+
+async def make_project(client, name="Uploads"):
+    return (await client.post("/api/projects", json={"name": name})).json()
+
+
+async def upload(client, project_id, text: str = WIDE, name: str = "prices.csv"):
+    return await client.post(
+        f"/api/projects/{project_id}/uploads",
+        files={"file": (name, text.encode(), "text/csv")},
+    )
+
+
+# --- posting a file -----------------------------------------------------------
+
+
+async def test_uploading_returns_a_profile_and_a_proposal(client):
+    project = await make_project(client)
+
+    response = await upload(client, project["id"])
+
+    assert response.status_code == 201, response.text
+    body = response.json()
+    assert body["profile"]["rows"] == 4
+    assert body["profile"]["layout"] == "wide"
+    assert body["proposal"]["roles"]["date"] == "date"
+    assert body["proposal"]["roles"]["AAPL"] == "price"
+    assert body["confirmed"] is False
+
+
+async def test_every_column_comes_back_with_its_candidates(client):
+    """The confirmation screen has to offer alternatives, not just a verdict."""
+    project = await make_project(client)
+
+    body = (await upload(client, project["id"])).json()
+
+    columns = {c["name"]: c for c in body["profile"]["columns"]}
+    assert columns["AAPL"]["candidates"]
+    assert all("reason" in c for c in columns["AAPL"]["candidates"])
+
+
+async def test_an_upload_can_be_read_back(client):
+    project = await make_project(client)
+    created = (await upload(client, project["id"])).json()
+
+    response = await client.get(f"/api/uploads/{created['id']}")
+
+    assert response.status_code == 200
+    assert response.json()["profile"] == created["profile"]
+
+
+async def test_an_unusable_file_is_refused_with_the_reason(client):
+    project = await make_project(client)
+
+    response = await client.post(
+        f"/api/projects/{project['id']}/uploads",
+        files={"file": ("one.csv", b"price\n100\n101\n", "text/csv")},
+    )
+
+    assert response.status_code == 422
+    assert "one column" in response.json()["detail"]
+
+
+async def test_uploading_to_a_project_that_does_not_exist_is_404(client):
+    from uuid import uuid4
+
+    response = await upload(client, str(uuid4()))
+
+    assert response.status_code == 404
+
+
+async def test_the_original_file_is_retained(client, store):
+    """§9: the blob is kept. A mapping revisited a week later must not need the
+    user to find the file again."""
+    project = await make_project(client)
+    created = (await upload(client, project["id"])).json()
+
+    blob = store.blob_path(created["id"])
+
+    assert Path(blob).exists()
+    assert Path(blob).read_text().startswith("date,AAPL,MSFT")
+
+
+# --- confirming ---------------------------------------------------------------
+
+
+async def test_confirming_a_mapping_reports_what_would_be_ingested(client):
+    project = await make_project(client)
+    created = (await upload(client, project["id"])).json()
+
+    response = await client.post(
+        f"/api/uploads/{created['id']}/confirm",
+        json={"roles": {"date": "date", "AAPL": "price", "MSFT": "price"}},
+    )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["confirmed"] is True
+    assert body["observations"] == 8
+    assert sorted(body["symbols"]) == ["AAPL", "MSFT"]
+    assert body["fields"] == ["price"]
+
+
+async def test_a_confirmation_may_differ_from_the_proposal(client):
+    """The user edits. That is the entire reason the step exists."""
+    project = await make_project(client)
+    created = (await upload(client, project["id"])).json()
+
+    response = await client.post(
+        f"/api/uploads/{created['id']}/confirm",
+        json={"roles": {"date": "date", "AAPL": "price", "MSFT": "ignore"}},
+    )
+
+    assert response.json()["symbols"] == ["AAPL"]
+
+
+async def test_confirming_names_a_column_the_file_lacks_is_422(client):
+    project = await make_project(client)
+    created = (await upload(client, project["id"])).json()
+
+    response = await client.post(
+        f"/api/uploads/{created['id']}/confirm",
+        json={"roles": {"date": "date", "GOOG": "price"}},
+    )
+
+    assert response.status_code == 422
+    assert "GOOG" in response.json()["detail"]
+
+
+async def test_confirming_without_a_date_column_is_422(client):
+    project = await make_project(client)
+    created = (await upload(client, project["id"])).json()
+
+    response = await client.post(
+        f"/api/uploads/{created['id']}/confirm",
+        json={"roles": {"date": "ignore", "AAPL": "price"}},
+    )
+
+    assert response.status_code == 422
+    assert "date" in response.json()["detail"]
+
+
+async def test_confirming_an_upload_that_does_not_exist_is_404(client):
+    from uuid import uuid4
+
+    response = await client.post(
+        f"/api/uploads/{uuid4()}/confirm", json={"roles": {"date": "date"}}
+    )
+
+    assert response.status_code == 404
+
+
+async def test_the_confirmed_mapping_is_remembered(client):
+    project = await make_project(client)
+    created = (await upload(client, project["id"])).json()
+    await client.post(
+        f"/api/uploads/{created['id']}/confirm",
+        json={"roles": {"date": "date", "AAPL": "price", "MSFT": "ignore"}},
+    )
+
+    body = (await client.get(f"/api/uploads/{created['id']}")).json()
+
+    assert body["confirmed"] is True
+    assert body["mapping"]["roles"]["MSFT"] == "ignore"
+
+
+# --- the model is optional ----------------------------------------------------
+
+
+async def test_an_unambiguous_upload_consults_no_model(client):
+    """No `column_mapper` is assigned on this project and none is needed. The
+    common upload must not require one to be configured at all."""
+    project = await make_project(client)
+
+    response = await upload(client, project["id"])
+
+    assert response.status_code == 201
+    assert response.json()["consulted_model"] is False
+
+
+async def test_an_ambiguous_upload_without_an_assigned_model_still_works(client):
+    """It falls back to the profiler's own proposal rather than refusing. The
+    user is about to confirm it anyway."""
+    project = await make_project(client)
+
+    response = await upload(client, project["id"], AMBIGUOUS, "v.csv")
+
+    assert response.status_code == 201
+    body = response.json()
+    assert body["consulted_model"] is False
+    assert body["proposal"]["ambiguous"] == ["v"]
+    assert body["proposal"]["roles"]["v"] == "volume"

@@ -10,6 +10,7 @@ from econometrica.api.routers import (
     projects,
     providers,
     runs,
+    uploads,
 )
 from econometrica.econ import load_tools
 
@@ -37,3 +38,5 @@ app.include_router(messages.router)
 app.include_router(runs.router)
 app.include_router(runs.traces)
 app.include_router(exports.router)
+app.include_router(uploads.router)
+app.include_router(uploads.uploads)

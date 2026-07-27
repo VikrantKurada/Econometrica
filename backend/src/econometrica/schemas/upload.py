@@ -1,0 +1,38 @@
+"""What the upload endpoints put on the wire."""
+
+from uuid import UUID
+
+from pydantic import BaseModel, Field
+
+from econometrica.services.ingest import FileProfile, Role
+from econometrica.services.mapping import ColumnMapping, MappingProposal
+
+
+class ConfirmRequest(BaseModel):
+    """The mapping a user has agreed to.
+
+    Columns left out default to ``ignore`` — saying nothing about a column is
+    not the same as asking for it, and making the client send every column would
+    mean a forgotten one silently changed meaning.
+    """
+
+    roles: dict[str, Role]
+
+
+class UploadRead(BaseModel):
+    id: UUID
+    project_id: UUID
+    filename: str
+    profile: FileProfile
+    proposal: MappingProposal
+    #: Whether a model decided the ambiguous columns. A billed turn, so it is
+    #: reported rather than inferred.
+    consulted_model: bool = False
+    confirmed: bool = False
+    mapping: ColumnMapping | None = None
+
+    # Present only on the confirmation response: what that mapping would
+    # actually ingest, which is what tells a user they mapped it right.
+    observations: int | None = None
+    symbols: list[str] = Field(default_factory=list)
+    fields: list[str] = Field(default_factory=list)

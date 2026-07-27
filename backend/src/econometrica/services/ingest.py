@@ -110,6 +110,10 @@ class FileProfile(BaseModel):
     #: `wide` is a date plus one column per asset; `long` is a date plus a
     #: ticker column plus values. The mapping screen differs between them.
     layout: Literal["wide", "long", "unknown"] = "unknown"
+    #: The delimiter this file was read with, for CSVs. Recorded because ingest
+    #: happens in a later request and has to re-read the file the same way — a
+    #: semicolon export re-read with commas comes back as one column.
+    delimiter: str | None = None
 
     def column(self, name: str) -> ColumnProfile | None:
         return next((c for c in self.columns if c.name == name), None)
@@ -141,6 +145,7 @@ def profile_upload(
         rows=len(frame),
         columns=columns,
         layout=_layout(columns),
+        delimiter=delimiter,
     )
 
 
