@@ -346,3 +346,176 @@ async def test_the_risk_free_rate_changes_the_fingerprint():
     )
 
     assert without.report.fingerprint != with_rate.report.fingerprint
+
+
+# --- factor sets -------------------------------------------------------------
+#
+# `ff3`, `ff5` and `carhart4` were in the catalogue every Planner reads from
+# Phase 2 onward and could never run: nothing could supply a factor column, so
+# `require_columns` raised and the step landed `failed`. These are the tests
+# that made them reachable.
+
+
+@dataclass
+class FakeFactorSource:
+    frame: pd.DataFrame | None = None
+    asked: list[tuple[str, str]] = field(default_factory=list)
+    error: Exception | None = None
+
+    async def factors(
+        self, factor_set: str, *, start: date, end: date, frequency: str
+    ) -> pd.DataFrame:
+        self.asked.append((factor_set, frequency))
+        if self.error is not None:
+            raise self.error
+        assert self.frame is not None
+        return self.frame
+
+
+def factor_frame(start: str = "2020-01-01", periods: int = 60) -> pd.DataFrame:
+    index = pd.date_range(start, periods=periods, freq="D")
+    return pd.DataFrame(
+        {
+            "mkt_rf": [0.001] * periods,
+            "smb": [0.0005] * periods,
+            "hml": [-0.0002] * periods,
+            "risk_free": [0.0001] * periods,
+        },
+        index=index,
+    )
+
+
+async def test_factor_columns_reach_the_frame():
+    source = FakeSource({"AAA": series()})
+    factors = FakeFactorSource(factor_frame())
+
+    dataset = await DataSteward(source, factor_source=factors).resolve(
+        spec(factors="ff3")
+    )
+
+    assert {"mkt_rf", "smb", "hml"} <= set(dataset.frame.columns)
+    assert factors.asked == [("ff3", "D")]
+    assert dataset.report.factors == "ff3"
+
+
+async def test_factor_columns_are_never_differenced():
+    """A factor is already a return. Differencing it gives the change in a
+    return, which is not what any factor model means — and would look
+    plausible."""
+    source = FakeSource({"AAA": series()})
+
+    dataset = await DataSteward(source, factor_source=FakeFactorSource(factor_frame())).resolve(
+        spec(factors="ff3")
+    )
+
+    assert "mkt_rf_return" not in dataset.frame.columns
+    assert "mkt_rf" not in dataset.returns.columns
+    # Constant factor returns differenced would be zero everywhere.
+    assert dataset.frame["mkt_rf"].iloc[0] == pytest.approx(0.001)
+
+
+async def test_the_factor_files_own_risk_free_rate_is_used():
+    """Ken French factors are excess returns against *their* RF, so a factor
+    study needs no separate rate source and must not be given a different one
+    by default."""
+    source = FakeSource({"AAA": series()})
+
+    dataset = await DataSteward(source, factor_source=FakeFactorSource(factor_frame())).resolve(
+        spec(factors="ff3")
+    )
+
+    assert dataset.frame["risk_free"].iloc[0] == pytest.approx(0.0001)
+    assert dataset.report.risk_free == "ff3 RF"
+
+
+async def test_an_explicit_risk_free_rate_alongside_factors_is_flagged():
+    """Honoured, because the plan asked for it, but flagged: the factors are
+    excess returns against their own RF, so subtracting a different rate mixes
+    two definitions in one regression."""
+    source = FakeSource({"AAA": series()})
+    rates = FakeRateSource({"DGS3MO": published_rate()})
+
+    dataset = await DataSteward(
+        source,
+        rate_source=rates,
+        factor_source=FakeFactorSource(factor_frame()),
+    ).resolve(spec(factors="ff3", risk_free="DGS3MO"))
+
+    assert dataset.report.has("mixed_risk_free")
+    assert dataset.report.flag("mixed_risk_free").severity == "warning"
+    # The explicit rate wins; it is what the plan asked for.
+    assert dataset.report.risk_free == "DGS3MO"
+    assert dataset.frame["risk_free"].iloc[0] != pytest.approx(0.0001)
+
+
+async def test_asking_for_factors_with_no_factor_source_is_refused():
+    source = FakeSource({"AAA": series()})
+
+    with pytest.raises(DataUnavailableError, match="factor"):
+        await DataSteward(source).resolve(spec(factors="ff3"))
+
+
+async def test_an_unavailable_factor_set_names_it():
+    source = FakeSource({"AAA": series()})
+    factors = FakeFactorSource(error=DataUnavailableError("carhart4 is monthly only"))
+
+    with pytest.raises(DataUnavailableError, match="monthly only"):
+        await DataSteward(source, factor_source=factors).resolve(spec(factors="carhart4"))
+
+
+async def test_poor_factor_coverage_is_flagged_rather_than_silently_dropped():
+    """Factors published on a US calendar against an asset trading elsewhere,
+    or a window running past the library's last update, leaves rows a factor
+    model will drop. The count belongs in the report, not in a surprise."""
+    source = FakeSource({"AAA": series(periods=60)})
+    # Factors cover only the first third of the price window.
+    factors = FakeFactorSource(factor_frame(periods=20))
+
+    dataset = await DataSteward(source, factor_source=factors).resolve(spec(factors="ff3"))
+
+    assert dataset.report.has("factor_coverage")
+    assert dataset.report.flag("factor_coverage").severity == "warning"
+
+
+async def test_full_factor_coverage_raises_no_flag():
+    source = FakeSource({"AAA": series(periods=60)})
+
+    dataset = await DataSteward(
+        source, factor_source=FakeFactorSource(factor_frame(periods=60))
+    ).resolve(spec(factors="ff3"))
+
+    assert not dataset.report.has("factor_coverage")
+
+
+async def test_no_factor_columns_appear_when_none_were_asked_for():
+    source = FakeSource({"AAA": series()})
+    factors = FakeFactorSource(factor_frame())
+
+    dataset = await DataSteward(source, factor_source=factors).resolve(spec())
+
+    assert "mkt_rf" not in dataset.frame.columns
+    assert factors.asked == []
+    assert dataset.report.factors is None
+
+
+async def test_factors_change_the_fingerprint():
+    source = FakeSource({"AAA": series()})
+    factors = FakeFactorSource(factor_frame())
+
+    without = await DataSteward(source, factor_source=factors).resolve(spec())
+    with_factors = await DataSteward(source, factor_source=factors).resolve(
+        spec(factors="ff3")
+    )
+
+    assert without.report.fingerprint != with_factors.report.fingerprint
+
+
+async def test_the_factor_frequency_follows_the_spec():
+    source = FakeSource({"AAA": series(periods=400)})
+    factors = FakeFactorSource(factor_frame(periods=400))
+
+    await DataSteward(source, factor_source=factors, min_obs=3).resolve(
+        spec(factors="ff3", frequency="M", end=date(2021, 1, 31))
+    )
+
+    assert factors.asked == [("ff3", "M")]

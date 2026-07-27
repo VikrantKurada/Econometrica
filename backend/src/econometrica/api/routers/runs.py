@@ -32,6 +32,7 @@ from econometrica.agents.planner import Planner
 from econometrica.agents.schemas import AnalysisPlan
 from econometrica.agents.validator import Validator
 from econometrica.api.deps import (
+    FactorSourceDep,
     PriceSourceDep,
     ProviderRegistryDep,
     RateSourceDep,
@@ -87,6 +88,7 @@ async def rerun(
     session: SessionDep,
     source: PriceSourceDep,
     rate_source: RateSourceDep,
+    factor_source: FactorSourceDep,
 ) -> RerunReport:
     """Re-execute a recorded plan and report whether it reproduced.
 
@@ -122,7 +124,9 @@ async def rerun(
         for step in (recorded.get("execution") or {}).get("outcomes", [])
     }
 
-    dataset = await DataSteward(source, rate_source=rate_source).resolve(plan.dataset)
+    dataset = await DataSteward(
+        source, rate_source=rate_source, factor_source=factor_source
+    ).resolve(plan.dataset)
     execution = await Econometrician().run(plan, dataset.frame)
 
     steps = [_compare(fresh, before.get(fresh.step_id)) for fresh in execution.outcomes]
@@ -205,12 +209,13 @@ async def start_run(
     registry: ProviderRegistryDep,
     source: PriceSourceDep,
     rate_source: RateSourceDep,
+    factor_source: FactorSourceDep,
 ) -> EventSourceResponse:
     """Run the full pipeline for one question, streaming progress as SSE."""
     chat = await get_chat_or_404(session, chat_id)
     project = await get_project_or_404(session, chat.project_id)
 
-    orchestrator = _build(project, registry, source, rate_source)
+    orchestrator = _build(project, registry, source, rate_source, factor_source)
 
     async def events() -> AsyncIterator[dict[str, str]]:
         outcome: RunOutcome | None = None
@@ -258,6 +263,7 @@ def _build(
     registry: ProviderRegistry,
     source: PriceSourceDep,
     rate_source: PriceSourceDep,
+    factor_source: FactorSourceDep,
 ) -> Orchestrator:
     planner_provider, planner_model = _bind("planner", project, registry)
     narrator_provider, narrator_model = _bind("narrator", project, registry)
@@ -270,7 +276,9 @@ def _build(
 
     return Orchestrator(
         planners=[Planner(planner_provider, planner_model)],
-        steward=DataSteward(source, rate_source=rate_source),
+        steward=DataSteward(
+            source, rate_source=rate_source, factor_source=factor_source
+        ),
         validator=validator,
         narrator=Narrator(narrator_provider, narrator_model),
         tier=tier,

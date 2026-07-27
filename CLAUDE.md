@@ -40,17 +40,29 @@ Consequences that keep coming up:
 | 3 — LLM providers + streaming chat | done, e2e gate green |
 | 4 — multi-agent orchestration | done, e2e gate green |
 | 5 — charts and artifact canvas | done, e2e gate green |
-| 6 — real data, uploads, telemetry, MCP | in progress — 6.3 of 16 tasks |
+| 6 — real data, uploads, telemetry, MCP | in progress — 6.4 of 16 tasks |
 
-**1016 backend tests, 249 frontend tests, 5 Playwright e2e.** ruff and
+**1051 backend tests, 249 frontend tests, 5 Playwright e2e.** ruff and
 `mypy --strict` clean on `src`. `alembic check` reports no drift.
 
 ### The immediate next task
 
-**Phase 6, Task 6.4** — the Ken French factor adapter, which is what makes
-`ff3`, `ff5` and `carhart4` reachable at all. Read
+**Phase 6, Task 6.5** — the grounding gate's `(s3)` false positive. Read
 `docs/plans/2026-07-27-econometrica-phase-6.md`; it carries all sixteen tasks,
 six decisions, and the live-probe findings below.
+
+**All 37 tools are now reachable.** `ff3`, `ff5` and `carhart4` run on real Ken
+French factors — `DatasetSpec.factors` names a set and the Data Steward joins
+its columns under the tools' own parameter names. **A factor set brings its own
+`risk_free`**, because these factors are excess returns against Ken French's RF;
+asking for a FRED rate as well is honoured but raises `mixed_risk_free`.
+`carhart4` is **monthly-only**: pandas-datareader 0.11.1 raises `TypeError` on
+`F-F_Momentum_Factor_daily` at every date range.
+
+**Values are percent and the index is a `Period`** — both silently wrong if
+missed, so `data/famafrench.py` converts at the boundary and both have their own
+test. Factors are reindexed onto the price calendar, never forward-filled: a
+factor return belongs to its own period.
 
 **Real market data works, end to end.** `ECONOMETRICA_PRICE_SOURCE=yahoo`
 fetches dividend-adjusted closes; `DatasetSpec.risk_free` resolves a FRED
@@ -128,10 +140,10 @@ services on this machine.
   with no rate source configured is **refused** rather than analysed without it
   — running on raw instead of excess returns answers a different question and
   nothing downstream could tell.
-- **`ff3`, `ff5` and `carhart4` can never run.** They are in the catalogue
-  every Planner reads and their params default to `["mkt_rf","smb","hml"]`, but
-  nothing can supply a factor column, so `require_columns` raises and the step
-  lands `failed`. Three of thirty-seven tools are unreachable. Task 6.4.
+- ~~**`ff3`, `ff5` and `carhart4` can never run.**~~ Closed by Task 6.4. Both
+  gaps found reading the tree are now shut; `tests/data/test_live_integration.py`
+  is where the whole chain is checked against real services, and it is the file
+  to extend when a new source lands.
 
 ### Carried-over debts
 

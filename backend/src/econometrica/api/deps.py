@@ -9,8 +9,10 @@ from fastapi import Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm.interfaces import ORMOption
 
+from econometrica.agents.data_steward import FactorSource
 from econometrica.config import get_settings
 from econometrica.data.base import PriceSource
+from econometrica.data.famafrench import FamaFrenchFactorSource
 from econometrica.data.registry import RATE_SOURCE, build_price_source
 from econometrica.db.models import Chat, Project
 from econometrica.db.session import get_session
@@ -75,6 +77,19 @@ def get_rate_source() -> PriceSource:
 
 
 RateSourceDep = Annotated[PriceSource, Depends(get_rate_source)]
+
+
+def get_factor_source() -> FactorSource:
+    """Where a plan's factor set comes from.
+
+    Ken French, and not a setting for the same reason FRED is not: it is the
+    canonical publisher of these factors, needs no API key, and nothing else
+    here serves them. Without it `ff3`, `ff5` and `carhart4` cannot run at all.
+    """
+    return FamaFrenchFactorSource()
+
+
+FactorSourceDep = Annotated[FactorSource, Depends(get_factor_source)]
 
 
 def _not_found(entity: str, entity_id: UUID) -> HTTPException:

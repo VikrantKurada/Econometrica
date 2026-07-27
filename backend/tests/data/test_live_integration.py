@@ -19,6 +19,7 @@ import pytest
 
 from econometrica.agents.data_steward import DataSteward
 from econometrica.agents.schemas import DatasetSpec
+from econometrica.data.famafrench import FACTOR_SETS, FamaFrenchFactorSource
 from econometrica.data.registry import RATE_SOURCE, build_price_source
 from econometrica.econ import load_tools
 from econometrica.econ.registry import get_registry
@@ -54,6 +55,7 @@ async def resolve(tmp_path, **overrides):
     steward = DataSteward(
         build_price_source("yahoo", cache_root=tmp_path / "prices"),
         rate_source=build_price_source(RATE_SOURCE, cache_root=tmp_path / "rates"),
+        factor_source=FamaFrenchFactorSource(),
         min_obs=12,
     )
     return await steward.resolve(spec)
@@ -97,6 +99,43 @@ async def test_a_real_risk_free_rate_reaches_a_real_capm(tmp_path):
     assert 0.5 < beta.value < 2.5
     assert result.manifest.data_fingerprint
     assert result.manifest.tool_version
+
+
+@pytest.mark.parametrize("tool_name", ["ff3", "ff5", "carhart4"])
+async def test_the_factor_models_can_finally_run(tmp_path, tool_name):
+    """The three tools that could never run.
+
+    They have been in the catalogue every Planner reads since Phase 2, with
+    `factors` defaulting to ["mkt_rf","smb","hml"], and no source could supply a
+    factor column — so `require_columns` raised and the step landed `failed`.
+    This is the test that says otherwise, on real Ken French data.
+    """
+    if not services_are_reachable():
+        pytest.skip("yahoo or fred is not reachable")
+
+    dataset = await resolve(tmp_path, factors=tool_name)
+
+    assert dataset.report.factors == tool_name
+    # The factor file's own RF, because these factors are excess returns
+    # against it — no separate rate source was configured for this run.
+    assert dataset.report.risk_free == f"{tool_name} RF"
+
+    tool = get_registry().get(tool_name)
+    result = tool.fn(
+        dataset.frame,
+        tool.params_model.model_validate(
+            {"asset": "AAPL_return", "risk_free": "risk_free", "frequency": "M"}
+        ),
+    )
+
+    market = result.estimate("mkt_rf")
+    assert market is not None
+    assert 0.5 < market.value < 2.5, "AAPL's market loading should look like a beta"
+    # Every declared factor of the set got a loading, so none was silently
+    # dropped for want of a column.
+    for factor in FACTOR_SETS[tool_name].factors:
+        assert result.estimate(factor) is not None, factor
+    assert result.manifest.data_fingerprint
 
 
 async def test_the_rate_changes_the_result_it_is_part_of(tmp_path):

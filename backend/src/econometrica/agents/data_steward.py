@@ -16,7 +16,7 @@ ways a study of returns flatters itself, and neither shows up in a p-value.
 from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import date
-from typing import Literal
+from typing import Literal, Protocol
 
 import pandas as pd
 from pydantic import BaseModel, Field
@@ -60,6 +60,28 @@ LATE_START_DAYS = 30
 #: Below this, nothing in the tool registry produces a trustworthy estimate.
 MIN_USABLE_OBS = 30
 
+#: Fraction of observations a factor set must cover before the shortfall is
+#: reported. Ken French publishes on a US trading calendar and lags the present
+#: by a month or two, so a little slack is ordinary; a lot means the study is
+#: quietly running on a fraction of its window.
+FACTOR_COVERAGE = 0.9
+
+
+class FactorSource(Protocol):
+    """Where a named factor set comes from.
+
+    Deliberately not a `PriceSource`. A factor set is one object — `ff3` means
+    three columns on a shared calendar, plus the risk-free rate they are excess
+    of — and splitting it into series to fit a protocol designed for price
+    history would mean fetching the same file once per column.
+    """
+
+    async def factors(
+        self, factor_set: str, *, start: date, end: date, frequency: str
+    ) -> pd.DataFrame:
+        """Decimal factor returns, indexed by date, named for tool parameters."""
+        ...
+
 
 class QualityFlag(BaseModel):
     code: str
@@ -84,6 +106,8 @@ class DataQualityReport(BaseModel):
     #: itself is named for the tool parameter, so this is the only record of
     #: *which* rate an excess return was taken against.
     risk_free: str | None = None
+    #: The factor set joined onto the frame, or None.
+    factors: str | None = None
     #: Of the aligned frame, so a result can be tied back to its input.
     fingerprint: str = ""
     flags: list[QualityFlag] = Field(default_factory=list)
@@ -115,6 +139,9 @@ class Dataset:
     #: frame's frequency. Not in `returns`: it is a return already, and
     #: differencing it would give the change in the rate.
     risk_free: pd.Series | None = None
+    #: Factor returns, already decimal and on the frame's calendar. Also not in
+    #: `returns`, and for the same reason.
+    factors: pd.DataFrame | None = None
 
     #: Suffix distinguishing a return column from the level it came from.
     RETURN_SUFFIX = "_return"
@@ -133,10 +160,18 @@ class Dataset:
         the distinction. The first return is NaN rather than absent, so the
         two stay index-aligned; every tool drops it.
         """
-        parts = [self.prices, self.returns.add_suffix(self.RETURN_SUFFIX)]
+        parts: list[pd.DataFrame | pd.Series] = [
+            self.prices,
+            self.returns.add_suffix(self.RETURN_SUFFIX),
+        ]
+        if self.factors is not None:
+            parts.append(self.factors)
+        # After the factors, so an explicitly requested rate overwrites the one
+        # the factor file carried — which is what `mixed_risk_free` warns about.
         if self.risk_free is not None:
-            parts.append(self.risk_free.rename(self.RISK_FREE_COLUMN))
-        return pd.concat(parts, axis=1)
+            parts.append(self.risk_free.rename(Dataset.RISK_FREE_COLUMN))
+        combined = pd.concat(parts, axis=1)
+        return combined.loc[:, ~combined.columns.duplicated(keep="last")]
 
 
 class DataSteward:
@@ -145,6 +180,7 @@ class DataSteward:
         source: PriceSource,
         *,
         rate_source: PriceSource | None = None,
+        factor_source: FactorSource | None = None,
         min_obs: int = MIN_USABLE_OBS,
         late_start_days: int = LATE_START_DAYS,
     ) -> None:
@@ -154,6 +190,9 @@ class DataSteward:
         # allowed, and a spec that then asks for a rate is refused rather than
         # quietly analysed without one.
         self.rate_source = rate_source
+        # And factors are not prices at all — a whole set arrives as one frame,
+        # already in decimals, already returns.
+        self.factor_source = factor_source
         self.min_obs = min_obs
         self.late_start_days = late_start_days
 
@@ -198,13 +237,43 @@ class DataSteward:
             )
 
         returns = resampled.apply(lambda column: to_returns(column, method=spec.return_method))
-        risk_free = await self._resolve_risk_free(spec, pd.DatetimeIndex(resampled.index))
+        index = pd.DatetimeIndex(resampled.index)
 
-        # The rate is part of the input the results came from, so it belongs in
-        # the fingerprint: without it, a CAPM on excess returns and the same
+        factors = await self._resolve_factors(spec, index, flags)
+        risk_free = await self._resolve_risk_free(spec, index)
+
+        risk_free_label = spec.risk_free
+        if factors is not None and Dataset.RISK_FREE_COLUMN in factors.columns:
+            if risk_free is None:
+                risk_free = factors[Dataset.RISK_FREE_COLUMN]
+                risk_free_label = f"{spec.factors} RF"
+            else:
+                # Both were supplied. The plan asked for the explicit one, so it
+                # wins — but these factors are excess returns against their own
+                # RF, and subtracting a different rate puts two definitions of
+                # "risk-free" in one regression.
+                flags.append(
+                    QualityFlag(
+                        code="mixed_risk_free",
+                        severity="warning",
+                        detail=(
+                            f"the {spec.factors} factors are excess returns over their"
+                            f" own risk-free rate, but {spec.risk_free} was requested"
+                            " and has been used instead — the regression mixes two"
+                            " definitions of the risk-free rate"
+                        ),
+                    )
+                )
+            factors = factors.drop(columns=[Dataset.RISK_FREE_COLUMN])
+
+        # Both are part of the input the results came from, so both belong in
+        # the fingerprint: without them, a CAPM on excess returns and the same
         # CAPM on raw returns would claim to be the same analysis.
-        fingerprinted = (
-            resampled if risk_free is None else pd.concat([resampled, risk_free], axis=1)
+        fingerprinted = pd.concat(
+            [resampled, *(f for f in (factors,) if f is not None), *(
+                [risk_free] if risk_free is not None else []
+            )],
+            axis=1,
         )
 
         report = DataQualityReport(
@@ -216,15 +285,62 @@ class DataSteward:
             start=resampled.index.min().date(),
             end=resampled.index.max().date(),
             dropped_rows=dropped,
-            risk_free=spec.risk_free,
+            risk_free=risk_free_label,
+            factors=spec.factors,
             fingerprint=fingerprint_frame(fingerprinted),
             flags=flags,
         )
         return Dataset(
-            prices=resampled, returns=returns, report=report, risk_free=risk_free
+            prices=resampled,
+            returns=returns,
+            report=report,
+            risk_free=risk_free,
+            factors=factors,
         )
 
     # --- internals ----------------------------------------------------------
+
+    async def _resolve_factors(
+        self, spec: DatasetSpec, index: pd.DatetimeIndex, flags: list[QualityFlag]
+    ) -> pd.DataFrame | None:
+        """The named factor set, on the price frame's calendar.
+
+        Reindexed rather than forward-filled: a factor return belongs to its
+        own period, and carrying one forward would invent a second period with
+        the same return. Rows the set does not cover stay NaN — every factor
+        model drops them through `align_series` — and the count is flagged
+        rather than left as a surprise in the tool's `nobs`.
+        """
+        if not spec.factors:
+            return None
+
+        if self.factor_source is None:
+            raise DataUnavailableError(
+                f"the plan asks for the {spec.factors} factor set but no factor"
+                " source is configured, so the factor models cannot run. Either"
+                " supply one or plan a single-factor model such as capm."
+            )
+
+        frame = await self.factor_source.factors(
+            spec.factors, start=spec.start, end=spec.end, frequency=spec.frequency
+        )
+        aligned = frame.reindex(index)
+
+        covered = int(aligned.notna().all(axis=1).sum())
+        if covered < len(index) * FACTOR_COVERAGE:
+            flags.append(
+                QualityFlag(
+                    code="factor_coverage",
+                    severity="warning",
+                    detail=(
+                        f"the {spec.factors} factors cover {covered} of {len(index)}"
+                        " observations; the rest will be dropped by the factor model."
+                        " The library publishes on a US trading calendar and lags the"
+                        " present by a month or two"
+                    ),
+                )
+            )
+        return aligned
 
     async def _resolve_risk_free(
         self, spec: DatasetSpec, index: pd.DatetimeIndex

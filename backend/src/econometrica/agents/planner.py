@@ -30,7 +30,8 @@ Reply with a single JSON object and nothing else:
     "end": "YYYY-MM-DD",
     "frequency": "D|W|M|Q|A",
     "return_method": "log|simple",
-    "risk_free": null
+    "risk_free": null,
+    "factors": null
   }},
   "steps": [
     {{"id": "s1", "tool": "<name from the catalogue>", "params": {{}},
@@ -61,6 +62,19 @@ says. For each ticker T there are exactly two columns:
 So for BTC-USD you would write `"column": "BTC-USD"` or
 `"column": "BTC-USD_return"`. A column that is not one of these does not
 exist, and the step will fail.
+
+Two more columns appear only if you ask for them in `dataset`:
+
+- `"risk_free": "DGS3MO"` adds a `risk_free` column of per-period risk-free
+  returns, for tools that take a `risk_free` parameter. Use a FRED series id —
+  `DGS3MO` (3-month Treasury) is the usual choice.
+- `"factors": "ff3"` adds the Fama-French factor columns `mkt_rf`, `smb` and
+  `hml`. `"ff5"` adds `rmw` and `cma` as well; `"carhart4"` gives `mkt_rf`,
+  `smb`, `hml` and `mom`. **The `ff3`, `ff5` and `carhart4` tools cannot run
+  without this** — their factor columns come from nowhere else. A factor set
+  brings its own `risk_free` column, so do not set both.
+
+`carhart4` is available at monthly frequency only.
 
 # Tool catalogue
 {catalogue}\

@@ -135,6 +135,11 @@ class DatasetSpec(BaseModel):
     #: Ticker or series id for the risk-free rate; None where the analysis
     #: does not need excess returns.
     risk_free: str | None = None
+    #: Named factor set to join onto the frame, for the factor models. None
+    #: where the analysis is not a factor study. Naming one supplies its own
+    #: risk-free column too, because these factors are excess returns against
+    #: their own RF.
+    factors: Literal["ff3", "ff5", "carhart4"] | None = None
 
     @model_validator(mode="after")
     def window_must_run_forwards(self) -> Self:

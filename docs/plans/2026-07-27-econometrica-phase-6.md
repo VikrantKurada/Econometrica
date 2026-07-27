@@ -22,7 +22,7 @@ allowlists that are off by default.
 | 6.1 yfinance `PriceSource` | ✅ |
 | 6.2 source registry, disk cache, offline failures | ✅ |
 | 6.3 FRED adapter and the dead `risk_free` field | ✅ |
-| 6.4 Ken French factors — unlocking `ff3`/`ff5`/`carhart4` | ⬜ |
+| 6.4 Ken French factors — unlocking `ff3`/`ff5`/`carhart4` | ✅ |
 | 6.5 grounding gate: the `(s3)` false positive | ⬜ |
 | 6.6 upload profiling and schema inference | ⬜ |
 | 6.7 column-role mapping the user confirms | ⬜ |
@@ -507,6 +507,60 @@ headers to the tools' `mkt_rf`/`smb`/`hml` parameter defaults, so a plan naming
   `Mkt-RF` for 2024-01-02 is `-0.0070` after conversion.
 
 **Commit:** `feat(data): add ken french factor source and unlock the factor models`
+
+**Landed, and the three tools run.** The proof is
+`tests/data/test_live_integration.py`, parametrised over all three against real
+Ken French data — AAPL, 2018–2023 monthly:
+
+| | mkt_rf | smb | hml | other | R² | alpha |
+|---|---|---|---|---|---|---|
+| `ff3` | +1.295 | −0.296 | −0.526 | | 0.621 | +1.29% (p .061) |
+| `ff5` | +1.305 | −0.160 | −0.655 | rmw +0.300, cma +0.310 | 0.633 | +1.07% (p .130) |
+| `carhart4` | +1.373 | −0.207 | −0.470 | mom +0.246 | 0.631 | +1.24% (p .071) |
+
+Nothing above was asserted beyond "the market loading looks like a beta", and it
+came out as theory predicts for a large-cap growth stock: negative size, negative
+value, positive profitability, market loading agreeing with Task 6.3's CAPM beta
+of 1.273. R² rises from CAPM's 0.549, and the alpha that was significant under
+CAPM (p .034) is absorbed to insignificance under `ff5`. Signs and magnitudes
+being *right* is worth more than any fixture could be.
+
+### One probe finding that changed the design
+
+**`F-F_Momentum_Factor_daily` cannot be read at all.** pandas-datareader 0.11.1
+raises `TypeError` on it at every date range — `famafrench.py:118` compares a
+string index against an int — so **`carhart4` is monthly-only**, and the set
+declares that with the reason rather than failing inside a library the caller
+never named. `ff3` and `ff5` are unaffected; their daily files parse fine.
+
+### Four decisions the plan had not settled
+
+- **`FactorSource` is its own protocol, not `PriceSource`.** A factor set is one
+  object — `ff3` means three columns on a shared calendar plus the RF they are
+  excess of — and splitting it into series to fit a price-shaped protocol would
+  fetch the same file once per column.
+- **`carhart4` takes SMB from the three-factor file, not the five-factor one.**
+  They are constructed differently: 5.01 against 4.40 for the same month. Carhart
+  is FF3 plus momentum, not FF5 minus two. A test pins it.
+- **The monthly files' annual table is at key 1**, and reading it instead of key
+  0 would give a handful of annual observations that look like a short sample
+  rather than a wrong table.
+- **A factor set supplies its own `risk_free`.** These factors are excess returns
+  against Ken French's RF, so subtracting a FRED rate instead mixes two
+  definitions in one regression. An explicit `risk_free` alongside `factors` is
+  still honoured — the plan asked for it — but raises a `mixed_risk_free`
+  warning.
+
+Factors are reindexed onto the price calendar, never forward-filled: a factor
+return belongs to its own period, and carrying one forward invents a second
+period with the same return. Uncovered rows stay NaN for `align_series` to drop,
+and a `factor_coverage` warning fires below 90% so the shortfall is in the
+report rather than hidden in the tool's `nobs` — the library publishes on a US
+trading calendar and lags the present by a month or two.
+
+**The planner prompt had to change too**, or none of this would be reachable: it
+now documents `factors` and `risk_free`, names the columns each produces, and
+says outright that `ff3`/`ff5`/`carhart4` cannot run without a factor set.
 
 ---
 

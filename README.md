@@ -43,8 +43,15 @@ compute statistics themselves.
 > re-run and its exports share one fetch. The source and its adjustment policy
 > are named in every quality report, because Yahoo's split-adjusted and
 > dividend-adjusted closes for the same day can differ by 3% and reproducing a
-> number means knowing which one produced it. FRED, Ken French factors and file
-> uploads are the tasks in flight.
+> number means knowing which one produced it.
+>
+> An analysis can also ask for a **risk-free rate** (any of seventeen FRED
+> series, converted to the frame's own frequency) and a **Fama-French factor
+> set** — `ff3`, `ff5` or `carhart4` — fetched from Ken French's data library.
+> With those, all 37 tools are reachable: AAPL against the three-factor set over
+> 2018–2023 gives a market loading of 1.30 with negative size and value
+> loadings, which is what a large-cap growth stock should look like. File
+> uploads are the task in flight.
 >
 > `ECONOMETRICA_PRICE_SOURCE=synthetic` still generates reproducible random
 > walks so the pipeline runs with no network at all; it is never the default, it
