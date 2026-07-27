@@ -40,17 +40,31 @@ Consequences that keep coming up:
 | 3 — LLM providers + streaming chat | done, e2e gate green |
 | 4 — multi-agent orchestration | done, e2e gate green |
 | 5 — charts and artifact canvas | done, e2e gate green |
-| 6 — real data, uploads, telemetry, MCP | in progress — 6.8 of 16 tasks |
+| 6 — real data, uploads, telemetry, MCP | in progress — 6.9 of 16 tasks |
 
-**1184 backend tests, 260 frontend tests, 5 Playwright e2e.** ruff and
+**1223 backend tests, 260 frontend tests, 5 Playwright e2e.** ruff and
 `mypy --strict` clean on `src`. `alembic check` reports no drift.
 
 ### The immediate next task
 
-**Phase 6, Task 6.9** — telemetry: OpenTelemetry spans persisted to Postgres,
-optional OTLP export, and a metrics endpoint. Read
+**Phase 6, Task 6.10** — the trace viewer and cost dashboard: render the run
+DAG and the 6.9 metrics in the canvas. Read
 `docs/plans/2026-07-27-econometrica-phase-6.md`; it carries all sixteen tasks,
 six decisions, and the live-probe findings below.
+
+**Telemetry is not a second run trace.** `run_steps` records every model call
+with its agent, provider, tokens and cost — that stays. Spans cover what it
+cannot see: HTTP handlers, database timings, transport. **No number is summed
+from both**, and `spans` has no token or cost column at all so there is nothing
+to populate by mistake. `GET /api/metrics` reads latencies from spans and tokens
+from steps.
+
+**`span()` is inert until configured** and swallows sink failures, because
+telemetry may never break what it measures. The tracer provider is deliberately
+*not* registered globally — that can only happen once per process, which would
+make a batch exporter impossible to shut down. OTLP is off unless
+`OTEL_EXPORTER_OTLP_ENDPOINT` is set, and its export timeout is 2s so an
+unreachable collector cannot hold a shutdown open.
 
 **Uploads work end to end.** A file is profiled, its mapping confirmed by a
 person, and its observations stored in `observations` — **the project's first
@@ -410,6 +424,12 @@ These cost real time when rediscovered. All are verified on this machine.
   message into a pathspec. Write the message to a file and use `git commit -F`.
 - **`git` writes progress to stderr**, which PowerShell surfaces as
   `NativeCommandError`. A push that prints `* [new branch]` succeeded.
+- **`pkill -f` does not kill a background process started from the Bash tool.**
+  A uvicorn started for a live check survives it, the next one fails to bind
+  with `[Errno 10048]`, and every request then hits the *old* code — which
+  looks exactly like a fix not working. Stop it by port from PowerShell
+  (`Get-NetTCPConnection -LocalPort … | Stop-Process`) and read the server log
+  before believing a live result.
 
 ---
 

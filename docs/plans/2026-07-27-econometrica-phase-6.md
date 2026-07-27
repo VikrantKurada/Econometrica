@@ -27,7 +27,7 @@ allowlists that are off by default.
 | 6.6 upload profiling and schema inference | ✅ |
 | 6.7 column-role mapping the user confirms | ✅ |
 | 6.8 dataset store — hypertable plus retained blob | ✅ |
-| 6.9 telemetry — spans to Postgres, OTLP, metrics | ⬜ |
+| 6.9 telemetry — spans to Postgres, OTLP, metrics | ✅ |
 | 6.10 trace viewer and cost dashboard | ⬜ |
 | 6.11 MCP client with an allowlist | ⬜ |
 | 6.12 project-scoped retrieval over pgvector | ⬜ |
@@ -876,6 +876,47 @@ when the endpoint is unset; percentiles computed against a known distribution;
 and no token or cost double-counting between spans and `run_steps`.
 
 **Commit:** `feat(telemetry): add opentelemetry spans persisted to postgres`
+
+**Landed.** 39 tests. Spans cover what `run_steps` cannot see — HTTP handlers,
+database timings, transport — and **no number is summed from both**. The
+separation is structural: `spans` has no token or cost column, and a test
+asserts none exists, so there is nothing for a future contributor to populate.
+
+### Four things the implementation had to settle
+
+- **The provider is deliberately not registered globally.** `span()` takes its
+  tracer from the object directly and context propagation lives in contextvars,
+  so `set_tracer_provider` bought nothing — and it can only be called once per
+  process, which would make the provider impossible to replace and a batch
+  exporter impossible to shut down. One test that configured OTLP against a
+  dead collector was leaving a retry thread alive for the rest of the suite.
+- **OTLP export is bounded to two seconds.** The default is ten with retries,
+  which a shutdown waits out, so an unreachable collector would hold the process
+  closed long after the user asked it to stop. That alone took the telemetry
+  suite from 10s back to 4.7s.
+- **`span()` only stamps OK when nothing inside said otherwise.** A block can
+  complete without raising and still have recorded a failure; an HTTP 404 found
+  this, where the exit stamp erased the error status the middleware had just
+  set.
+- **A full queue drops, and counts what it dropped.** A slow database must never
+  become back-pressure on a request. Losing a measurement is the correct trade;
+  a dashboard that quietly under-reports is not.
+
+### The live server found what the tests could not
+
+Run against a real uvicorn, the span for `/api/runs/{id}` came back named for
+the **raw path** — one bucket per run id, which is a percentile over nothing,
+and precisely what this module's own docstring promised not to do. Middleware
+runs *before* routing, so the template is only known on the way out; the span is
+now renamed there with `update_name`.
+
+Worth recording how nearly this was missed: the first re-verification appeared
+to show the fix not working, because **`pkill -f` does not kill a process
+started this way on Windows**. The second server failed to bind, `curl` hit the
+still-running pre-fix one, and the log said so — `[Errno 10048] only one usage
+of each socket address`. Stopping it by port through PowerShell and re-running
+showed both requests grouped under `GET /api/runs/{run_id}` as intended. Check
+the server's log before believing a live result.
 
 ---
 
