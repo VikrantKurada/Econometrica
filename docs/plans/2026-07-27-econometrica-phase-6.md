@@ -30,7 +30,7 @@ allowlists that are off by default.
 | 6.9 telemetry — spans to Postgres, OTLP, metrics | ✅ |
 | 6.10 trace viewer and cost dashboard | ✅ |
 | 6.11 MCP client with an allowlist | ✅ |
-| 6.12 project-scoped retrieval over pgvector | ⬜ |
+| 6.12 project-scoped retrieval over pgvector | ✅ |
 | 6.13 web search, off by default, attributed | ⬜ |
 | 6.14 PDF export — print stylesheet, no new dependency | ⬜ |
 | 6.15 sandboxed code escape hatch | ⬜ |
@@ -1073,6 +1073,54 @@ number**. A narration citing a statistic that came from a document rather than
 a `ResultSet` must still be blocked by the grounding gate.
 
 **Commit:** `feat(services): add project-scoped document retrieval`
+
+**Landed.** 22 tests, two of them live against a real embedding model.
+`pgvector==0.5.0` is the new dependency.
+
+**Scope is a column, not a join.** `project_id` is denormalised onto
+`document_chunks`, so retrieval filters on the same row it ranks. A join can be
+forgotten in one query and the leak is another project's documents; a `WHERE` on
+the row cannot. That is the security property and it has its own test.
+
+**Each chunk records the model that embedded it**, and retrieval filters on it.
+384 dimensions from `all-minilm` mean nothing against 1024 from `bge-m3`, so a
+chunk that did not say would be silently searched against the wrong space and
+return confident nonsense. A model *wider* than the schema is refused rather
+than truncated - a truncated embedding is a plausible vector pointing somewhere
+else, and it would rank.
+
+### A test about the invariant found a bug in the chunker
+
+The test that matters most here is that **a number read from a document is still
+ungrounded** - the grounding gate admits only what a tool computed, and
+retrieval must not become a side channel into the one mechanical
+anti-hallucination check the system has.
+
+Writing it exposed something else. The sentence splitter was a `findall` over a
+pattern that matched sentences, and a pattern that matches *can fail to match*
+- so "The published beta is 1.8100." came back as **"8100."**. The decimal point
+read as a terminator, and the text that did not match was silently discarded,
+leaving a number torn out of the sentence that qualified it. That is close to
+the worst thing a retrieval corpus can contain, and no test of chunk *sizes*
+would ever have caught it.
+
+It is now a `split` on a terminator **followed by whitespace**, and there is an
+invariant test: every word of the input appears in some chunk. `Dr. Smith` still
+splits - no cheap rule tells an abbreviation from a sentence end - but the text
+survives, which is the property that matters.
+
+**Verified against a real model.** `all-minilm` through Ollama's `/api/embed`,
+with a query that shares **no words** with the passage it should return:
+"volatility clustering" retrieves "Periods of large price swings tend to be
+followed by more large swings" ahead of a recipe. A keyword match could not do
+that, so the vectors are demonstrably doing the work. A second live test asserts
+the model still returns the width the schema declares - if it ever fails, the
+default model changed and every stored vector is in a different space from every
+new one.
+
+`as_context` renders hits with their source **and** a header saying the text was
+read rather than computed. Attribution is what section 9 asks for; the header is
+for the model, and the gate is what enforces it regardless.
 
 ---
 

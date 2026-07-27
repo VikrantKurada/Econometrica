@@ -40,16 +40,27 @@ Consequences that keep coming up:
 | 3 — LLM providers + streaming chat | done, e2e gate green |
 | 4 — multi-agent orchestration | done, e2e gate green |
 | 5 — charts and artifact canvas | done, e2e gate green |
-| 6 — real data, uploads, telemetry, MCP | in progress — 6.11 of 16 tasks |
+| 6 — real data, uploads, telemetry, MCP | in progress — 6.12 of 16 tasks |
 
-**1264 backend tests, 282 frontend tests, 5 Playwright e2e.** ruff and
+**1286 backend tests, 282 frontend tests, 5 Playwright e2e.** ruff and
 `mypy --strict` clean on `src`. `alembic check` reports no drift.
 
 ### The immediate next task
 
-**Phase 6, Task 6.12** — project-scoped document retrieval over pgvector. Read
-`docs/plans/2026-07-27-econometrica-phase-6.md`; it carries all sixteen tasks,
-six decisions, and the live-probe findings below.
+**Phase 6, Task 6.13** — web search, off by default and attributed in the
+trace. Read `docs/plans/2026-07-27-econometrica-phase-6.md`; it carries all
+sixteen tasks, six decisions, and the live-probe findings below.
+
+**Retrieval is scoped by a column, not a join.** `document_chunks.project_id` is
+denormalised so a query filters on the row it ranks — a join can be forgotten,
+a `WHERE` on the row cannot. Chunks also record their embedding model and
+retrieval filters on it: 384 dimensions from `all-minilm` mean nothing against
+1024 from `bge-m3`. A wider model is refused rather than truncated.
+
+**Retrieved text never becomes a number**, and that is enforced by the grounding
+gate rather than by good intentions — `allowed_values` reads `ResultSet`s only,
+and a test asserts a figure quoted verbatim from a retrieved passage is still
+blocked.
 
 **The MCP allowlist is default-deny and has no wildcards.** `files:*` is a
 literal tool name, not a pattern — a pattern would re-admit whatever a server
