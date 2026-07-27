@@ -42,7 +42,7 @@ const OUTCOME: RunOutcome = {
     start: "2025-07-01",
     end: "2026-03-31",
     dropped_rows: 3,
-    fingerprint: "sha256:9f2c…",
+    fingerprint: "3f8a1c9e0b7d4a62e15c8f309a2b6d47c8e10f5372d9b4ae16c3f80d5b9e2a74",
     flags: [
       {
         code: "synthetic_data",

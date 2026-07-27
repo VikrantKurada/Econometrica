@@ -225,3 +225,36 @@
     color: var(--text-secondary);
   }
 }
+
+/* Print rules live apart: they are a different medium with different
+   priorities, and mixing them into the screen cascade makes both harder to
+   read. See print.css for what and why. */
+@import "./print.css";
+
+/* A force-mounted tab panel that is not the active one.
+ *
+ * Radix marks it `hidden`, which is `display: none` — and a Plotly chart in a
+ * display:none container lays out at zero width and renders blank, so it would
+ * print empty. Moved off-screen instead: still laid out, still measurable,
+ * still invisible. `print.css` puts it back in the flow.
+ *
+ * Panels are force-mounted at all because on paper there are no tabs, and a
+ * report missing the narrative because the reader was looking at a chart is
+ * not a report.
+ */
+[role="tabpanel"][hidden] {
+  display: block !important;
+  position: absolute;
+  left: -200vw;
+  width: 100%;
+  pointer-events: none;
+}
+
+/* Content that belongs on paper and nowhere else — the provenance block, which
+ * carries the manifest. On screen the canvas already shows the data banner and
+ * the trace; on paper neither is reachable, and an exported artifact that
+ * cannot be traced back is what this project exists not to produce.
+ * `print.css` turns it on. */
+.print-only {
+  display: none;
+}

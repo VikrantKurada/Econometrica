@@ -40,16 +40,33 @@ Consequences that keep coming up:
 | 3 — LLM providers + streaming chat | done, e2e gate green |
 | 4 — multi-agent orchestration | done, e2e gate green |
 | 5 — charts and artifact canvas | done, e2e gate green |
-| 6 — real data, uploads, telemetry, MCP | in progress — 6.13 of 16 tasks |
+| 6 — real data, uploads, telemetry, MCP | in progress — 6.14 of 16 tasks |
 
-**1305 backend tests, 282 frontend tests, 5 Playwright e2e.** ruff and
+**1305 backend tests, 307 frontend tests, 5 Playwright e2e.** ruff and
 `mypy --strict` clean on `src`. `alembic check` reports no drift.
 
 ### The immediate next task
 
-**Phase 6, Task 6.14** — PDF export as a print stylesheet, the decision taken
-2026-07-27. Read `docs/plans/2026-07-27-econometrica-phase-6.md`; it carries all
+**Phase 6, Task 6.15** — the sandboxed code escape hatch. Built last by design,
+and the only task whose tests are adversarial: every restriction gets an escape
+attempt. Read `docs/plans/2026-07-27-econometrica-phase-6.md`; it carries all
 sixteen tasks, six decisions, and the live-probe findings below.
+
+**Printing is a stylesheet, not a dependency.** `styles/print.css` forces light
+surfaces whatever theme the reader used, drops chrome, and keeps a chart card
+whole across a fold. `Provenance` is print-only and always present, because a
+printed artifact that cannot be traced back is what this project exists not to
+produce.
+
+**Canvas tab panels are force-mounted**, so paper gets all of them — and an
+inactive panel is parked *off-screen* rather than hidden, because **a Plotly
+chart in a `display:none` container renders blank** and would print empty. A
+canvas test that said `getByRole("tabpanel")` now has to select the active one.
+
+**Verifying print means applying the parsed rules to a live DOM** — `@media
+print` never engages on screen. Read them from `document.styleSheets`, not by
+fetching the `.css`: in dev Vite serves it as a **JS module**, so the text comes
+back escaped and every rule parses empty.
 
 **`tools/` is context, `econ/` is computation.** Nothing under `tools/` may
 become a source of numbers — the grounding gate admits only what a registry tool

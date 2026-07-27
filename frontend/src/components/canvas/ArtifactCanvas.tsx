@@ -12,6 +12,7 @@ import { chartArtifacts, type ChartArtifact } from "./artifacts";
 import { Diagnostics } from "./Diagnostics";
 import { Findings } from "./Findings";
 import { Narrative } from "./Narrative";
+import { Provenance } from "./Provenance";
 import { RunBanner } from "./RunBanner";
 import { CostDashboard } from "../telemetry/CostDashboard";
 import { TraceGraph } from "../telemetry/TraceGraph";
@@ -170,13 +171,18 @@ export function ArtifactCanvas({
             </Tabs.Content>
           ))}
 
-          <Tabs.Content value={NARRATIVE}>
+          {/* Print-only: on paper there is no data banner and no trace tab, and
+              an exported artifact that cannot be traced back is what this
+              project exists not to produce. */}
+          <Provenance outcome={run.outcome} />
+
+          <Tabs.Content value={NARRATIVE} forceMount>
             <Narrative outcome={run.outcome} />
           </Tabs.Content>
-          <Tabs.Content value={DIAGNOSTICS}>
+          <Tabs.Content value={DIAGNOSTICS} forceMount>
             <Diagnostics outcome={run.outcome} />
           </Tabs.Content>
-          <Tabs.Content value={TRACE}>
+          <Tabs.Content value={TRACE} forceMount>
             <TraceGraph steps={run.steps} />
           </Tabs.Content>
           <Tabs.Content value={COST}>

@@ -32,7 +32,7 @@ allowlists that are off by default.
 | 6.11 MCP client with an allowlist | ✅ |
 | 6.12 project-scoped retrieval over pgvector | ✅ |
 | 6.13 web search, off by default, attributed | ✅ |
-| 6.14 PDF export — print stylesheet, no new dependency | ⬜ |
+| 6.14 PDF export — print stylesheet, no new dependency | ✅ |
 | 6.15 sandboxed code escape hatch | ⬜ |
 | 6.16 Phase 6 e2e — full regression | ⬜ |
 
@@ -1200,6 +1200,60 @@ printing legibly on white — a dark-theme chart printed dark is ten pages of
 toner. Screenshot the print preview and look at it, per Phase 5's lesson.
 
 **Commit:** `feat(exports): add pdf output for reports and charts`
+
+**Landed, and no dependency was added to either stack** — which was the point of
+the decision.
+
+### Two things had to change beyond the stylesheet
+
+**Every panel is force-mounted.** The canvas is tabbed, so on screen one panel
+exists at a time; on paper there are no tabs, and a report missing the narrative
+because the reader happened to be looking at a chart is not a report.
+
+That exposed the real problem: Radix marks an inactive force-mounted panel
+`hidden`, which is `display: none` — and **a Plotly chart in a `display:none`
+container lays out at zero width and renders blank**, so it would print empty.
+Inactive panels are parked off-screen instead (`position: absolute; left:
+-200vw`): still laid out, still measurable, still invisible. `print.css` puts
+them back in the flow.
+
+**`Provenance` is print-only and always present.** On screen the canvas already
+shows the data banner and the trace; on paper neither is reachable, and an
+exported artifact that cannot be traced back is what this project exists not to
+produce. It carries what the ZIP export puts in `manifest.json` — data
+fingerprint, tool and version, params hash, library versions — plus the quality
+flags, so a printed report of synthetic data still says so.
+
+### Verified by applying the rules to a live DOM
+
+`@media print` will not engage on screen, so the check reads the rules the
+browser **already parsed** out of `document.styleSheets` and applies them to the
+real DOM. The first attempt at this was wrong in an instructive way: fetching
+`/src/styles/print.css` in dev returns Vite's **JS module wrapper**, so the text
+came back with literal `
+` escapes and every rule body parsed empty — a
+harness that measured nothing and would have reported success.
+
+With the dark theme active, the same DOM under print rules:
+
+| | dark on screen | under print rules |
+|---|---|---|
+| `--surface-0` | `oklch(0.16 …)` | `#ffffff` |
+| chart card text | near-white | `rgb(24,24,27)` |
+| card `break-inside` | `auto` | `avoid` |
+| button | `block` | `none` |
+
+The "ten pages of toner" case is therefore closed by measurement rather than by
+assertion.
+
+### Two smaller findings
+
+An existing canvas test used `getByRole("tabpanel")`, which force-mounting made
+ambiguous — it now selects the panel whose `data-state` is `active`. And the
+chart fixture carried a *truncated* fingerprint (`sha256:9f2c…`), which made the
+"prints in full" test vacuous and, worse, meant the gallery never showed how a
+64-character hash actually wraps on a page. Both fixtures now carry real
+64-hex values.
 
 ---
 

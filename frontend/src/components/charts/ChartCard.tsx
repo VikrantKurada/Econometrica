@@ -28,6 +28,9 @@ export function ChartCard({ spec, result }: { spec: ChartSpec; result: ResultSet
   return (
     <figure
       aria-label={spec.title}
+      // The card is the unit a page break must not fall inside: half a chart is
+      // not a smaller chart, it is a misleading one. See styles/print.css.
+      data-print-block
       className="rounded-md border border-border bg-surface-1 p-3 text-text-primary"
     >
       <figcaption className="mb-2 flex items-start justify-between gap-4">

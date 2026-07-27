@@ -140,7 +140,7 @@ export const FIXTURE_RESULT: ResultSet = {
     asset_excess: series("asset_excess", returns),
   },
   manifest: {
-    data_fingerprint: "sha256:9f2c…",
+    data_fingerprint: "3f8a1c9e0b7d4a62e15c8f309a2b6d47c8e10f5372d9b4ae16c3f80d5b9e2a74",
     tool: "garch",
     tool_version: "1.0.0",
     params_hash: "a41e…",

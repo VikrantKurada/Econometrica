@@ -85,7 +85,12 @@ describe("ArtifactCanvas", () => {
     expect(screen.getByText(/withheld/i)).toBeInTheDocument();
     // The number that matched nothing, and the sentence it was written in —
     // enough for a reader to see what the model claimed and why it was held.
-    const issue = within(screen.getByRole("tabpanel")).getByRole("listitem");
+    // The *active* panel: every panel is force-mounted so the printed report
+    // carries all of them, so "the tabpanel" is no longer unambiguous.
+    const panel = screen
+      .getAllByRole("tabpanel")
+      .find((element) => element.dataset.state === "active")!;
+    const issue = within(panel).getByRole("listitem");
     expect(issue).toHaveTextContent("1.42");
     expect(issue).toHaveTextContent("The beta is 1.42.");
   });

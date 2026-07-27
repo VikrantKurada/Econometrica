@@ -12,6 +12,8 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 
 import { ChartCard } from "./components/charts/ChartCard";
+import { FIXTURE_RUN } from "./components/canvas/fixtures";
+import { Provenance } from "./components/canvas/Provenance";
 import { CostDashboard } from "./components/telemetry/CostDashboard";
 import { TraceGraph } from "./components/telemetry/TraceGraph";
 import { METRICS_FIXTURE, TRACE_FIXTURE } from "./components/telemetry/fixtures";
@@ -47,6 +49,16 @@ function Gallery() {
         {GALLERY.map((spec) => (
           <ChartCard key={spec.type} spec={spec} result={FIXTURE_RESULT} />
         ))}
+      </div>
+
+      <h2 className="mt-8 mb-2 text-base font-semibold">Provenance (print-only)</h2>
+      <p className="mb-3 text-2xs text-text-secondary">
+        Shown here on purpose; in the app it appears only on paper, because an
+        exported artifact that cannot be traced back is what this project exists
+        not to produce.
+      </p>
+      <div className="rounded-lg border border-border bg-surface-1 p-4">
+        <Provenance outcome={FIXTURE_RUN.outcome} visible />
       </div>
 
       <h2 className="mt-8 mb-2 text-base font-semibold">Run trace</h2>

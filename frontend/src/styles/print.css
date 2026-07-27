@@ -1,0 +1,152 @@
+/* Printing a run, and the PDF that falls out of it.
+ *
+ * Decided 2026-07-27: the browser's own pipeline, and **no new dependency in
+ * either stack**. kaleido was ruled out rather than deferred — the backend
+ * holds no Plotly JSON, so a server-side render would mean reimplementing all
+ * fourteen TypeScript renderers in Python in order to export a chart nobody had
+ * looked at.
+ *
+ * Three things this file has to get right.
+ *
+ * 1. **Everything prints, not just the open tab.** The canvas is tabbed, so on
+ *    screen you see one panel at a time. On paper there are no tabs, and a
+ *    report missing the narrative because the reader happened to be looking at
+ *    a chart is not a report. Panels are force-mounted and unhidden here.
+ *
+ * 2. **The manifest prints.** An exported artifact that cannot be traced back is
+ *    exactly what this project exists not to produce, so `Provenance` is
+ *    print-only and always present.
+ *
+ * 3. **Dark theme prints on white.** A dark canvas sent to a printer is ten
+ *    pages of toner and grey-on-grey text. Every surface token is forced light
+ *    for print, whichever theme the reader was using.
+ */
+
+@media print {
+  /* --- the page ---------------------------------------------------------- */
+
+  @page {
+    margin: 16mm;
+  }
+
+  /* Whatever the reader's theme, paper is white. Overriding the tokens rather
+     than the rules means every component follows without knowing about print. */
+  :root,
+  :root[data-theme="dark"],
+  :root[data-theme="light"] {
+    --surface-0: #ffffff;
+    --surface-1: #ffffff;
+    --surface-2: #f4f4f5;
+    --border: #d4d4d8;
+    --text-primary: #18181b;
+    --text-secondary: #52525b;
+  }
+
+  html,
+  body {
+    background: #ffffff !important;
+    color: #18181b !important;
+    /* Panels are laid out for a viewport; on paper the page is the viewport. */
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  /* --- what does not belong on paper ------------------------------------- */
+
+  /* Chrome, not content: nothing here can be clicked once printed. */
+  .no-print,
+  nav,
+  button,
+  [role="tablist"],
+  [data-panel-resize-handle-id] {
+    display: none !important;
+  }
+
+  /* The three-pane shell collapses to one column of content. */
+  [data-panel-group],
+  [data-panel] {
+    display: block !important;
+    width: 100% !important;
+    overflow: visible !important;
+  }
+
+  /* --- what only belongs on paper ---------------------------------------- */
+
+  .print-only {
+    display: flex !important;
+  }
+
+  /* --- every panel, not just the open one -------------------------------- */
+
+  /* Radix marks an inactive force-mounted panel `hidden`. On paper there is no
+     "active" panel, so all of them are shown. */
+  [role="tabpanel"][hidden],
+  [role="tabpanel"] {
+    display: block !important;
+    visibility: visible !important;
+    /* Back into the flow. On screen an inactive panel is parked off-canvas so
+       Plotly can still measure it — see index.css. */
+    position: static !important;
+    left: auto !important;
+  }
+
+  /* --- page breaks -------------------------------------------------------- */
+
+  /* One chart per page, and never split across a fold: half a chart is not a
+     smaller chart, it is a misleading one. */
+  [data-print-block] {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    margin-bottom: 8mm;
+  }
+
+  [data-print-page] {
+    break-after: page;
+    page-break-after: page;
+  }
+
+  /* A table split mid-row loses the row. */
+  table {
+    break-inside: auto;
+  }
+  tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  thead {
+    display: table-header-group;
+  }
+
+  h1,
+  h2,
+  h3 {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  /* --- legibility ---------------------------------------------------------- */
+
+  /* Scroll containers become their content: anything past the first screenful
+     would simply be missing otherwise. */
+  .scroll-thin,
+  .overflow-auto,
+  .overflow-x-auto,
+  .overflow-y-auto {
+    overflow: visible !important;
+    max-height: none !important;
+  }
+
+  /* A fingerprint that wrapped off the page cannot be compared. */
+  code,
+  .font-mono {
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+
+  a[href^="http"]::after {
+    /* The URL is the attribution; on paper a link is only its text otherwise. */
+    content: " (" attr(href) ")";
+    font-size: 0.85em;
+    color: #52525b;
+  }
+}
