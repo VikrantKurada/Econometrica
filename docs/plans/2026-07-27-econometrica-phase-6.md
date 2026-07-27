@@ -23,7 +23,7 @@ allowlists that are off by default.
 | 6.2 source registry, disk cache, offline failures | ✅ |
 | 6.3 FRED adapter and the dead `risk_free` field | ✅ |
 | 6.4 Ken French factors — unlocking `ff3`/`ff5`/`carhart4` | ✅ |
-| 6.5 grounding gate: the `(s3)` false positive | ⬜ |
+| 6.5 grounding gate: the `(s3)` false positive | ✅ |
 | 6.6 upload profiling and schema inference | ⬜ |
 | 6.7 column-role mapping the user confirms | ⬜ |
 | 6.8 dataset store — hypertable plus retained blob | ⬜ |
@@ -589,6 +589,46 @@ is the whole reason it exists.
   publishes — the case that motivated the fix.
 
 **Commit:** `fix(agents): exempt step citations from the numeric grounding gate`
+
+**Landed, and the tolerance did not move.** The `-15.066` case still fails and
+its test sits beside the exemption for exactly that reason.
+
+**The exemption is keyed to the plan's actual step ids, not to the letter `s`.**
+`check_grounding` takes `step_ids`, and a number is exempt only when the letters
+immediately before it plus its digits spell an id the plan really contains. So
+`(s3)` passes when s3 was planned and `(s7)` does not when it was not — the
+guard against widening is a test that deliberately over-widens the rule and
+watches two tests fail. It also means no assumption about how a Planner names
+steps: whatever `PlanStep.id` holds is what is recognised. `step_ids` defaults to
+empty, so the exemption is opt-in rather than a hole that opens by itself.
+
+### The live probe found a second false positive of the same family
+
+Running a real narration through `ministral-3:8b` — which is the only way this
+kind of belief gets checked — the citation fix worked and the narration was
+*still* withheld. The model had titled it **"Volatility Persistence in BTC-USD
+Log Returns (2020–2024)"** and the gate flagged both years: `_is_year` exempts
+"in 2008" by looking at the preceding *word*, and in a range that word is
+whatever the title happened to say. The window is in the plan and is rendered
+into the prompt, so restating it is what the model was asked to do.
+
+`_is_year_range` now exempts `YYYY–YYYY`, requiring a plausible year on **both**
+sides so a lone four-digit finding stays checked. The hyphen spelling needed its
+own handling: `-2024` parses with a sign, so it arrives looking like a negative
+number rather than a year. Seven dash characters are accepted, built from code
+points rather than typed — all seven are indistinguishable on sight, and which
+one appears is nobody's deliberate choice.
+
+**Same prompt, same model, opposite outcome:** withheld before, published after,
+14 numbers checked and no issues.
+
+### One test that proved nothing until it was rewritten
+
+The first narrator-level regression test cited `(s1)` and passed *without* the
+fix. A GARCH beta near 0.90 rounds to `1` at zero decimals, so the citation's
+digit was grounded by coincidence — which is also why the original bug looked
+intermittent rather than deterministic. The test now cites `s7`, and it was
+verified failing without the fix and passing with it.
 
 ---
 

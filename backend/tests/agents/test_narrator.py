@@ -139,3 +139,55 @@ async def test_an_empty_draft_is_rejected():
 
     assert outcome.published is True
     assert len(provider.calls) == 2
+
+
+async def test_a_draft_that_cites_its_steps_inline_is_published():
+    """The bug this closes. `_render` labels every result block `## s7 - tool`,
+    so the model writes `(s7)` in the prose — and the gate read that 7 as an
+    unexplained number and withheld the whole narration over its own citation.
+
+    Exercised through the agent rather than against `check_grounding` directly,
+    because the defect was that the Narrator never passed its step ids down.
+
+    **The step is `s7` on purpose.** With `s1` this test passes even without the
+    fix: a GARCH beta near 0.90 rounds to 1 at zero decimals, so the citation's
+    digit is grounded by coincidence. That coincidence is what made the original
+    bug intermittent, and a regression test that depends on it proves nothing.
+    """
+    step = PlanStep(id="s7", tool="garch", params={"column": "r"})
+    the_plan, execution = await run(step)
+    value = execution.outcome("s7").result.estimates[0].value
+    provider = FakeProvider(
+        responses=[draft(f"The coefficient is {value:.4f} (s7).", citations=["s7"])]
+    )
+
+    outcome = await Narrator(provider, "fake-1").write(the_plan, execution)
+
+    assert outcome.published is True
+    assert outcome.grounding.grounded is True
+    # One draft, not a retry that happened to drop the citation.
+    assert len(provider.calls) == 1
+
+
+async def test_a_draft_citing_a_step_that_was_never_planned_is_still_checked():
+    """The exemption is keyed to the plan's ids, so it cannot become a hole
+    shaped like any letter followed by any digits."""
+    the_plan, execution = await run()
+    value = a_real_number(execution)
+    provider = FakeProvider(responses=[draft(f"The coefficient is {value:.4f} (s9).")] * 2)
+
+    outcome = await Narrator(provider, "fake-1").write(the_plan, execution)
+
+    assert outcome.published is False
+    assert any("9" in issue.text for issue in outcome.grounding.issues)
+
+
+async def test_a_fabricated_number_beside_a_valid_citation_is_still_blocked():
+    """A citation must not launder the sentence it sits in."""
+    the_plan, execution = await run()
+    provider = FakeProvider(responses=[draft("The coefficient is 1.4732 (s1).")] * 2)
+
+    outcome = await Narrator(provider, "fake-1").write(the_plan, execution)
+
+    assert outcome.published is False
+    assert any(issue.text == "1.4732" for issue in outcome.grounding.issues)

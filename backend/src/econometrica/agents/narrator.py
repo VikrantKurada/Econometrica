@@ -85,7 +85,12 @@ class Narrator(Agent[Narrative]):
                 f" Valid ids: {', '.join(sorted(self._known_steps))}"
             )
 
-        self._grounding = check_grounding(output.prose, self._allowed)
+        # The step ids go in so the gate can tell a citation from a claim: the
+        # prose cites `(s3)`, and without them the gate read the 3 as an
+        # unexplained number and withheld the narration over its own citation.
+        self._grounding = check_grounding(
+            output.prose, self._allowed, step_ids=self._known_steps
+        )
         if not self._grounding.grounded:
             # Naming the figures is what makes the retry worth spending: a
             # bare "that was ungrounded" gets the same draft back.

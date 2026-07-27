@@ -40,16 +40,24 @@ Consequences that keep coming up:
 | 3 — LLM providers + streaming chat | done, e2e gate green |
 | 4 — multi-agent orchestration | done, e2e gate green |
 | 5 — charts and artifact canvas | done, e2e gate green |
-| 6 — real data, uploads, telemetry, MCP | in progress — 6.4 of 16 tasks |
+| 6 — real data, uploads, telemetry, MCP | in progress — 6.5 of 16 tasks |
 
-**1051 backend tests, 249 frontend tests, 5 Playwright e2e.** ruff and
+**1071 backend tests, 249 frontend tests, 5 Playwright e2e.** ruff and
 `mypy --strict` clean on `src`. `alembic check` reports no drift.
 
 ### The immediate next task
 
-**Phase 6, Task 6.5** — the grounding gate's `(s3)` false positive. Read
+**Phase 6, Task 6.6** — upload profiling and schema inference. Read
 `docs/plans/2026-07-27-econometrica-phase-6.md`; it carries all sixteen tasks,
 six decisions, and the live-probe findings below.
+
+**The grounding gate no longer withholds narrations over their own citations.**
+`check_grounding` takes `step_ids` and exempts a number only when the letters
+before it plus its digits spell an id the plan actually contains — so `(s3)`
+passes and `(s7)` does not. It also exempts `YYYY–YYYY` year ranges, found by
+running a real narration: a model titled its answer `(2020–2024)` and the gate
+read both years as fabrications. **The tolerance did not move** — the `-15.066`
+case still fails, and its test sits beside the exemption so nobody loosens it.
 
 **All 37 tools are now reachable.** `ff3`, `ff5` and `carhart4` run on real Ken
 French factors — `DatasetSpec.factors` names a set and the Data Steward joins
@@ -147,12 +155,10 @@ services on this machine.
 
 ### Carried-over debts
 
-- **The grounding gate's false positives.** It reads the `3` in a `(s3)`
-  citation as a claim about data. `_REFERENCE_WORDS` exempts "step 3" but not
-  the `s3` style this project's own prompts encourage, so real narrations get
-  withheld over their own citations. The gate itself is sound — it caught a
-  model writing `-15.066` where the computed statistic was `-15.065457`, so the
-  fix is narrow and **the tolerance does not move**. Task 6.5.
+- ~~**The grounding gate's false positives.**~~ Closed by Task 6.5, and both of
+  them: the `(s3)` citation and the `(2020–2024)` year range. Adding a new
+  exemption means keying it to something the plan actually declares, and
+  proving it bites by over-widening it and watching a test fail.
 - **PDF export.** Decided 2026-07-27: a **print stylesheet**, no new dependency
   in either stack. kaleido is ruled out rather than deferred — the backend holds
   no Plotly JSON, so it would mean reimplementing all fourteen TypeScript
