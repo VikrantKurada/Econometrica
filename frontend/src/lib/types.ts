@@ -389,3 +389,70 @@ export interface ModelInfo {
   name: string;
   capabilities: ModelCapabilities;
 }
+
+// --- uploads ----------------------------------------------------------------
+
+export type ColumnRole =
+  | "date"
+  | "ticker"
+  | "price"
+  | "return"
+  | "volume"
+  | "factor"
+  | "ignore";
+
+export interface RoleCandidate {
+  role: ColumnRole;
+  score: number;
+  reason: string;
+}
+
+export interface ColumnProfile {
+  name: string;
+  dtype: "number" | "datetime" | "text" | "boolean";
+  present: number;
+  missing: number;
+  unique: number;
+  minimum: number | null;
+  maximum: number | null;
+  sample: string[];
+  parses_as_date: boolean;
+  decimal_comma: boolean;
+  candidates: RoleCandidate[];
+}
+
+export interface FileProfile {
+  filename: string;
+  format: "csv" | "xlsx" | "parquet";
+  rows: number;
+  columns: ColumnProfile[];
+  layout: "wide" | "long" | "unknown";
+  delimiter: string | null;
+}
+
+export interface MappingProposal {
+  roles: Record<string, ColumnRole>;
+  rationale: Record<string, string>;
+  /** Columns where more than one role genuinely fitted. */
+  ambiguous: string[];
+}
+
+export interface ColumnMapping {
+  roles: Record<string, ColumnRole>;
+  confirmed: boolean;
+}
+
+export interface Upload {
+  id: string;
+  project_id: string;
+  filename: string;
+  profile: FileProfile;
+  proposal: MappingProposal;
+  consulted_model: boolean;
+  confirmed: boolean;
+  mapping: ColumnMapping | null;
+  /** Present only on a confirmation response. */
+  observations: number | null;
+  symbols: string[];
+  fields: string[];
+}

@@ -3,6 +3,7 @@ import type {
   Chat,
   ChatCreate,
   ChatUpdate,
+  ColumnRole,
   Health,
   Message,
   ModelInfo,
@@ -13,6 +14,7 @@ import type {
   RerunReport,
   Run,
   RunDetail,
+  Upload,
 } from "./types";
 
 /**
@@ -129,6 +131,31 @@ export const api = {
 
   deleteProject: (projectId: string): Promise<void> =>
     request<void>(`/projects/${projectId}`, { method: "DELETE" }),
+
+  /**
+   * Multipart, so it bypasses `request` — that helper always sends JSON, and
+   * setting Content-Type by hand on a FormData body drops the boundary and the
+   * server sees an unparseable request.
+   */
+  uploadFile: async (projectId: string, file: File): Promise<Upload> => {
+    const form = new FormData();
+    form.append("file", file);
+    const response = await fetch(`${BASE}/projects/${projectId}/uploads`, {
+      method: "POST",
+      body: form,
+    });
+    if (!response.ok) {
+      const errorBody = await readBody(response);
+      throw new ApiError(response.status, formatApiError(response.status, errorBody), errorBody);
+    }
+    return (await readBody(response)) as Upload;
+  },
+
+  readUpload: (uploadId: string): Promise<Upload> =>
+    request<Upload>(`/uploads/${uploadId}`),
+
+  confirmUpload: (uploadId: string, roles: Record<string, ColumnRole>): Promise<Upload> =>
+    request<Upload>(`/uploads/${uploadId}/confirm`, { method: "POST", body: { roles } }),
 
   listChats: (projectId: string): Promise<Chat[]> =>
     request<Chat[]>(`/projects/${projectId}/chats`),

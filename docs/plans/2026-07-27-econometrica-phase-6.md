@@ -25,7 +25,7 @@ allowlists that are off by default.
 | 6.4 Ken French factors — unlocking `ff3`/`ff5`/`carhart4` | ✅ |
 | 6.5 grounding gate: the `(s3)` false positive | ✅ |
 | 6.6 upload profiling and schema inference | ✅ |
-| 6.7 column-role mapping the user confirms | ⬜ |
+| 6.7 column-role mapping the user confirms | ✅ |
 | 6.8 dataset store — hypertable plus retained blob | ⬜ |
 | 6.9 telemetry — spans to Postgres, OTLP, metrics | ⬜ |
 | 6.10 trace viewer and cost dashboard | ⬜ |
@@ -718,6 +718,54 @@ mapped; and a profile with an unambiguous mapping needing **no model call**,
 so the common case is free.
 
 **Commit:** `feat(agents): add confirmed column-role mapping for uploads`
+
+**Landed in three commits** — the mapping core, the API, and the screen.
+
+**Confirmation is a gate, not a formality.** `confirm_mapping` is the only thing
+that produces a `ColumnMapping` with `confirmed` set, and `apply_mapping`
+refuses anything else, so a model's suggestion cannot be acted on by
+construction rather than by convention.
+
+**The user and the model are constrained differently, deliberately.** A user may
+map a column to a role the profiler never suggested — only the person who
+exported the file knows a column of small positive numbers is penny prices
+rather than returns. A model may not: it chooses among admissible candidates,
+and naming a missing column, assigning a ruled-out role, or inventing a role are
+each rejected and retried with the problem named.
+
+**The model is skipped when there is nothing to decide**, and falls back to the
+profiler when it will not comply. An upload must not fail because a model
+declined, and the user confirms either way.
+
+`apply_mapping` emits long-format observations — `ts`, `symbol`, `field`,
+`value` — whatever the file's layout, which is the shape 6.8's hypertable
+stores. A wide file names its symbol in the header; a long one has a ticker
+column and names the *field* there instead.
+
+**One gap closed on the way:** `FileProfile` now records its delimiter, because
+ingest happens in a later request and a semicolon export re-read with commas
+comes back as one column. CSVs are re-read with `dtype=str` so a decimal comma
+survives to `apply_mapping`, which knows from the profile how to parse it.
+
+**Verified against a live model.** On a real Yahoo export only `Volume` was
+ambiguous, so only `Volume` was put to `ministral-3:8b`; it answered `volume` in
+one attempt and its reason replaced the profiler's with something written for a
+reader — *"Values are whole numbers typical of trading volumes, not prices"*.
+
+**The screen is rendered in `/gallery.html`, not mounted in the app.** Confirming
+a mapping stores the blob and the mapping but nothing analysable yet — the
+observations hypertable and `UploadedPriceSource` are 6.8 — so a user-facing
+upload button would promise something the backend cannot honour. It goes in the
+dev harness for now, which is where Phase 5's chart types were looked at, and
+6.8 mounts it once an uploaded file can actually be run.
+
+Two notes on verification. The browser pane would not composite frames in this
+session, so the screen was checked through the DOM and computed styles — both
+themes, the disabled state, spacing, overflow — rather than looked at. That is
+weaker than Phase 5's standard and worth redoing when a screenshot is possible.
+And the first draft hand-rolled a button and used arbitrary Tailwind values
+(`text-[var(--text-primary)]`) where the codebase has a `Button` with a
+`primary` variant and `text-text-primary` utilities; it now uses both.
 
 ---
 

@@ -12,6 +12,8 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 
 import { ChartCard } from "./components/charts/ChartCard";
+import { ColumnMapping } from "./components/uploads/ColumnMapping";
+import { UPLOAD_FIXTURE } from "./components/uploads/fixtures";
 import { FIXTURE_RESULT, GALLERY } from "./components/charts/fixtures";
 import { useThemeStore } from "./lib/theme";
 import "./styles/index.css";
@@ -42,6 +44,15 @@ function Gallery() {
         {GALLERY.map((spec) => (
           <ChartCard key={spec.type} spec={spec} result={FIXTURE_RESULT} />
         ))}
+      </div>
+
+      <h2 className="mt-8 mb-2 text-base font-semibold">Upload column mapping</h2>
+      <p className="mb-3 text-2xs text-text-secondary">
+        The screen a person sees before an uploaded file is stored. Every role is
+        editable and the button stays disabled until the mapping is usable.
+      </p>
+      <div className="rounded-lg border border-border bg-surface-1 p-4">
+        <ColumnMapping upload={UPLOAD_FIXTURE} onConfirm={() => undefined} />
       </div>
     </div>
   );

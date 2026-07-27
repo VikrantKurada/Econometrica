@@ -40,16 +40,30 @@ Consequences that keep coming up:
 | 3 — LLM providers + streaming chat | done, e2e gate green |
 | 4 — multi-agent orchestration | done, e2e gate green |
 | 5 — charts and artifact canvas | done, e2e gate green |
-| 6 — real data, uploads, telemetry, MCP | in progress — 6.6 of 16 tasks |
+| 6 — real data, uploads, telemetry, MCP | in progress — 6.7 of 16 tasks |
 
-**1107 backend tests, 249 frontend tests, 5 Playwright e2e.** ruff and
+**1150 backend tests, 260 frontend tests, 5 Playwright e2e.** ruff and
 `mypy --strict` clean on `src`. `alembic check` reports no drift.
 
 ### The immediate next task
 
-**Phase 6, Task 6.7** — column-role mapping the user confirms. Read
+**Phase 6, Task 6.8** — the dataset store: a Timescale observations
+hypertable, the retained blob, and `UploadedPriceSource` so an uploaded file is
+analysable like a fetched ticker. Read
 `docs/plans/2026-07-27-econometrica-phase-6.md`; it carries all sixteen tasks,
 six decisions, and the live-probe findings below.
+
+**Uploads profile, propose and confirm — but store nothing analysable yet.**
+`POST /api/projects/{id}/uploads` returns a profile plus a suggested mapping;
+`POST /api/uploads/{id}/confirm` validates it and reports what it would ingest.
+**`confirm_mapping` is the only thing that produces a mapping `apply_mapping`
+will act on**, so a model's suggestion cannot be acted on by construction.
+
+**The user and the model are constrained differently on purpose.** A user may
+choose a role the profiler never suggested; a model may only pick among the
+candidates it did. The `ColumnMapping` screen lives in `/gallery.html` rather
+than the app until 6.8 makes an uploaded file runnable — a button promising an
+upload the backend cannot yet analyse would be worse than no button.
 
 **`services/ingest.py` profiles an upload and never decides.** It scores every
 role a column *could* play — `date`, `ticker`, `price`, `return`, `volume`,
