@@ -22,6 +22,7 @@ from uuid import UUID
 
 import pandas as pd
 from fastapi import APIRouter, File, HTTPException, UploadFile, status
+from sqlalchemy import select
 
 from econometrica.agents.column_mapper import ColumnMapper
 from econometrica.api.deps import (
@@ -30,7 +31,9 @@ from econometrica.api.deps import (
     UploadStoreDep,
     get_project_or_404,
 )
-from econometrica.schemas.upload import ConfirmRequest, UploadRead
+from econometrica.db.models import Dataset
+from econometrica.schemas.upload import ConfirmRequest, DatasetRead, UploadRead
+from econometrica.services.datasets import dataset_symbols, ingest_observations
 from econometrica.services.ingest import IngestError, profile_upload
 from econometrica.services.mapping import (
     MappingError,
@@ -103,9 +106,42 @@ async def read_upload(upload_id: UUID, store: UploadStoreDep) -> UploadRead:
     return _read(_get(store, upload_id))
 
 
+@router.get("/{project_id}/datasets", response_model=list[DatasetRead])
+async def list_datasets(project_id: UUID, session: SessionDep) -> list[DatasetRead]:
+    """Every upload of this project that has been confirmed and stored.
+
+    An unconfirmed upload is deliberately absent: it has a blob and a proposal
+    but no observations, and listing it as a dataset would offer a user data
+    they have not agreed to.
+    """
+    await get_project_or_404(session, project_id)
+    rows = await session.scalars(
+        select(Dataset)
+        .where(Dataset.project_id == project_id)
+        .order_by(Dataset.created_at.desc())
+    )
+    return [
+        DatasetRead(
+            id=dataset.id,
+            project_id=dataset.project_id,
+            name=dataset.name,
+            source_label=dataset.source_label,
+            rows=dataset.rows,
+            column_roles=dataset.column_roles,
+            fingerprint=dataset.fingerprint,
+            created_at=dataset.created_at,
+            symbols=await dataset_symbols(session, dataset.id),
+        )
+        for dataset in rows.all()
+    ]
+
+
 @uploads.post("/{upload_id}/confirm", response_model=UploadRead)
 async def confirm_upload(
-    upload_id: UUID, payload: ConfirmRequest, store: UploadStoreDep
+    upload_id: UUID,
+    payload: ConfirmRequest,
+    session: SessionDep,
+    store: UploadStoreDep,
 ) -> UploadRead:
     """Agree what the columns mean, and report what that would ingest.
 
@@ -125,7 +161,17 @@ async def confirm_upload(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)
         ) from exc
 
-    return _read(store.confirm(upload_id, mapping), _summarise(observations))
+    dataset = await ingest_observations(
+        session,
+        project_id=record.project_id,
+        upload_id=record.id,
+        filename=record.filename,
+        blob_path=str(store.blob_path(upload_id)),
+        mapping=mapping,
+        observations=observations,
+    )
+
+    return _read(store.confirm(upload_id, mapping), _summarise(observations), dataset.id)
 
 
 # --- internals ---------------------------------------------------------------
@@ -174,7 +220,9 @@ def _summarise(observations: pd.DataFrame) -> ConfirmationSummary:
 
 
 def _read(
-    record: StoredUpload, summary: ConfirmationSummary | None = None
+    record: StoredUpload,
+    summary: ConfirmationSummary | None = None,
+    dataset_id: UUID | None = None,
 ) -> UploadRead:
     return UploadRead(
         id=record.id,
@@ -188,4 +236,5 @@ def _read(
         observations=summary.observations if summary else None,
         symbols=summary.symbols if summary else [],
         fields=summary.fields if summary else [],
+        dataset_id=dataset_id,
     )

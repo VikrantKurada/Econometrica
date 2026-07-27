@@ -1,5 +1,6 @@
 """What the upload endpoints put on the wire."""
 
+from datetime import datetime
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -36,3 +37,20 @@ class UploadRead(BaseModel):
     observations: int | None = None
     symbols: list[str] = Field(default_factory=list)
     fields: list[str] = Field(default_factory=list)
+    #: The stored dataset a confirmation produced, which is what a run binds to.
+    dataset_id: UUID | None = None
+
+
+class DatasetRead(BaseModel):
+    """A stored dataset, as the project's data list shows it."""
+
+    id: UUID
+    project_id: UUID
+    name: str
+    #: What a run built on this would report as its source.
+    source_label: str
+    rows: int
+    column_roles: dict[str, str]
+    fingerprint: str
+    created_at: datetime
+    symbols: list[str] = Field(default_factory=list)

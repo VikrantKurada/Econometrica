@@ -228,3 +228,100 @@ async def test_an_ambiguous_upload_without_an_assigned_model_still_works(client)
     assert body["consulted_model"] is False
     assert body["proposal"]["ambiguous"] == ["v"]
     assert body["proposal"]["roles"]["v"] == "volume"
+
+
+# --- confirming now ingests ---------------------------------------------------
+
+
+async def test_confirming_creates_a_dataset_and_its_observations(client, session):
+    """Task 6.7 validated a mapping and reported what it *would* ingest. With
+    the store in place, confirming is what actually stores it."""
+    from sqlalchemy import select
+
+    from econometrica.db.models import Dataset, Observation
+
+    project = await make_project(client)
+    created = (await upload(client, project["id"])).json()
+
+    response = await client.post(
+        f"/api/uploads/{created['id']}/confirm",
+        json={"roles": {"date": "date", "AAPL": "price", "MSFT": "price"}},
+    )
+
+    assert response.status_code == 200, response.text
+    dataset = (await session.scalars(select(Dataset))).one()
+    assert dataset.name == "prices.csv"
+    assert dataset.column_roles["AAPL"] == "price"
+    assert dataset.rows == 8
+    assert len((await session.scalars(select(Observation))).all()) == 8
+    assert response.json()["dataset_id"] == str(dataset.id)
+
+
+async def test_the_dataset_label_names_the_file_and_is_not_synthetic(client, session):
+    from sqlalchemy import select
+
+    from econometrica.db.models import Dataset
+
+    project = await make_project(client)
+    created = (await upload(client, project["id"])).json()
+    await client.post(
+        f"/api/uploads/{created['id']}/confirm",
+        json={"roles": {"date": "date", "AAPL": "price", "MSFT": "price"}},
+    )
+
+    dataset = (await session.scalars(select(Dataset))).one()
+
+    assert "prices.csv" in dataset.source_label
+    assert "synthetic" not in dataset.source_label.lower()
+
+
+async def test_confirming_twice_replaces_rather_than_duplicates(client, session):
+    """A user who realises they mapped a column wrongly confirms again. Leaving
+    the first ingest behind would double every observation and the second
+    mapping would never take effect."""
+    from sqlalchemy import select
+
+    from econometrica.db.models import Dataset, Observation
+
+    project = await make_project(client)
+    created = (await upload(client, project["id"])).json()
+    for roles in (
+        {"date": "date", "AAPL": "price", "MSFT": "price"},
+        {"date": "date", "AAPL": "price", "MSFT": "ignore"},
+    ):
+        response = await client.post(
+            f"/api/uploads/{created['id']}/confirm", json={"roles": roles}
+        )
+        assert response.status_code == 200, response.text
+
+    assert len((await session.scalars(select(Dataset))).all()) == 1
+    observations = (await session.scalars(select(Observation))).all()
+    assert len(observations) == 4
+    assert {row.symbol for row in observations} == {"AAPL"}
+
+
+async def test_the_ingested_dataset_is_listed_for_the_project(client):
+    project = await make_project(client)
+    created = (await upload(client, project["id"])).json()
+    await client.post(
+        f"/api/uploads/{created['id']}/confirm",
+        json={"roles": {"date": "date", "AAPL": "price", "MSFT": "price"}},
+    )
+
+    response = await client.get(f"/api/projects/{project['id']}/datasets")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert len(body) == 1
+    assert body[0]["name"] == "prices.csv"
+    assert body[0]["rows"] == 8
+    assert sorted(body[0]["symbols"]) == ["AAPL", "MSFT"]
+
+
+async def test_an_unconfirmed_upload_is_not_listed_as_a_dataset(client):
+    project = await make_project(client)
+    await upload(client, project["id"])
+
+    response = await client.get(f"/api/projects/{project['id']}/datasets")
+
+    assert response.json() == []

@@ -26,7 +26,7 @@ allowlists that are off by default.
 | 6.5 grounding gate: the `(s3)` false positive | ✅ |
 | 6.6 upload profiling and schema inference | ✅ |
 | 6.7 column-role mapping the user confirms | ✅ |
-| 6.8 dataset store — hypertable plus retained blob | ⬜ |
+| 6.8 dataset store — hypertable plus retained blob | ✅ |
 | 6.9 telemetry — spans to Postgres, OTLP, metrics | ⬜ |
 | 6.10 trace viewer and cost dashboard | ⬜ |
 | 6.11 MCP client with an allowlist | ⬜ |
@@ -795,6 +795,60 @@ was uploaded; and every constraint reaching a migration, extending
 `tests/db/test_migrations.py`.
 
 **Commit:** `feat(db): add dataset store with a timescale observations hypertable`
+
+**Landed.** 34 tests, and the whole upload path now ends somewhere: a real
+two-ticker Yahoo export profiles with no ambiguity (so no model call), stores
+**1506 observations**, resolves through the Data Steward as 36 monthly rows with
+no quality flags, and runs `capm` — beta 0.812, t 5.78 — on data that came from
+a file rather than a fetch.
+
+### The hypertable needed three things autogenerate could not give it
+
+- **The conversion itself is invisible to alembic.** A hypertable and an
+  ordinary table are the same table to autogenerate, so a database built from
+  the migrations alone would have got a plain one — which behaves identically
+  until the row counts get interesting. `op.execute("SELECT
+  create_hypertable(...)")` is hand-written, and the test asserts it against
+  Timescale's own catalogue rather than against the DDL we wrote.
+- **`create_hypertable` creates its own index**, `observations_ts_idx`, which
+  nothing in the models declares — so `alembic check` found an index it had not
+  been told about and wanted to drop it, on **every** run. Fixed by passing
+  `create_default_indexes => FALSE` and declaring `ix_observations_ts`
+  ourselves, which keeps the schema fully described by the metadata. That is
+  the only condition under which `alembic check` means anything here.
+- **`field` had to join the key.** The plan said (dataset, ts, symbol); a wide
+  file mapping both a close and a volume produces two rows for the same date and
+  symbol, so that key would have refused an ordinary file. Timescale also
+  requires the partitioning column in any unique constraint, which `ts` already
+  satisfied.
+
+The hypertable test asserts `projects` is *not* listed alongside it, so the
+catalogue query is visibly discriminating rather than one that would pass
+against any table.
+
+### The rest
+
+`UploadedPriceSource` serves an ingested dataset through the same `PriceSource`
+protocol as Yahoo — which is the entire point: nothing above the protocol had to
+learn that uploads exist. Its label names the file and the ingest date, and a
+test asserts it never contains `synthetic`, since the Data Steward's risk flag
+fires on that substring and a user's own data reported as generated would be as
+wrong as the reverse. Levels are preferred but a returns-only file still
+resolves.
+
+**Re-confirming replaces rather than duplicates.** A user who realises they
+mapped a column wrongly confirms again; leaving the first ingest in place would
+double every observation and the second mapping would never take effect. The
+blob is untouched either way, which is what makes the correction cheap.
+
+`GET /api/projects/{id}/datasets` lists confirmed uploads only. An unconfirmed
+one has a blob and a proposal but no observations, and listing it would offer a
+user data they never agreed to.
+
+**Still to mount:** the `ColumnMapping` screen remains in `/gallery.html`. The
+backend can now honour an upload end to end, so the only thing left is deciding
+where "Data" belongs in the three-pane layout — a UI question that deserves its
+own increment rather than being tacked onto a migration.
 
 ---
 

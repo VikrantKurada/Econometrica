@@ -40,18 +40,36 @@ Consequences that keep coming up:
 | 3 — LLM providers + streaming chat | done, e2e gate green |
 | 4 — multi-agent orchestration | done, e2e gate green |
 | 5 — charts and artifact canvas | done, e2e gate green |
-| 6 — real data, uploads, telemetry, MCP | in progress — 6.7 of 16 tasks |
+| 6 — real data, uploads, telemetry, MCP | in progress — 6.8 of 16 tasks |
 
-**1150 backend tests, 260 frontend tests, 5 Playwright e2e.** ruff and
+**1184 backend tests, 260 frontend tests, 5 Playwright e2e.** ruff and
 `mypy --strict` clean on `src`. `alembic check` reports no drift.
 
 ### The immediate next task
 
-**Phase 6, Task 6.8** — the dataset store: a Timescale observations
-hypertable, the retained blob, and `UploadedPriceSource` so an uploaded file is
-analysable like a fetched ticker. Read
+**Phase 6, Task 6.9** — telemetry: OpenTelemetry spans persisted to Postgres,
+optional OTLP export, and a metrics endpoint. Read
 `docs/plans/2026-07-27-econometrica-phase-6.md`; it carries all sixteen tasks,
 six decisions, and the live-probe findings below.
+
+**Uploads work end to end.** A file is profiled, its mapping confirmed by a
+person, and its observations stored in `observations` — **the project's first
+Timescale hypertable**. `UploadedPriceSource` then serves it through the same
+`PriceSource` protocol as Yahoo, so nothing above the protocol knows uploads
+exist. Verified on a real two-ticker export: 1506 observations stored, 36
+monthly rows resolved, `capm` beta 0.812.
+
+**Three things about the hypertable that alembic cannot see.** The conversion
+itself is invisible to autogenerate, so `create_hypertable` is hand-written in
+the migration and asserted against Timescale's catalogue in a test. It creates
+its own `observations_ts_idx`, which made `alembic check` want to drop an index
+on every run — so `create_default_indexes => FALSE` and we declare
+`ix_observations_ts` ourselves. And `field` is part of the primary key: a wide
+file mapping both a close and a volume has two rows per (ts, symbol).
+
+**The `ColumnMapping` screen is still only in `/gallery.html`.** The backend can
+honour an upload fully now; what remains is deciding where "Data" lives in the
+three-pane layout.
 
 **Uploads profile, propose and confirm — but store nothing analysable yet.**
 `POST /api/projects/{id}/uploads` returns a profile plus a suggested mapping;
