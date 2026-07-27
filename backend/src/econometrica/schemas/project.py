@@ -43,6 +43,11 @@ class ProjectUpdate(BaseModel):
     code_sandbox_enabled: bool | None = None
     validation_tier: ValidationTier | None = None
     model_assignments: dict[str, Any] | None = None
+    #: Sent whole rather than patched. An allowlist edited by delta is one
+    #: whose current contents the client has to have guessed right, and this is
+    #: the field where guessing wrong grants a permission.
+    mcp_servers: list[Any] | None = None
+    mcp_allowlist: list[str] | None = None
 
     @field_validator("name")
     @classmethod
@@ -57,6 +62,8 @@ class ProjectUpdate(BaseModel):
         "code_sandbox_enabled",
         "validation_tier",
         "model_assignments",
+        "mcp_servers",
+        "mcp_allowlist",
     )
     @classmethod
     def must_not_be_explicitly_null(cls, v: Any) -> Any:
@@ -77,6 +84,8 @@ class ProjectRead(BaseModel):
     # Deliberately a plain ``str`` and not ``ValidationTier``: reads must not
     # fail on a row that predates the allowed set or was written out of band.
     validation_tier: str
+    mcp_servers: list[Any]
+    mcp_allowlist: list[str]
     model_assignments: dict[str, Any]
     created_at: datetime
     updated_at: datetime

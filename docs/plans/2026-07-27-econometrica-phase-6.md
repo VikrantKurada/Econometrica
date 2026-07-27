@@ -29,7 +29,7 @@ allowlists that are off by default.
 | 6.8 dataset store — hypertable plus retained blob | ✅ |
 | 6.9 telemetry — spans to Postgres, OTLP, metrics | ✅ |
 | 6.10 trace viewer and cost dashboard | ✅ |
-| 6.11 MCP client with an allowlist | ⬜ |
+| 6.11 MCP client with an allowlist | ✅ |
 | 6.12 project-scoped retrieval over pgvector | ⬜ |
 | 6.13 web search, off by default, attributed | ⬜ |
 | 6.14 PDF export — print stylesheet, no new dependency | ⬜ |
@@ -998,6 +998,61 @@ and every MCP tool call appearing in the trace with its arguments, because a
 tool call nobody can audit is worse than no tool call.
 
 **Commit:** `feat(mcp): add mcp client with a per-project tool allowlist`
+
+**Landed.** 31 tests, and the parent plan's named criterion is proven against a
+**real MCP server**, not a mock. The SDK ships an in-memory transport
+(`create_connected_server_and_client_session`), so the tests connect a genuine
+`FastMCP` server that really offers a `delete` tool — and the proof it was never
+invoked is the server's own execution log, not the client's intent. A mock would
+only have shown that the client declined to ask.
+
+`mcp==1.28.1` is the new dependency, and the only one this task takes.
+
+### Three properties carry the gate
+
+- **Default deny.** An empty allowlist allows nothing, and both project columns
+  default to `[]`. Turning the capability on is not consent to whatever a server
+  offers.
+- **Explicit, not patterned.** §9 asks for an *explicit* allowlist, so there are
+  no wildcards: `files:*` is a literal tool name matching a tool actually called
+  `*`. A pattern would silently re-admit whatever the server added next, which
+  is the failure the allowlist exists to prevent.
+- **Exact matching, server-qualified.** `files:read` and `shell:read` are
+  different tools — matching on the tool name alone would let a second server
+  impersonate a trusted one — and case-folding would make the gate depend on a
+  normalisation the server never agreed to.
+
+A malformed entry is dropped rather than raising, because failing open on a typo
+is the worst available reading of it, and the entry is dropped at construction
+so `allows` stays a set-membership test that cannot grow a special case.
+
+### Four things the design settled
+
+**The gate runs before the session is asked.** A refused tool is never named to
+the server at all, which is what the criterion actually turns on.
+
+**The allowlist is read per call**, so a user who permits a tool does not have to
+restart anything — there is no cached decision to go stale in the permissive
+direction. A test changes it mid-session.
+
+**Discovery is not permission.** `discover` lists everything a server offers,
+each marked `allowed`, because that listing is how a user builds an allowlist —
+and a test asserts that listing a tool does not make it callable.
+
+**A transport failure and a failing tool are different answers.** `McpCall.failed`
+means the server ran it and it failed; `McpUnavailableError` means the server was
+not reached. Whoever reads the trace needs to know which, and an exception
+escaping into the orchestrator would take the whole run with it.
+
+An MCP call becomes an ordinary `StepRecord` with `kind="tool"` and a
+`mcp:server:tool` name rather than a new agent or kind — inventing a vocabulary
+would mean a migration and a second thing for the trace viewer to understand. The
+arguments go in `detail`, because §9 asks for MCP calls to be attributed and a
+tool call nobody can audit is worse than no tool call.
+
+`ProjectUpdate` takes the allowlist **whole rather than by delta**: a list edited
+by patch is one whose current contents the client had to guess, and this is the
+field where guessing wrong grants a permission.
 
 ---
 

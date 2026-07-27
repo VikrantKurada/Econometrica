@@ -38,6 +38,17 @@ class Project(TimestampedBase):
     mcp_enabled: Mapped[bool] = mapped_column(default=False, server_default=false())
     code_sandbox_enabled: Mapped[bool] = mapped_column(default=False, server_default=false())
 
+    #: MCP servers this project may connect to, and the tools it may call on
+    #: them. Both default empty: §9 has MCP off by default, and turning the
+    #: capability on is not consent to whatever a server offers — every tool is
+    #: named one at a time. See `mcp/allowlist.py`.
+    mcp_servers: Mapped[list[Any]] = mapped_column(
+        JSONB, default=list, server_default=text("'[]'::jsonb")
+    )
+    mcp_allowlist: Mapped[list[Any]] = mapped_column(
+        JSONB, default=list, server_default=text("'[]'::jsonb")
+    )
+
     validation_tier: Mapped[str] = mapped_column(
         String(20), default="critic", server_default="critic"
     )

@@ -131,3 +131,52 @@ async def test_unknown_project_id_returns_404_everywhere(client):
         await client.patch(f"/api/projects/{missing}", json={"name": "Ghost"})
     ).status_code == 404
     assert (await client.delete(f"/api/projects/{missing}")).status_code == 404
+
+
+async def test_the_mcp_allowlist_defaults_to_empty(client):
+    """§9 has MCP off by default, and an absent allowlist must mean nothing is
+    permitted rather than everything."""
+    project = (await client.post("/api/projects", json={"name": "MCP"})).json()
+
+    assert project["mcp_enabled"] is False
+    assert project["mcp_allowlist"] == []
+    assert project["mcp_servers"] == []
+
+
+async def test_the_mcp_allowlist_can_be_set(client):
+    created = (await client.post("/api/projects", json={"name": "MCP"})).json()
+
+    response = await client.patch(
+        f"/api/projects/{created['id']}",
+        json={"mcp_allowlist": ["files:read"], "mcp_enabled": True},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["mcp_allowlist"] == ["files:read"]
+
+
+async def test_the_allowlist_is_replaced_whole_not_merged(client):
+    """Sent whole on purpose: an allowlist edited by delta is one whose current
+    contents the client had to guess, and guessing wrong grants a permission."""
+    created = (await client.post("/api/projects", json={"name": "MCP"})).json()
+    await client.patch(
+        f"/api/projects/{created['id']}", json={"mcp_allowlist": ["files:read", "files:write"]}
+    )
+
+    response = await client.patch(
+        f"/api/projects/{created['id']}", json={"mcp_allowlist": ["files:read"]}
+    )
+
+    assert response.json()["mcp_allowlist"] == ["files:read"]
+
+
+async def test_an_explicit_null_allowlist_is_refused(client):
+    """Writing NULL into a NOT NULL column is a 422, not a database error —
+    and on this field it would also be an unreadable permission state."""
+    created = (await client.post("/api/projects", json={"name": "MCP"})).json()
+
+    response = await client.patch(
+        f"/api/projects/{created['id']}", json={"mcp_allowlist": None}
+    )
+
+    assert response.status_code == 422

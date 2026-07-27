@@ -40,17 +40,30 @@ Consequences that keep coming up:
 | 3 — LLM providers + streaming chat | done, e2e gate green |
 | 4 — multi-agent orchestration | done, e2e gate green |
 | 5 — charts and artifact canvas | done, e2e gate green |
-| 6 — real data, uploads, telemetry, MCP | in progress — 6.10 of 16 tasks |
+| 6 — real data, uploads, telemetry, MCP | in progress — 6.11 of 16 tasks |
 
-**1227 backend tests, 282 frontend tests, 5 Playwright e2e.** ruff and
+**1264 backend tests, 282 frontend tests, 5 Playwright e2e.** ruff and
 `mypy --strict` clean on `src`. `alembic check` reports no drift.
 
 ### The immediate next task
 
-**Phase 6, Task 6.11** — the MCP client with a per-project tool allowlist. The
-`mcp` package is **not** yet a dependency. Read
+**Phase 6, Task 6.12** — project-scoped document retrieval over pgvector. Read
 `docs/plans/2026-07-27-econometrica-phase-6.md`; it carries all sixteen tasks,
 six decisions, and the live-probe findings below.
+
+**The MCP allowlist is default-deny and has no wildcards.** `files:*` is a
+literal tool name, not a pattern — a pattern would re-admit whatever a server
+added next. Matching is exact and server-qualified, since `files:read` and
+`shell:read` are different tools. **The gate runs before the session is asked**,
+so a refused tool is never named to the server, and it is read per call so an
+allowlist change needs no restart. Discovery lists everything a server offers
+marked `allowed`, because that is how a user builds the list — listing is never
+permitting.
+
+`mcp==1.28.1` is a dependency now. Its in-memory transport
+(`create_connected_server_and_client_session`) is what lets the tests drive a
+**real** server rather than a mock — the proof an unlisted tool never ran is the
+server's own execution log.
 
 **A step now records its prompt and response.** §8 asked for them from the
 start and nothing captured them until 6.10, so a trace could name the model but
