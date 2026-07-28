@@ -6,7 +6,7 @@ React/TypeScript frontend, backed by Postgres with TimescaleDB and pgvector. LLM
 agents select from a registry of typed, versioned econometric tools — they never
 compute statistics themselves.
 
-> **Status.** Phases 0–5 complete; Phase 6 in progress.
+> **Status.** All six phases complete.
 >
 > **Working today:** projects and chats; the full econometrics core (37 tools
 > across asset pricing, market efficiency, volatility, multivariate and event
@@ -85,8 +85,14 @@ compute statistics themselves.
 > wrong formula one run in five; nothing in a sandbox can catch that, which is
 > why the number never gets to look like one a tested tool produced.
 >
-> **In progress:** Phase 6 — one task left, a full-stack end-to-end regression
-> on real data.
+> **The end-to-end suite runs on real market data.** Six Playwright specs
+> drive the whole thing from a cold start: a project, an upload profiled and
+> confirmed into the hypertable, an analysis on a real ticker planned by a live
+> local model, the charts and the trace DAG and the cost dashboard read back in
+> the browser, the ZIP export, and a re-run that reproduces the numbers from the
+> manifest. The earlier gates deliberately stay on generated prices and assert
+> that a run says so; the Phase 6 one asserts the opposite on real prices,
+> because a flag that cried wolf would be worse than none.
 >
 > Working notes for contributors — and for Claude — are in `CLAUDE.md`. The
 > design and phase plans are in `docs/plans/`.

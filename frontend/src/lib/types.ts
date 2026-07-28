@@ -302,9 +302,20 @@ export interface GroundingReport {
   checked: number;
 }
 
+/**
+ * Why an interpretation was withheld. Empty when it was published.
+ *
+ * `ungrounded` — the gate found figures nothing computed.
+ * `unusable_draft` — no draft ever reached the gate: it would not parse, or it
+ * cited a step the plan never had. Saying "cited numbers no result supports"
+ * in that case is a false statement about what the model did.
+ */
+export type WithheldReason = "" | "ungrounded" | "unusable_draft";
+
 export interface Narration {
   published: boolean;
   narrative: { prose: string; citations: string[] } | null;
+  withheld_reason: WithheldReason;
   grounding: GroundingReport;
 }
 

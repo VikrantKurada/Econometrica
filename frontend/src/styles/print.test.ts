@@ -106,6 +106,16 @@ describe("screen stylesheet", () => {
     expect(SCREEN).toContain("print.css");
   });
 
+  it("parks a force-mounted inactive panel too, not only a `hidden` one", () => {
+    // Radix sets `hidden` on an inactive panel it *unmounts*, and does not on
+    // one that is force-mounted — it leaves presence to the consumer. Keying
+    // the rule on `[hidden]` alone therefore left the Narrative, Diagnostics
+    // and Trace panels rendering in the flow under whichever chart was open,
+    // which is exactly what looking at the app showed. `data-state` is set on
+    // both.
+    expect(SCREEN).toContain('[role="tabpanel"][data-state="inactive"]');
+  });
+
   it("parks an inactive panel off-screen rather than hiding it", () => {
     // `display: none` would give Plotly a zero-width container and it would
     // render blank — so the chart would print empty. Off-screen keeps it

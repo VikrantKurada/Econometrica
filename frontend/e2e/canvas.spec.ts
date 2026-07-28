@@ -170,11 +170,20 @@ test("a question becomes a chart, a table and an archive", async ({ page, reques
   }
 
   // The diagnostics are always reachable, chart or no chart.
+  //
+  // Panels are force-mounted since Task 6.14 so a printed report gets all of
+  // them, and an inactive one is parked off-screen rather than hidden — a
+  // Plotly chart in `display: none` renders blank. So a bare `tabpanel`
+  // locator is ambiguous and has to name the active one.
+  const activePanel = canvas.locator('[role="tabpanel"][data-state="active"]');
   await canvas.getByRole("tab", { name: "Diagnostics" }).click();
-  await expect(canvas.getByRole("tabpanel")).toBeVisible();
+  await expect(activePanel).toBeVisible();
 
+  // A DAG since Task 6.10, not a table: `TraceTable` sorted by sequence and
+  // dropped `parent_id`, which made a retry read as new work rather than as a
+  // second attempt at the same step.
   await canvas.getByRole("tab", { name: "Trace" }).click();
-  await expect(canvas.getByRole("table", { name: "Run trace" })).toBeVisible();
+  await expect(canvas.getByRole("list", { name: "Run trace" })).toBeVisible();
 
   // --- take it away ---------------------------------------------------------
 

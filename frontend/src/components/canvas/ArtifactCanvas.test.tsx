@@ -70,6 +70,7 @@ describe("ArtifactCanvas", () => {
         narration: {
           published: false,
           narrative: { prose: "The beta is 1.42.", citations: [] },
+          withheld_reason: "ungrounded" as const,
           grounding: {
             grounded: false,
             checked: 3,

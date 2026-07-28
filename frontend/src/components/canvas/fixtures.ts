@@ -92,6 +92,7 @@ const OUTCOME: RunOutcome = {
   },
   narration: {
     published: true,
+    withheld_reason: "",
     narrative: {
       prose:
         "Volatility clusters strongly in this series: the fitted GARCH persistence is high and " +

@@ -46,6 +46,22 @@ export default defineConfig({
       timeout: 60_000,
     },
     {
+      // A second backend, on real market data, for the Phase 6 regression.
+      //
+      // Not a flag on the first one: `analysis.spec.ts` and `canvas.spec.ts`
+      // assert that a run built on generated prices *says so*, and that
+      // assertion is only worth having while the generator is what they get.
+      // Two processes, one Postgres — so a run created here is readable
+      // through the app's own proxy, which is how `platform.spec.ts` reads it
+      // back in the browser.
+      command: "uv run uvicorn econometrica.main:app --port 8101",
+      cwd: "../backend",
+      url: "http://127.0.0.1:8101/api/health",
+      env: { ECONOMETRICA_PRICE_SOURCE: "yahoo" },
+      reuseExistingServer: !process.env.CI,
+      timeout: 60_000,
+    },
+    {
       // --host 127.0.0.1 on purpose: left to its default "localhost", Vite
       // binds only the first address the OS resolves — ::1 on this Windows
       // box — and the readiness poll against 127.0.0.1 then never succeeds.

@@ -170,6 +170,13 @@ async def confirm_upload(
         mapping=mapping,
         observations=observations,
     )
+    # `get_session` does not commit, so without this the whole ingest — the
+    # dataset row and every observation — is discarded when the request ends,
+    # while the response still reports what it *would* have stored. The API
+    # tests could not see it: `client` shares one session across a test, so the
+    # flush stayed visible to the next request. The Phase 6 e2e found it, with
+    # a 200 from here and an empty `GET /datasets` after it.
+    await session.commit()
 
     return _read(store.confirm(upload_id, mapping), _summarise(observations), dataset.id)
 

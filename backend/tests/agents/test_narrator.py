@@ -191,3 +191,68 @@ async def test_a_fabricated_number_beside_a_valid_citation_is_still_blocked():
 
     assert outcome.published is False
     assert any(issue.text == "1.4732" for issue in outcome.grounding.issues)
+
+
+# --- why a narration was withheld -------------------------------------------
+
+
+async def test_a_published_narration_gives_no_withheld_reason():
+    the_plan, execution = await run()
+    value = a_real_number(execution)
+    provider = FakeProvider(responses=[draft(f"The coefficient is {value:.4f}.")])
+
+    outcome = await Narrator(provider, "fake-1").write(the_plan, execution)
+
+    assert outcome.published is True
+    assert outcome.withheld_reason == ""
+
+
+async def test_an_ungrounded_draft_says_so():
+    the_plan, execution = await run()
+    provider = FakeProvider(
+        responses=[draft("The coefficient is 88.4321."), draft("Still 88.4321.")]
+    )
+
+    outcome = await Narrator(provider, "fake-1").write(the_plan, execution)
+
+    assert outcome.published is False
+    assert outcome.withheld_reason == "ungrounded"
+    assert outcome.grounding.issues
+
+
+async def test_a_draft_that_never_reached_the_gate_is_not_called_ungrounded():
+    """The third path, and the one that made the Phase 4 e2e gate unreadable.
+
+    A reply that will not parse — or one citing a step the plan never had —
+    is rejected by `check` *before* `check_grounding` runs, so the narration is
+    withheld with an empty grounding report. Reporting that as "cited numbers
+    no result supports" is a false statement about what the model did, and the
+    e2e spec asserting issues were present failed on exactly these runs.
+    """
+    the_plan, execution = await run()
+    provider = FakeProvider(responses=["not json at all", "still not json"])
+
+    outcome = await Narrator(provider, "fake-1").write(the_plan, execution)
+
+    assert outcome.published is False
+    assert outcome.withheld_reason == "unusable_draft"
+    assert outcome.grounding.issues == []
+
+
+async def test_an_invented_citation_is_also_an_unusable_draft():
+    the_plan, execution = await run()
+    reply = draft("The coefficient is fine.", citations=["s99"])
+    provider = FakeProvider(responses=[reply, reply])
+
+    outcome = await Narrator(provider, "fake-1").write(the_plan, execution)
+
+    assert outcome.published is False
+    assert outcome.withheld_reason == "unusable_draft"
+
+
+def test_the_withheld_reasons_are_a_closed_set():
+    """The canvas and the e2e gate both branch on this, so a new reason has to
+    be a deliberate change rather than a free-form string appearing one day."""
+    from econometrica.agents.narrator import WITHHELD_REASONS
+
+    assert set(WITHHELD_REASONS) == {"", "ungrounded", "unusable_draft"}

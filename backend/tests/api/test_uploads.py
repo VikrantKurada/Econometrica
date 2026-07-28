@@ -325,3 +325,41 @@ async def test_an_unconfirmed_upload_is_not_listed_as_a_dataset(client):
     response = await client.get(f"/api/projects/{project['id']}/datasets")
 
     assert response.json() == []
+
+
+async def test_confirming_commits_so_the_ingest_survives_the_request(client, session):
+    """A flush is not a write, and the fixture cannot tell the difference.
+
+    `client` overrides `get_session` with one session shared by every request
+    in a test, so an uncommitted ingest stays visible to the next request and
+    every assertion here passed while the real server discarded the rows the
+    moment the request ended. The Phase 6 e2e found it: confirm returned 200,
+    `GET /datasets` came back empty.
+
+    Counting the commits is the only signal the shared-session fixture leaves,
+    so that is what is asserted.
+    """
+    commits = 0
+    original = session.commit
+
+    async def counting_commit():
+        nonlocal commits
+        commits += 1
+        await original()
+
+    project = await make_project(client)
+    posted = (await upload(client, project["id"])).json()
+
+    # Counted from here only: creating the project commits too, and a counter
+    # started earlier passes whatever this route does.
+    session.commit = counting_commit  # type: ignore[method-assign]
+    try:
+        response = await client.post(
+            f"/api/uploads/{posted['id']}/confirm",
+            json={"roles": posted["proposal"]["roles"]},
+        )
+    finally:
+        session.commit = original  # type: ignore[method-assign]
+
+    assert response.status_code == 200
+    assert commits >= 1, "confirming an upload must commit; a flush is rolled back"

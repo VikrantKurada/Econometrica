@@ -34,7 +34,7 @@ allowlists that are off by default.
 | 6.13 web search, off by default, attributed | ✅ |
 | 6.14 PDF export — print stylesheet, no new dependency | ✅ |
 | 6.15 sandboxed code escape hatch | ✅ |
-| 6.16 Phase 6 e2e — full regression | ⬜ |
+| 6.16 Phase 6 e2e — full regression | ✅ |
 
 ---
 
@@ -1423,6 +1423,79 @@ and annotate which happened, following `canvas.spec.ts`'s
 chart-or-no-chart precedent.
 
 **Commit:** `test(e2e): close phase 6 with a full-stack regression`
+
+**Landed, and it found three real defects** — which is the argument for the
+task existing at all. Every one of them had passing unit tests over it.
+
+`platform.spec.ts` runs against a **second uvicorn on port 8101** with
+`ECONOMETRICA_PRICE_SOURCE=yahoo`, sharing one Postgres with the synthetic
+backend the earlier gates use. Not a flag on the existing one: `analysis.spec.ts`
+and `canvas.spec.ts` assert that a run built on generated prices *says so*, and
+that assertion is only worth having while the generator is what they get. Here
+the `synthetic_data` flag is asserted **absent**, which is the other half of the
+same seam — a flag that fired on real market data would be as bad as one that
+stayed quiet on generated data. Two processes, one database, so the run created
+on 8101 is read back in the browser through the app's own proxy.
+
+The gate line it prints:
+
+```
+[gate] model=ministral-3:8b status=completed
+       source=yfinance (Yahoo, split- and dividend-adjusted close)
+       rows=60 flags=[] plan=adf:ran variance_ratio:failed acf:ran
+```
+
+`variance_ratio:failed` is correct and not a defect: a five-year monthly window
+is 59 usable returns and the tool needs 100, so it refuses with the number
+named. Worth knowing that the failure reads as `failed` rather than `refused` —
+it is a `ValueError` from inside the tool, not a precondition gate.
+
+### Three defects, none of which a unit test could see
+
+**Confirming an upload never committed.** `get_session` does not commit and
+`uploads.py` did not either, so the dataset row and every observation were
+discarded the moment the request ended — while the response cheerfully reported
+what it *would* have stored. The whole API suite passed because `client`
+overrides `get_session` with **one session shared across every request in a
+test**, so the flush stayed visible to the next call. The e2e saw a 200 from
+`confirm` and an empty `GET /datasets`. The regression test counts commits,
+scoped to the one request, because the shared-session fixture leaves no other
+signal.
+
+**Force-mounted panels were never parked off-screen.** Task 6.14's note says an
+inactive panel is moved off-canvas rather than hidden; the CSS keyed on
+`[hidden]`, and **Radix sets `hidden` on a panel it unmounts and not on a
+force-mounted one** — presence there is the consumer's job. So the Narrative,
+Diagnostics and Trace panels rendered in the flow underneath whichever chart was
+open. Found by *looking at the app*, not by any assertion. The rule now keys on
+`[data-state="inactive"]`, which is set on both kinds, and `print.test.ts` says
+why.
+
+**`canvas.spec.ts` had been broken since 6.10 and 6.14** and nobody ran it. It
+asserted `getByRole("table", { name: "Run trace" })` — `TraceTable` was deleted
+in 6.10 and replaced by a `<ol>` — and a bare `getByRole("tabpanel")`, which
+force-mounting made ambiguous. Both fixed; the second one now names the active
+panel, the same lesson 6.14 recorded for the unit test.
+
+### The flaky Phase 4 assertion, closed by modelling the third path
+
+`analysis.spec.ts:227` asserted that an unpublished narration always carries
+grounding issues. It does not: `check` rejects an invented citation and a reply
+that will not parse **before** `check_grounding` runs, so the narration is
+withheld with an empty grounding report. The spec asserted one of two paths and
+so passed or failed on the model's mood.
+
+Rather than loosen the assertion, the backend now records **why**.
+`Narration.withheld_reason` is a closed set — `""`, `ungrounded`,
+`unusable_draft` — and the spec asserts the reason is one of the real ones,
+checks the matching evidence for each, and annotates which happened. On the
+verifying run it took the withheld path (`published=false`) and passed, which is
+the case that used to fail.
+
+The canvas had the same conflation and it was worse there: it told the user
+their interpretation "cited numbers no result supports" whenever it was
+withheld — a false statement about what the model did when in fact it returned
+prose where JSON was asked for. `Narrative.tsx` now says which.
 
 ---
 

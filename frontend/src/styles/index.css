@@ -242,7 +242,14 @@
  * report missing the narrative because the reader was looking at a chart is
  * not a report.
  */
-[role="tabpanel"][hidden] {
+/* `[hidden]` alone is not enough. Radix sets it on an inactive panel it
+ * unmounts and *not* on a force-mounted one — there, presence is the
+ * consumer's job — so the Narrative, Diagnostics and Trace panels rendered in
+ * the flow underneath whichever chart was open. Found by looking at the app,
+ * which no assertion about `data-state` had caught. `data-state` is set on
+ * both kinds, so it is what the rule keys on. */
+[role="tabpanel"][hidden],
+[role="tabpanel"][data-state="inactive"] {
   display: block !important;
   position: absolute;
   left: -200vw;

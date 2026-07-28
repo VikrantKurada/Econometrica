@@ -11,6 +11,8 @@ prose with an invented statistic is the thing this whole application exists to
 prevent.
 """
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 from econometrica.agents.base import Agent, AgentAttemptsExhaustedError
@@ -48,6 +50,13 @@ class Narrative(BaseModel):
     citations: list[str] = Field(default_factory=list)
 
 
+#: Why an interpretation was withheld. A closed set because both the canvas
+#: and the Phase 4 e2e gate branch on it, and a free-form string appearing one
+#: day would make each of them silently wrong about a case it had not met.
+WithheldReason = Literal["", "ungrounded", "unusable_draft"]
+WITHHELD_REASONS: tuple[WithheldReason, ...] = ("", "ungrounded", "unusable_draft")
+
+
 class Narration(BaseModel):
     """What the Narrator produced, and whether it may be shown.
 
@@ -58,6 +67,14 @@ class Narration(BaseModel):
 
     published: bool
     narrative: Narrative | None = None
+    #: Empty when published. `ungrounded` means the gate found figures nothing
+    #: computed; `unusable_draft` means no draft ever reached the gate — it
+    #: would not parse, or it cited a step the plan never had. Distinguishing
+    #: them matters: telling a reader their interpretation "cited numbers no
+    #: result supports" when the model in fact returned prose instead of JSON
+    #: is a false statement about what happened, and it is what made the Phase
+    #: 4 e2e gate pass or fail on the model's mood.
+    withheld_reason: WithheldReason = ""
     grounding: GroundingReport
     #: Every attempt, published or not. A draft withheld by the grounding gate
     #: still cost tokens, and a trace that dropped it would understate exactly
@@ -116,11 +133,14 @@ class Narrator(Agent[Narrative]):
                 ]
             )
         except AgentAttemptsExhaustedError as exc:
-            # Every draft failed. The last grounding report is the useful part
-            # — it says which figures were invented.
+            # Every draft failed, and *how* is the difference between the gate
+            # doing its job and a model that never produced a draft to gate.
             return Narration(
                 published=False,
                 narrative=None,
+                withheld_reason=(
+                    "ungrounded" if not self._grounding.grounded else "unusable_draft"
+                ),
                 grounding=self._grounding,
                 completions=list(exc.completions),
             )

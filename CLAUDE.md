@@ -43,16 +43,41 @@ Consequences that keep coming up:
 | 3 — LLM providers + streaming chat | done, e2e gate green |
 | 4 — multi-agent orchestration | done, e2e gate green |
 | 5 — charts and artifact canvas | done, e2e gate green |
-| 6 — real data, uploads, telemetry, MCP | in progress — 6.15 of 16 tasks |
+| 6 — real data, uploads, telemetry, MCP | done, e2e gate green |
 
-**1401 backend tests, 314 frontend tests, 5 Playwright e2e.** ruff and
+**1407 backend tests, 318 frontend tests, 6 Playwright e2e.** ruff and
 `mypy --strict` clean on `src`. `alembic check` reports no drift.
 
-### The immediate next task
+### Where to go next
 
-**Phase 6, Task 6.16** — the full-stack e2e regression on real data, which
-closes the phase. It also carries the fix for the flaky Phase 4 assertion at
-`analysis.spec.ts:227` described under "Carried-over debts" below.
+**All six phases are complete.** `docs/plans/2026-07-24-econometrica-implementation.md`
+has no further phase; pick from the open items below, or say what you want.
+
+**The Phase 6 regression runs on a second backend.** `platform.spec.ts` drives
+a uvicorn on **port 8101** with `ECONOMETRICA_PRICE_SOURCE=yahoo`, sharing one
+Postgres with the synthetic backend on 8100 that the earlier gates use. Not a
+flag on the existing one: `analysis.spec.ts` and `canvas.spec.ts` assert that
+generated prices *say so*, and that only means something while the generator is
+what they get. On 8101 the `synthetic_data` flag is asserted **absent** — the
+other half of the same seam.
+
+**Three defects it found that unit tests could not.** Each is worth
+remembering as a *shape*:
+
+- **Confirming an upload never committed.** `get_session` does not commit and
+  the route did not either, so the whole ingest was discarded while the
+  response reported what it would have stored. Invisible to the API suite
+  because `client` shares **one session across every request in a test**, so
+  the flush stayed visible to the next call. **A test that reads back through
+  the same fixture cannot tell a flush from a write.**
+- **Force-mounted canvas panels were never parked off-screen.** Radix sets
+  `hidden` on a panel it *unmounts* and not on a force-mounted one, and the CSS
+  keyed on `[hidden]` — so Narrative, Diagnostics and Trace rendered stacked
+  under whichever chart was open. Found by **looking at the app**. The rule now
+  keys on `[data-state="inactive"]`.
+- **`canvas.spec.ts` had been broken since 6.10 and nobody ran it**, asserting
+  a `table` named "Run trace" that 6.10 replaced with a DAG. Run the e2e suite
+  when a component's markup changes, not only its unit tests.
 
 ### The code escape hatch, and the one thing it cannot promise
 
@@ -338,12 +363,15 @@ services on this machine.
   in either stack. kaleido is ruled out rather than deferred — the backend holds
   no Plotly JSON, so it would mean reimplementing all fourteen TypeScript
   renderers in Python to export a chart nobody looked at. Task 6.14.
-- **The Phase 4 e2e gate is model-dependent, not reliably green.**
-  `analysis.spec.ts:227` asserts that an unpublished narration always carries
-  grounding issues — but when the Validator refuses there is nothing to
-  narrate and no issues to report. It fails on those runs and passes on
-  others, and it was failing before Task 5.3 too (verified by stashing). The
-  third path is simply uncovered. Task 6.16 fixes it.
+- ~~**The Phase 4 e2e gate is model-dependent.**~~ Closed by Task 6.16, and by
+  *modelling* the third path rather than loosening the assertion. A narration
+  is withheld for two reasons and the spec asserted only one: `check` rejects
+  an invented citation or an unparseable reply **before** `check_grounding`
+  runs, so the report is empty. `Narration.withheld_reason` is now a closed set
+  — `""`, `ungrounded`, `unusable_draft` — the spec asserts the reason and
+  annotates which happened, and the canvas stops telling a user their model
+  "cited numbers no result supports" when it in fact returned prose where JSON
+  was asked for.
 
 ### The synthetic source is permanent, not a placeholder
 

@@ -20,14 +20,26 @@ export function Narrative({ outcome }: { outcome: Partial<RunOutcome> }) {
   }
 
   if (!narration.published) {
+    // Two reasons, and only one of them is the grounding gate. Reporting the
+    // other as invented figures tells a user their model fabricated a
+    // statistic when it in fact returned prose where JSON was asked for.
+    const ungrounded = narration.withheld_reason !== "unusable_draft";
+
     return (
       <div className="space-y-2 px-1 py-2 text-xs">
         <p className="font-medium text-negative">
-          The interpretation was withheld because it cited numbers no result supports.
+          {ungrounded
+            ? "The interpretation was withheld because it cited numbers no result supports."
+            : "The interpretation was withheld: no draft could be used."}
         </p>
         <p className="text-2xs text-text-secondary">
-          {narration.grounding.checked} number(s) were checked against the computed results. The
-          whole draft is held back rather than edited, so nothing survives that was not traceable.
+          {ungrounded
+            ? `${narration.grounding.checked} number(s) were checked against the computed results.
+               The whole draft is held back rather than edited, so nothing survives that was not
+               traceable.`
+            : `Every attempt came back in a shape the pipeline could not read — malformed JSON, or
+               a citation naming a step this plan never had. The results below are unaffected; only
+               the prose is missing.`}
         </p>
         <ul className="space-y-1">
           {narration.grounding.issues.map((issue, index) => (

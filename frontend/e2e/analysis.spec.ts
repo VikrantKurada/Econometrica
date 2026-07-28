@@ -220,11 +220,30 @@ test("an analysis runs end to end and leaves a full trace", async ({ request }) 
 
   // Every number in published prose is one the tools computed — that is what
   // publishing means. A withheld draft is the gate working, not a failure.
+  //
+  // There are two ways a draft is withheld and this used to assert only one of
+  // them, so the gate passed or failed on the model's mood: `unusable_draft`
+  // means no draft ever reached the grounding gate, and there are then no
+  // issues to report. The assertion is on the *reason*, which the backend now
+  // records, and the run annotates which path it took.
   if (outcome.narration.published) {
+    expect(outcome.narration.withheld_reason).toBe("");
     expect(outcome.narration.grounding.grounded).toBe(true);
     expect(outcome.narration.narrative.prose.length).toBeGreaterThan(0);
   } else {
-    expect(outcome.narration.grounding.issues.length).toBeGreaterThan(0);
+    expect(["ungrounded", "unusable_draft"]).toContain(outcome.narration.withheld_reason);
+    if (outcome.narration.withheld_reason === "ungrounded") {
+      expect(outcome.narration.grounding.issues.length).toBeGreaterThan(0);
+    } else {
+      // Nothing parsed, so there is nothing for the gate to have found. The
+      // draft still cost tokens, and a withheld narration that recorded no
+      // attempt would mean the Narrator was never asked.
+      expect(outcome.narration.completions.length).toBeGreaterThan(0);
+    }
+    test.info().annotations.push({
+      type: "note",
+      description: `the narration was withheld: ${outcome.narration.withheld_reason}`,
+    });
   }
 
   // --- the trace, read back from Postgres -------------------------------

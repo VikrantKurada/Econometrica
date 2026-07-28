@@ -81,6 +81,7 @@
   /* Radix marks an inactive force-mounted panel `hidden`. On paper there is no
      "active" panel, so all of them are shown. */
   [role="tabpanel"][hidden],
+  [role="tabpanel"][data-state="inactive"],
   [role="tabpanel"] {
     display: block !important;
     visibility: visible !important;
