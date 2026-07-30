@@ -521,3 +521,51 @@ async def test_a_run_resolves_a_symbol_from_the_projects_upload(
     assert outcome["status"] == "completed", outcome["error"]
     assert outcome["quality"]["tickers"] == ["LONDON"]
     assert "upload: hpi.csv" in outcome["quality"]["source"]
+
+
+async def start_upload_run(client, session) -> str:
+    """Run once against an uploaded series and hand back the run id."""
+    project_id, chat_id = await make_project_and_chat(client)
+    await ingest_london(session, project_id)
+
+    async with client.stream(
+        "POST", f"/api/chats/{chat_id}/runs", json={"question": "Describe LONDON"}
+    ) as response:
+        async for _ in response.aiter_text():
+            pass
+
+    runs = (await client.get(f"/api/chats/{chat_id}/runs")).json()
+    return str(runs[0]["id"])
+
+
+async def test_rerun_reproduces_an_uploaded_series_from_the_upload(
+    client, session, uploading
+):
+    """The manifest claim, at the point it would silently break.
+
+    `rerun` took the globally configured source and never looked at the
+    project, so a run built on a file re-resolved from the market source and
+    reported on data the original never saw. Here that source cannot serve
+    LONDON at all, so a reproducing re-run is only reachable via the upload.
+    """
+    uploading.provider.responses = [json.dumps(UPLOAD_PLAN), NARRATIVE]
+    run_id = await start_upload_run(client, session)
+
+    response = await client.post(f"/api/runs/{run_id}/rerun")
+
+    assert response.status_code == 200, response.text
+    assert response.json()["reproduced"] is True
+
+
+async def test_rerun_answers_409_when_the_dataset_is_gone(client, session, uploading):
+    from sqlalchemy import delete
+
+    run_id = await start_upload_run(client, session)
+    await session.execute(delete(Dataset))
+    await session.flush()
+
+    response = await client.post(f"/api/runs/{run_id}/rerun")
+
+    # A run whose data is gone is a finding, not a crash.
+    assert response.status_code == 409
+    assert "LONDON" in response.json()["detail"]

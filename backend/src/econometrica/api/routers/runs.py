@@ -42,6 +42,7 @@ from econometrica.api.deps import (
     get_chat_or_404,
     get_project_or_404,
 )
+from econometrica.data.base import DataUnavailableError
 from econometrica.data.project_source import build_project_source
 from econometrica.db.models import Chat, Project, Run
 from econometrica.econ.types import ResultSet
@@ -128,9 +129,27 @@ async def rerun(
         for step in (recorded.get("execution") or {}).get("outcomes", [])
     }
 
-    dataset = await DataSteward(
-        source, rate_source=rate_source, factor_source=factor_source
-    ).resolve(plan.dataset)
+    chat = await get_chat_or_404(session, run.chat_id)
+    project = await get_project_or_404(session, chat.project_id)
+    # Scoped to the project for the same reason the run itself is: a manifest
+    # that reproduces from a different source than it was built on has not
+    # reproduced anything.
+    prices = await build_project_source(session, project.id, market=source)
+
+    try:
+        dataset = await DataSteward(
+            prices, rate_source=rate_source, factor_source=factor_source
+        ).resolve(plan.dataset)
+    except DataUnavailableError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                f"this run cannot be reproduced: {exc}. The data it was built on"
+                " is no longer available — an uploaded dataset may have been"
+                " deleted"
+            ),
+        ) from exc
+
     execution = await Econometrician().run(plan, dataset.frame)
 
     steps = [_compare(fresh, before.get(fresh.step_id)) for fresh in execution.outcomes]
