@@ -14,9 +14,22 @@ No `<style>` block and no external font: GitHub sanitises SVG it renders in a
 README, and a stylesheet or a webfont is the part that silently does not
 survive. Everything is a presentation attribute on the element itself.
 
+It also emits the 1280x640 social-preview card GitHub shows when the repo is
+linked elsewhere. That is a separate drawing rather than a crop of the map: an
+unfurl renders around 400px wide, where the map's 12px body text lands under
+4px and none of it is readable. The card carries five numbers at a size that
+survives the scaling and nothing else.
+
 Regenerate after editing:
 
     uv run python docs/assets/build_capability_map.py
+
+Then rasterise the card, because GitHub's social preview takes an image upload
+rather than an SVG. The renderer lives under ``frontend/`` because ESM resolves
+a bare import from the importing module's own directory, and that is where the
+only ``node_modules`` is:
+
+    cd frontend && node scripts/render-social.mjs
 """
 
 from __future__ import annotations
@@ -336,12 +349,103 @@ def build(t: Theme) -> str:
     return "\n".join(p) + "\n"
 
 
+# --- social preview -----------------------------------------------------------
+
+SW, SH = 1280, 640
+SMARGIN = 56
+
+#: Big enough to survive the scaling an unfurl applies. Five is the most that
+#: fit at this size, and they are the five that say what the product is.
+STATS = [
+    ("37", "typed tools"),
+    ("5", "tool families"),
+    ("6", "agent roles"),
+    ("14", "chart types"),
+    ("5", "LLM providers"),
+]
+
+
+def build_social(t: Theme) -> str:
+    p: list[str] = [
+        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {SW} {SH}" width="{SW}"'
+        f' height="{SH}" role="img" aria-label="Econometrica — a local econometrics workbench">',
+        "<title>Econometrica</title>",
+        rect(0, 0, SW, SH, fill=t.bg, r=0),
+    ]
+
+    p.append(text_el(SMARGIN, 130, "Econometrica", fill=t.text, size=82, weight="700"))
+    p.append(
+        text_el(
+            SMARGIN, 176,
+            "A local econometrics workbench for asset pricing and market efficiency",
+            fill=t.muted, size=28,
+        )
+    )
+
+    p.append(rect(SMARGIN, 218, SW - 2 * SMARGIN, 104, fill=t.card, stroke=t.border, r=12))
+    p.append(rect(SMARGIN, 218, 5, 104, fill=t.series[5], r=2.5))
+    p.append(
+        text_el(SMARGIN + 28, 262, "LLMs never compute statistics.", fill=t.text, size=30, weight="600")
+    )
+    p.append(
+        text_el(
+            SMARGIN + 28, 298,
+            "They select from a registry of typed, versioned tools — the tools compute.",
+            fill=t.muted, size=26,
+        )
+    )
+
+    gap = 18
+    cw = (SW - 2 * SMARGIN - gap * (len(STATS) - 1)) / len(STATS)
+    for i, (value, label) in enumerate(STATS):
+        x = SMARGIN + i * (cw + gap)
+        p.append(rect(x, 360, cw, 108, fill=t.card, stroke=t.border, r=12))
+        p.append(
+            text_el(x + cw / 2, 418, value, fill=t.series[i], size=46, weight="700", anchor="middle")
+        )
+        p.append(
+            text_el(x + cw / 2, 448, label, fill=t.muted, size=20, anchor="middle")
+        )
+
+    p.append(
+        text_el(
+            SMARGIN, 528,
+            "Every number traces to a tested function with a reproducibility manifest.",
+            fill=t.text, size=26,
+        )
+    )
+    # Kept short deliberately: the full clause ("· prose is checked against the
+    # results") ran into the stack line on the right, and SVG text does not
+    # wrap or elide -- it just overlaps.
+    p.append(
+        text_el(
+            SMARGIN, 566,
+            "Tools refuse work the data cannot support",
+            fill=t.faint, size=22,
+        )
+    )
+    p.append(
+        text_el(
+            SW - SMARGIN, 566,
+            "Python · FastAPI · React · TimescaleDB · pgvector",
+            fill=t.faint, size=22, anchor="end",
+        )
+    )
+
+    p.append("</svg>")
+    return "\n".join(p) + "\n"
+
+
 def main() -> None:
     here = Path(__file__).resolve().parent
     for theme in (LIGHT, DARK):
         path = here / f"capability-map-{theme.name}.svg"
         path.write_text(build(theme), encoding="utf-8")
         print(f"wrote {path.relative_to(here.parents[1])}")
+
+        card = here / f"social-preview-{theme.name}.svg"
+        card.write_text(build_social(theme), encoding="utf-8")
+        print(f"wrote {card.relative_to(here.parents[1])}")
 
 
 if __name__ == "__main__":

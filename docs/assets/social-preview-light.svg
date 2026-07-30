@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 640" width="1280" height="640" role="img" aria-label="Econometrica — a local econometrics workbench">
+<title>Econometrica</title>
+<rect x="0" y="0" width="1280" height="640" rx="0" fill="#ffffff" stroke="none"/>
+<text x="56" y="130" fill="#14181d" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="82" font-weight="700" text-anchor="start" letter-spacing="0">Econometrica</text>
+<text x="56" y="176" fill="#5b6675" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="28" font-weight="400" text-anchor="start" letter-spacing="0">A local econometrics workbench for asset pricing and market efficiency</text>
+<rect x="56" y="218" width="1168" height="104" rx="12" fill="#fafafa" stroke="#e3e7ec"/>
+<rect x="56" y="218" width="5" height="104" rx="2.5" fill="#008300" stroke="none"/>
+<text x="84" y="262" fill="#14181d" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="30" font-weight="600" text-anchor="start" letter-spacing="0">LLMs never compute statistics.</text>
+<text x="84" y="298" fill="#5b6675" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="26" font-weight="400" text-anchor="start" letter-spacing="0">They select from a registry of typed, versioned tools — the tools compute.</text>
+<rect x="56.0" y="360" width="219.2" height="108" rx="12" fill="#fafafa" stroke="#e3e7ec"/>
+<text x="165.6" y="418" fill="#2a78d6" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="46" font-weight="700" text-anchor="middle" letter-spacing="0">37</text>
+<text x="165.6" y="448" fill="#5b6675" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="20" font-weight="400" text-anchor="middle" letter-spacing="0">typed tools</text>
+<rect x="293.2" y="360" width="219.2" height="108" rx="12" fill="#fafafa" stroke="#e3e7ec"/>
+<text x="402.79999999999995" y="418" fill="#eb6834" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="46" font-weight="700" text-anchor="middle" letter-spacing="0">5</text>
+<text x="402.79999999999995" y="448" fill="#5b6675" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="20" font-weight="400" text-anchor="middle" letter-spacing="0">tool families</text>
+<rect x="530.4" y="360" width="219.2" height="108" rx="12" fill="#fafafa" stroke="#e3e7ec"/>
+<text x="640.0" y="418" fill="#1baf7a" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="46" font-weight="700" text-anchor="middle" letter-spacing="0">6</text>
+<text x="640.0" y="448" fill="#5b6675" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="20" font-weight="400" text-anchor="middle" letter-spacing="0">agent roles</text>
+<rect x="767.5999999999999" y="360" width="219.2" height="108" rx="12" fill="#fafafa" stroke="#e3e7ec"/>
+<text x="877.1999999999999" y="418" fill="#eda100" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="46" font-weight="700" text-anchor="middle" letter-spacing="0">14</text>
+<text x="877.1999999999999" y="448" fill="#5b6675" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="20" font-weight="400" text-anchor="middle" letter-spacing="0">chart types</text>
+<rect x="1004.8" y="360" width="219.2" height="108" rx="12" fill="#fafafa" stroke="#e3e7ec"/>
+<text x="1114.3999999999999" y="418" fill="#e87ba4" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="46" font-weight="700" text-anchor="middle" letter-spacing="0">5</text>
+<text x="1114.3999999999999" y="448" fill="#5b6675" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="20" font-weight="400" text-anchor="middle" letter-spacing="0">LLM providers</text>
+<text x="56" y="528" fill="#14181d" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="26" font-weight="400" text-anchor="start" letter-spacing="0">Every number traces to a tested function with a reproducibility manifest.</text>
+<text x="56" y="566" fill="#8d97a5" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="22" font-weight="400" text-anchor="start" letter-spacing="0">Tools refuse work the data cannot support</text>
+<text x="1224" y="566" fill="#8d97a5" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="22" font-weight="400" text-anchor="end" letter-spacing="0">Python · FastAPI · React · TimescaleDB · pgvector</text>
+</svg>
