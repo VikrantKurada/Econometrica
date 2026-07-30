@@ -28,7 +28,22 @@ def source_label(filename: str, when: datetime | None = None) -> str:
     Names the file *and* when it was ingested, because a file re-uploaded after
     being corrected is a different series under the same name — the same reason
     a market adapter names its adjustment policy.
+
+    Refuses a filename carrying the word ``synthetic``. `DataSteward.resolve`
+    raises its ``synthetic_data`` risk flag on a substring of the source
+    string, and this label is composed into that string for a run reading an
+    upload — so such a file would make real observations announce themselves as
+    generated. Refused rather than rewritten: this label is provenance, and
+    quietly editing the record of where a number came from is the worse
+    failure, because it is invisible.
     """
+    if "synthetic" in filename.lower():
+        raise MappingError(
+            f"{filename!r} cannot be ingested: a source label carrying the word"
+            " 'synthetic' is how this application marks generated data, and a"
+            " run reading this file would report real observations as generated."
+            " Rename the file and upload it again"
+        )
     stamp = (when or datetime.now(UTC)).date()
     return f"upload: {filename} (ingested {stamp})"
 
