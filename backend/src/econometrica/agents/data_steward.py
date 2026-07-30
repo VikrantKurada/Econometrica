@@ -217,6 +217,34 @@ class DataSteward:
                 )
             )
 
+        # Read back off the source rather than tracked here: only a composite
+        # knows which of its members answered. `getattr` for the same reason
+        # `label` uses it above — an ordinary source has no such property and
+        # must not need one. It is populated by `_fetch`, so this cannot move
+        # above that call.
+        provenance: dict[str, str] = getattr(self.source, "provenance", {})
+        if len(set(provenance.values())) > 1:
+            by_source: dict[str, list[str]] = {}
+            for ticker, served_by in provenance.items():
+                by_source.setdefault(served_by, []).append(ticker)
+            split = "; ".join(
+                f"{', '.join(sorted(tickers))} from {served_by}"
+                for served_by, tickers in sorted(by_source.items())
+            )
+            flags.append(
+                QualityFlag(
+                    code="mixed_sources",
+                    # Info, not warning: mixing an upload with fetched tickers
+                    # is the feature, and a reader needs the split rather than
+                    # to be warned off it.
+                    severity="info",
+                    detail=(
+                        "this frame was assembled from more than one source"
+                        f" — {split}"
+                    ),
+                )
+            )
+
         windowed = {
             ticker: self._window(prices, spec, ticker, flags)
             for ticker, prices in raw.items()

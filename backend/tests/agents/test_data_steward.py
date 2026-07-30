@@ -519,3 +519,62 @@ async def test_the_factor_frequency_follows_the_spec():
     )
 
     assert factors.asked == [("ff3", "M")]
+
+
+# --- provenance ---------------------------------------------------------------
+
+
+class MixedSource:
+    """Stands in for `ProjectPriceSource`, which records what served what.
+
+    Not a `FakeSource` subclass: the point of this stub is the `provenance`
+    property, and the steward reads it duck-typed rather than by type, so the
+    stub should not inherit anything it does not need.
+    """
+
+    label = "Fake Market + 1 uploaded dataset (upload: hpi.csv (ingested 2024-01-05))"
+
+    def __init__(self, provenance: dict[str, str]) -> None:
+        self._provenance = provenance
+
+    @property
+    def provenance(self) -> dict[str, str]:
+        return dict(self._provenance)
+
+    async def prices(self, ticker: str, *, start: date, end: date) -> pd.Series:
+        return series()
+
+
+async def test_a_run_drawing_on_two_sources_says_which_served_what():
+    source = MixedSource(
+        {
+            "LONDON": "upload: hpi.csv (ingested 2024-01-05)",
+            "GOOGL": "Fake Market",
+        }
+    )
+
+    dataset = await DataSteward(source).resolve(spec(tickers=["LONDON", "GOOGL"]))
+
+    flag = dataset.report.flag("mixed_sources")
+    # Info, not warning: mixing is the feature. The reader needs the split,
+    # not to be warned off it.
+    assert flag.severity == "info"
+    assert "LONDON from upload: hpi.csv (ingested 2024-01-05)" in flag.detail
+    assert "GOOGL from Fake Market" in flag.detail
+
+
+async def test_no_flag_when_every_ticker_came_from_one_source():
+    source = MixedSource({"AAA": "Fake Market", "BBB": "Fake Market"})
+
+    dataset = await DataSteward(source).resolve(spec(tickers=["AAA", "BBB"]))
+
+    assert not dataset.report.has("mixed_sources")
+
+
+async def test_an_upload_named_after_a_real_file_does_not_read_as_generated():
+    """The `synthetic_data` seam must not fire on ordinary uploaded data."""
+    source = MixedSource({"LONDON": "upload: hpi.csv (ingested 2024-01-05)"})
+
+    dataset = await DataSteward(source).resolve(spec(tickers=["LONDON"]))
+
+    assert not dataset.report.has("synthetic_data")
