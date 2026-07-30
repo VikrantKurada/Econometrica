@@ -23,6 +23,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
+from econometrica.agents.base import PROMPT_LIMIT
 from econometrica.agents.data_steward import DataQualityReport, DataSteward
 from econometrica.agents.econometrician import Econometrician, ExecutionReport, StepOutcome
 from econometrica.agents.narrator import Narration, Narrator
@@ -39,6 +40,7 @@ from econometrica.charts.propose import propose_charts
 from econometrica.charts.spec import ChartSpec
 from econometrica.econ.diagnostics.engine import run_diagnostics
 from econometrica.econ.types import Diagnostic
+from econometrica.tools.web_search import SearchProvider, search
 
 Tier = Literal["single", "critic", "consensus"]
 TIERS: tuple[Tier, ...] = ("single", "critic", "consensus")
@@ -99,6 +101,8 @@ class Orchestrator:
         narrator: Narrator,
         coder: QuantCoder | None = None,
         code_sandbox: bool = False,
+        searcher: SearchProvider | None = None,
+        web_search: bool = False,
         tier: Tier = "critic",
         max_revisions: int = 1,
     ) -> None:
@@ -117,6 +121,12 @@ class Orchestrator:
         #: is the one place that decides. Default False keeps every existing
         #: caller off the escape hatch without changing a line.
         self.code_sandbox = code_sandbox
+        #: Passed in for the same reason `code_sandbox` is. Both are needed
+        #: rather than one: a provider may be absent because none is configured
+        #: on this deployment, which is not the same as search being off for
+        #: this project.
+        self.searcher = searcher
+        self.web_search = web_search
         self.econometrician = Econometrician()
         self.tier: Tier = tier
         self.max_revisions = max_revisions
@@ -157,6 +167,7 @@ class Orchestrator:
         for warning in outcome.warnings:
             yield RunEvent(name="run.warning", detail=warning)
 
+        context = await self._search_context(question, context, trace)
         plan = await self._plan(question, context, outcome, trace)
         # Before the data is fetched, not after: a run that is not permitted to
         # execute the code it planned should say so without spending a fetch on
@@ -426,6 +437,41 @@ class Orchestrator:
         )
         if warning:
             outcome.warnings.append(warning)
+
+    async def _search_context(self, question: str, context: str, trace: TraceBuilder) -> str:
+        """Web results as extra context for the Planner, or the context unchanged.
+
+        The Planner is the agent that benefits: it picks tickers and a window
+        out of prose, and the failures this exists to reduce are exactly that —
+        a Planner invented `LON` for London real estate and `NSEI` for the Nifty
+        50, and both runs died in the Data Steward rather than in the model.
+
+        Deliberately not offered to the Narrator. The Narrator's output is what
+        the grounding gate judges, the gate withholds a whole narration over a
+        single number it cannot match, and web snippets are dense with numbers.
+        A reader left with no interpretation is worse off than one left with an
+        uninformed interpretation.
+        """
+        if not (self.web_search and self.searcher is not None):
+            return context
+
+        outcome = await search(question, provider=self.searcher, enabled=self.web_search)
+
+        record = outcome.to_step_record()
+        # The fields 6.10 added to answer "what was the model actually shown".
+        # Without them the trace says a search happened but not what it found,
+        # which is most of what a reader wants from a step that shaped the plan.
+        record.prompt = question[:PROMPT_LIMIT]
+        record.response = outcome.as_context()[:PROMPT_LIMIT]
+        trace.add(record)
+
+        found = outcome.as_context()
+        if not found:
+            # A failed or empty search leaves the context alone rather than
+            # appending a bare header, which would tell the model a search ran
+            # and found nothing — a different claim from no search at all.
+            return context
+        return f"{context}\n\n{found}" if context else found
 
     async def _plan(
         self, question: str, context: str, outcome: RunOutcome, trace: TraceBuilder

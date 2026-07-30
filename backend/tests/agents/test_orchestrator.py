@@ -85,6 +85,8 @@ def build(
     tier: str = "critic",
     planner_providers: list[FakeProvider] | None = None,
     source: object | None = None,
+    searcher: object | None = None,
+    web_search: bool = False,
 ) -> tuple[Orchestrator, dict[str, FakeProvider]]:
     planner_fakes = planner_providers or [
         FakeProvider(name="p", responses=plans or [json.dumps(PLAN)])
@@ -98,6 +100,8 @@ def build(
         validator=Validator(validator_fake, "fake-1"),
         narrator=Narrator(narrator_fake, "fake-1"),
         tier=tier,
+        searcher=searcher,
+        web_search=web_search,
     )
     return orchestrator, {
         "planner": planner_fakes[0],
@@ -477,3 +481,98 @@ async def test_an_unchanged_dataset_is_not_fetched_twice():
     await orchestrator.run(QUESTION)
 
     assert len(source.windows) == 1
+
+
+# --- web search -------------------------------------------------------------
+
+
+class SpyProvider:
+    """Records that it was asked, which is the assertion for the disabled case."""
+
+    name = "spy"
+
+    def __init__(self, results=None, boom: str = "") -> None:
+        self.results = results or []
+        self.boom = boom
+        self.asked: list[str] = []
+
+    async def search(self, query: str, *, limit: int = 5):
+        self.asked.append(query)
+        if self.boom:
+            raise RuntimeError(self.boom)
+        return self.results
+
+
+def a_result():
+    from econometrica.tools.web_search import SearchResult
+
+    return SearchResult(
+        title="Nifty 50 index",
+        url="https://example.invalid/nifty",
+        snippet="The Nifty 50 trades under the symbol ^NSEI.",
+    )
+
+
+def planner_prompt(fakes) -> str:
+    """Everything the Planner's first turn was sent, as one string."""
+    return "\n".join(message.content for message in fakes["planner"].calls[0].messages)
+
+
+def search_step(outcome):
+    return next(step for step in outcome.trace if (step.tool or "").startswith("web_search:"))
+
+
+async def test_search_context_reaches_the_planner():
+    provider = SpyProvider([a_result()])
+    orchestrator, fakes = build(searcher=provider, web_search=True)
+
+    await orchestrator.run(QUESTION)
+
+    assert provider.asked == [QUESTION]
+    # The header is what tells the model this text is read, not computed.
+    assert "read from the web, not computed" in planner_prompt(fakes)
+    assert "^NSEI" in planner_prompt(fakes)
+
+
+async def test_a_disabled_search_never_reaches_the_provider():
+    """Asserted on the spy, not on the outcome.
+
+    An outcome-level assertion would pass just as well if the provider had been
+    called and its results dropped, which is the bug worth preventing.
+    """
+    provider = SpyProvider([a_result()])
+    orchestrator, _ = build(searcher=provider, web_search=False)
+
+    await orchestrator.run(QUESTION)
+
+    assert provider.asked == []
+
+
+async def test_a_failed_search_degrades_the_run_rather_than_failing_it():
+    provider = SpyProvider(boom="the endpoint returned 503")
+    orchestrator, fakes = build(searcher=provider, web_search=True)
+
+    outcome = await orchestrator.run(QUESTION)
+
+    assert outcome.status == "completed"
+    assert "read from the web" not in planner_prompt(fakes)
+    step = search_step(outcome)
+    assert step.status == "failed"
+    assert "503" in step.detail
+
+
+async def test_the_search_step_records_what_the_planner_was_shown():
+    provider = SpyProvider([a_result()])
+    orchestrator, _ = build(searcher=provider, web_search=True)
+
+    outcome = await orchestrator.run(QUESTION)
+
+    step = search_step(outcome)
+    assert step.kind == "tool"
+    assert step.agent == "planner"
+    assert step.prompt == QUESTION
+    assert "^NSEI" in step.response
+    # It informed the plan, so it has to precede the plan in the trace.
+    assert outcome.trace.index(step) < next(
+        i for i, s in enumerate(outcome.trace) if s.agent == "planner" and s.kind == "llm"
+    )
