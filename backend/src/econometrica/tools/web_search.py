@@ -29,7 +29,6 @@ from typing import Any, Protocol
 import httpx
 
 from econometrica.agents.trace import StepRecord
-from econometrica.services.capabilities import ResolvedCapabilities
 
 DEFAULT_LIMIT = 5
 DEFAULT_TIMEOUT = 20.0
@@ -104,11 +103,18 @@ async def search(
     query: str,
     *,
     provider: SearchProvider,
-    capabilities: ResolvedCapabilities,
+    enabled: bool,
     limit: int = DEFAULT_LIMIT,
 ) -> SearchOutcome:
-    """Search the web, if this chat is allowed to."""
-    if not capabilities.web_search:
+    """Search the web, if this chat is allowed to.
+
+    Takes the resolved flag rather than the whole `ResolvedCapabilities`: this
+    layer is generic, and importing a `services/` type to read one boolean puts
+    `db.models` on the import path of everything that touches a search — which
+    now includes `agents/`. *Who* resolved the flag, and from which project and
+    chat, stays decided in `api/routers/runs.py`, where those things are known.
+    """
+    if not enabled:
         # Raised rather than returned empty: asking with the capability off is a
         # programming error, and an empty result would hide it.
         raise SearchDisabledError(

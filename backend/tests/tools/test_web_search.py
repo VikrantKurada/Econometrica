@@ -62,7 +62,7 @@ async def test_search_is_refused_when_the_project_has_it_off():
     provider = FakeSearch()
 
     with pytest.raises(SearchDisabledError):
-        await search("capm", provider=provider, capabilities=capabilities(project_on=False))
+        await search("capm", provider=provider, enabled=capabilities(project_on=False).web_search)
 
     assert provider.queries == []
 
@@ -81,7 +81,7 @@ async def test_a_chat_may_turn_it_off_even_where_the_project_allows_it():
         await search(
             "capm",
             provider=provider,
-            capabilities=capabilities(project_on=True, chat_override=False),
+            enabled=capabilities(project_on=True, chat_override=False).web_search,
         )
 
     assert provider.queries == []
@@ -89,7 +89,7 @@ async def test_a_chat_may_turn_it_off_even_where_the_project_allows_it():
 
 async def test_a_chat_may_turn_it_on_where_the_project_allows_it():
     outcome = await search(
-        "capm", provider=FakeSearch(), capabilities=capabilities(project_on=True)
+        "capm", provider=FakeSearch(), enabled=capabilities(project_on=True).web_search
     )
 
     assert outcome.results
@@ -99,7 +99,7 @@ async def test_a_chat_may_turn_it_on_where_the_project_allows_it():
 
 
 async def test_every_result_carries_its_url():
-    outcome = await search("capm", provider=FakeSearch(), capabilities=capabilities())
+    outcome = await search("capm", provider=FakeSearch(), enabled=capabilities().web_search)
 
     assert all(result.url.startswith("https://") for result in outcome.results)
 
@@ -108,7 +108,7 @@ async def test_a_search_becomes_a_trace_step_naming_the_provider_and_query():
     """§9 asks for results attributed in the trace. A search nobody can audit is
     a set of claims from nowhere."""
     outcome = await search(
-        "fama french", provider=FakeSearch(), capabilities=capabilities()
+        "fama french", provider=FakeSearch(), enabled=capabilities().web_search
     )
 
     step = outcome.to_step_record()
@@ -120,7 +120,7 @@ async def test_a_search_becomes_a_trace_step_naming_the_provider_and_query():
 
 
 async def test_the_context_names_every_source():
-    outcome = await search("capm", provider=FakeSearch(), capabilities=capabilities())
+    outcome = await search("capm", provider=FakeSearch(), enabled=capabilities().web_search)
 
     context = outcome.as_context()
 
@@ -131,14 +131,14 @@ async def test_the_context_names_every_source():
 async def test_the_context_says_the_text_was_read_not_computed():
     """The same header retrieval uses. It is for the model; the grounding gate
     is what actually enforces it."""
-    outcome = await search("capm", provider=FakeSearch(), capabilities=capabilities())
+    outcome = await search("capm", provider=FakeSearch(), enabled=capabilities().web_search)
 
     assert "not computed" in outcome.as_context().lower()
 
 
 async def test_an_empty_result_set_produces_no_context():
     outcome = await search(
-        "capm", provider=FakeSearch(results=[]), capabilities=capabilities()
+        "capm", provider=FakeSearch(results=[]), enabled=capabilities().web_search
     )
 
     assert outcome.as_context() == ""
@@ -154,7 +154,7 @@ async def test_a_provider_that_is_down_degrades_the_run_rather_than_failing_it()
     would lose the analysis the user actually asked for."""
     provider = FakeSearch(error=RuntimeError("connection refused"))
 
-    outcome = await search("capm", provider=provider, capabilities=capabilities())
+    outcome = await search("capm", provider=provider, enabled=capabilities().web_search)
 
     assert outcome.failed is True
     assert outcome.results == []
@@ -164,7 +164,7 @@ async def test_a_provider_that_is_down_degrades_the_run_rather_than_failing_it()
 async def test_a_failed_search_is_still_a_trace_step():
     provider = FakeSearch(error=RuntimeError("connection refused"))
 
-    outcome = await search("capm", provider=provider, capabilities=capabilities())
+    outcome = await search("capm", provider=provider, enabled=capabilities().web_search)
 
     assert outcome.to_step_record().status == "failed"
 
@@ -172,7 +172,7 @@ async def test_a_failed_search_is_still_a_trace_step():
 async def test_a_failed_search_contributes_no_context():
     provider = FakeSearch(error=RuntimeError("connection refused"))
 
-    outcome = await search("capm", provider=provider, capabilities=capabilities())
+    outcome = await search("capm", provider=provider, enabled=capabilities().web_search)
 
     assert outcome.as_context() == ""
 
@@ -182,7 +182,7 @@ async def test_the_limit_is_passed_through():
         results=[SearchResult(title=f"r{n}", url=f"https://x/{n}", snippet="") for n in range(9)]
     )
 
-    outcome = await search("capm", provider=provider, capabilities=capabilities(), limit=3)
+    outcome = await search("capm", provider=provider, enabled=capabilities().web_search, limit=3)
 
     assert len(outcome.results) == 3
 
@@ -201,7 +201,7 @@ async def test_a_number_found_on_a_web_page_is_still_ungrounded():
     from econometrica.agents.grounding import allowed_values, check_grounding
     from econometrica.econ.types import Estimate, Manifest, ResultSet
 
-    outcome = await search("capm", provider=FakeSearch(), capabilities=capabilities())
+    outcome = await search("capm", provider=FakeSearch(), enabled=capabilities().web_search)
     assert "1.8100" in outcome.as_context()
 
     computed = ResultSet(
