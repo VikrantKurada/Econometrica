@@ -64,6 +64,35 @@ function Write-Step($msg) { Write-Host "==> $msg" -ForegroundColor Cyan }
 function Write-Ok($msg) { Write-Host "    $msg" -ForegroundColor DarkGray }
 function Write-Warn($msg) { Write-Host "!!  $msg" -ForegroundColor Yellow }
 
+# Native tools write progress to stderr -- `docker compose` and `git` both do
+# -- and under `$ErrorActionPreference = 'Stop'` PowerShell turns every one of
+# those lines into a terminating NativeCommandError. So a healthy container
+# reporting "Running" aborted the script. The exit code is the only honest
+# success signal an external program gives, so that is what is checked.
+function Invoke-Native {
+    param([scriptblock]$Command, [string]$What)
+    $previous = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        # Merged and re-emitted as plain text. Left on the error stream these
+        # print in red with a stack trace, so a healthy container reporting
+        # "Running" reads as a failure. The merge is safe only because the
+        # preference is Continue for the duration.
+        & $Command 2>&1 | ForEach-Object { Write-Host "    $_" -ForegroundColor DarkGray }
+    } finally { $ErrorActionPreference = $previous }
+    if ($LASTEXITCODE -ne 0) { throw "$What failed (exit $LASTEXITCODE)." }
+}
+
+#: True when the command exits 0, with stderr tolerated as above. For the cases
+#: where a non-zero exit is a question rather than a failure.
+function Test-Native {
+    param([scriptblock]$Command)
+    $previous = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try { & $Command | Out-Null } catch { } finally { $ErrorActionPreference = $previous }
+    return $LASTEXITCODE -eq 0
+}
+
 # Any listener at all counts as occupied, whatever address it claims. A socket
 # on the wildcard address answers 127.0.0.1 traffic too -- that is what the
 # container on 8000 does, and it wins the race often enough that uvicorn's own
@@ -88,13 +117,34 @@ function Stop-Tree($processId, $label) {
     try { & taskkill /PID $processId /T /F | Out-Null } catch { }
 }
 
+# `taskkill /T` reaches current descendants only, and `uv` is a trampoline that
+# exits once it has spawned the real interpreter -- so the uvicorn process is
+# re-parented and survives its window being killed. It then holds the port,
+# the next start silently moves up one, and every request reaches the old code.
+# Matching on the module name makes this precise enough to be safe: it cannot
+# touch the unrelated container that also listens on this range.
+function Stop-StrayApi($port) {
+    Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue |
+        Where-Object { $_.LocalAddress -eq '127.0.0.1' } |
+        ForEach-Object {
+            $proc = Get-CimInstance Win32_Process -Filter "ProcessId=$($_.OwningProcess)" -ErrorAction SilentlyContinue
+            if ($proc -and $proc.CommandLine -like '*econometrica.main:app*') {
+                Write-Ok "stopping orphaned API (pid $($proc.ProcessId)) on port $port"
+                try { & taskkill /PID $proc.ProcessId /T /F | Out-Null } catch { }
+            }
+        }
+}
+
 if ($Stop) {
     Write-Step 'Stopping Econometrica'
     if (Test-Path $PidFile) {
+        $recordedPort = $null
         foreach ($line in Get-Content $PidFile) {
-            $label, $recorded = $line -split '=', 2
-            if ($recorded -as [int]) { Stop-Tree ([int]$recorded) $label }
+            $label, $value = $line -split '=', 2
+            if ($label -eq 'port') { $recordedPort = $value -as [int]; continue }
+            if ($value -as [int]) { Stop-Tree ([int]$value) $label }
         }
+        if ($recordedPort) { Stop-StrayApi $recordedPort }
         Remove-Item $PidFile -Force
     } else {
         Write-Warn "No record of a running stack ($PidFile is absent)."
@@ -124,24 +174,23 @@ Write-Step 'Starting the database'
 
 # Docker Desktop does not autostart on this machine, and a stopped engine looks
 # like ~40 unrelated test errors if it is discovered later instead of here.
-docker info --format '{{.ServerVersion}}' | Out-Null
-if ($LASTEXITCODE -ne 0) {
+if (-not (Test-Native { docker info --format '{{.ServerVersion}}' })) {
     $desktop = "$env:ProgramFiles\Docker\Docker\Docker Desktop.exe"
     if (-not (Test-Path $desktop)) { throw 'Docker is not running and Docker Desktop was not found.' }
     Write-Ok 'Docker engine is down -- starting Docker Desktop (this takes a minute)'
     Start-Process $desktop
     $deadline = (Get-Date).AddMinutes(3)
-    do {
+    $ready = $false
+    while (-not $ready -and (Get-Date) -lt $deadline) {
         Start-Sleep -Seconds 5
-        docker info --format '{{.ServerVersion}}' | Out-Null
-    } while ($LASTEXITCODE -ne 0 -and (Get-Date) -lt $deadline)
-    if ($LASTEXITCODE -ne 0) { throw 'Docker Desktop did not become ready within 3 minutes.' }
+        $ready = Test-Native { docker info --format '{{.ServerVersion}}' }
+    }
+    if (-not $ready) { throw 'Docker Desktop did not become ready within 3 minutes.' }
 }
 
 Push-Location $Root
 try {
-    docker compose up -d db --wait
-    if ($LASTEXITCODE -ne 0) { throw 'docker compose up -d db failed.' }
+    Invoke-Native { docker compose up -d db --wait } 'docker compose up -d db'
 } finally { Pop-Location }
 Write-Ok 'econometrica-db is healthy on port 5433'
 
@@ -151,13 +200,11 @@ Push-Location "$Root\backend"
 try {
     if (-not $SkipInstall) {
         Write-Step 'Syncing backend dependencies'
-        uv sync --extra dev
-        if ($LASTEXITCODE -ne 0) { throw 'uv sync failed.' }
+        Invoke-Native { uv sync --extra dev } 'uv sync'
     }
 
     Write-Step 'Applying migrations'
-    uv run alembic upgrade head
-    if ($LASTEXITCODE -ne 0) { throw 'alembic upgrade head failed.' }
+    Invoke-Native { uv run alembic upgrade head } 'alembic upgrade head'
 } finally { Pop-Location }
 
 # --- frontend deps ----------------------------------------------------------
@@ -166,8 +213,7 @@ if (-not $SkipInstall -and -not (Test-Path "$Root\frontend\node_modules")) {
     Write-Step 'Installing frontend dependencies'
     Push-Location "$Root\frontend"
     try {
-        npm install
-        if ($LASTEXITCODE -ne 0) { throw 'npm install failed.' }
+        Invoke-Native { npm install } 'npm install'
     } finally { Pop-Location }
 }
 
@@ -196,7 +242,8 @@ Set-Location '$Root\backend'
 uv run uvicorn econometrica.main:app --host 127.0.0.1 --port $ApiPort
 "@
 $api = Start-Process powershell -ArgumentList '-NoExit', '-Command', $apiCmd -PassThru
-Set-Content -Path $PidFile -Value "api=$($api.Id)" -Encoding utf8
+# The port is recorded too, so `-Stop` can sweep an orphan off it.
+Set-Content -Path $PidFile -Value @("api=$($api.Id)", "port=$ApiPort") -Encoding utf8
 
 # A cold start imports statsmodels, arch and linearmodels; on a first run, with
 # those DLLs unread and the virus scanner interested, it has taken over two
