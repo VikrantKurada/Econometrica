@@ -105,6 +105,13 @@ SOURCES = [
     Card("Synthetic", ["reproducible walks, no network.", "Every run flagged as generated"]),
 ]
 
+#: Shown under the pipeline: what a run may read that is not a number.
+CONTEXT_LINE = (
+    "Context, never numbers: with web search on, a run searches the question"
+    " before planning and the attributed results reach the Planner. The"
+    " grounding gate still admits only what a tool computed."
+)
+
 AGENTS = ["Planner", "Data Steward", "Econometrician", "Validator", "Narrator", "Visualizer"]
 
 FAMILIES = [
@@ -159,7 +166,7 @@ GUARDRAILS = [
 
 NOT_WIRED = (
     "Built and tested, not yet reachable from a run: "
-    "web search · document retrieval over pgvector · the MCP tool allowlist"
+    "document retrieval over pgvector · the MCP tool allowlist"
 )
 
 
@@ -299,6 +306,7 @@ def build(t: Theme) -> str:
             fill=t.muted, size=12.5,
         )
     )
+    p.append(text_el(MARGIN, chip_y + chip_h + 60, CONTEXT_LINE, fill=t.muted, size=12.5))
 
     # --- core
     y = 452
@@ -339,7 +347,7 @@ def build(t: Theme) -> str:
     p.append(
         text_el(
             W - MARGIN, 1000,
-            "1417 backend tests · 320 frontend · 6 end-to-end · "
+            "1431 backend tests · 320 frontend · 6 end-to-end · "
             "Python + FastAPI · React + TypeScript · Postgres, TimescaleDB, pgvector",
             fill=t.faint, size=11.5, anchor="end",
         )

@@ -45,7 +45,7 @@ Consequences that keep coming up:
 | 5 — charts and artifact canvas | done, e2e gate green |
 | 6 — real data, uploads, telemetry, MCP | done, e2e gate green |
 
-**1407 backend tests, 318 frontend tests, 6 Playwright e2e.** ruff and
+**1431 backend tests, 320 frontend tests, 6 Playwright e2e.** ruff and
 `mypy --strict` clean on `src`. `alembic check` reports no drift.
 
 ### Where to go next
@@ -146,6 +146,34 @@ become a source of numbers — the grounding gate admits only what a registry to
 computed, and both web search and retrieval have a test proving a figure quoted
 verbatim out of their text is still blocked.
 
+**Web search runs, as of 2026-07-30.** `Orchestrator._search_context` searches
+the user's question **verbatim, before planning**, and appends the attributed
+results to the Planner's context. The motivation is in this repo's own history:
+a Planner invented `LON` for London real estate and `NSEI` for the Nifty 50 (the
+real symbol is `^NSEI`), and both runs died in the Data Steward. Neither was a
+reasoning failure — both were a model asked to name a listed instrument with
+nothing in front of it.
+
+**The Narrator deliberately does not get it, and that is a mechanism.** The
+Narrator's output is what the grounding gate judges, the gate withholds an
+*entire* narration over one number it cannot match, and web snippets are dense
+with numbers. A reader left with no interpretation is worse off than one left
+with an uninformed interpretation. Giving it to the Narrator needs a design that
+answers that first.
+
+**Two constructor parameters, not one** — `searcher` and `web_search`, mirroring
+`coder`/`code_sandbox`. A provider may be absent because none is configured on
+this deployment, which is not the same as search being off for this project.
+`agents/` still knows nothing about projects or chats; `api/routers/runs.py`
+decides, and builds a provider **only** when the capability is on, so a project
+with search off never constructs one. The test asserts on construction, not on
+the trace.
+
+**`ECONOMETRICA_SEARCH_PROVIDER`** picks the engine, default `duckduckgo`. Brave
+needs `BRAVE_API_KEY` — a settings field, **not** the keystore, which is reached
+through a route that validates names against the *LLM* provider registry. A
+misconfigured provider degrades to no searcher rather than refusing the run.
+
 **Web search reads the *resolved* capability**, so a chat that turned it off is
 honoured, and a disabled search never reaches the provider. A failed search
 degrades the run rather than failing it: search is context, and losing the
@@ -154,6 +182,12 @@ provider scrapes an HTML page with no API contract — it answers a plain POST
 with no bot check, unlike Stooq, but it is the fragile part and has a live test
 for that reason. Its markup uses **single** quotes (`class='result-link'`),
 which is how the parser was wrong the first time.
+
+**`search()` takes `enabled: bool`, not `ResolvedCapabilities`.** Reading one
+flag off a services type put `db.models` on the import path of everything
+touching a search — which now includes `agents/`. Its tests still resolve
+through `resolve_capabilities` and pass `.web_search`, because the point of the
+disabled-search tests is that project-and-chat resolution decides.
 
 **Retrieval is scoped by a column, not a join.** `document_chunks.project_id` is
 denormalised so a query filters on the row it ranks — a join can be forgotten,
@@ -218,8 +252,12 @@ resolved, `capm` beta 0.812.
 **`UploadedPriceSource` satisfied the protocol from Phase 6 and nothing
 constructed one until now** — the claim above was true of the class and false
 of the application, which is the shape of gap worth looking for elsewhere in
-this tree (`tools/web_search.py`, `services/rag.py` and `mcp/` are each still
-imported only by their own tests).
+this tree. `tools/web_search.py` was the same shape and was wired on
+2026-07-30; **`services/rag.py` and `mcp/` are still imported only by their own
+tests**, and each needs its own design note — retrieval is missing an entire
+half (there is no route to add a document, so a project has nothing to retrieve
+from), and MCP has no schema for `project.mcp_servers` and nothing that decides
+*when* a tool gets called.
 
 **`data/project_source.py` is what closed it.** `build_project_source` wraps
 the configured market source with the project's uploads, **upload-first**: a

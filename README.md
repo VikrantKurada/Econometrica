@@ -83,10 +83,18 @@ compute statistics themselves.
 > is not going away, and every run built on it carries a `synthetic_data` risk
 > flag. Left unset, a run refuses with an explanation rather than inventing data.
 >
+> **A run can read the web for context**, when a project turns it on — off by
+> default. The question is searched before planning and the attributed results
+> go to the Planner, which is the agent that has to name a real ticker from
+> prose. Nothing it returns can become a number: the grounding gate admits only
+> what a tool computed, so a figure read on a web page is exactly as ungrounded
+> as one a model invented, and there is a test saying so.
+>
 > Every run records its own trace — a DAG of model calls and tool
 > invocations with tokens, latency and parent links, readable at
 > `GET /api/runs/{id}`. Rejected attempts are steps in their own right,
-> because they were billed.
+> because they were billed. A search is a step too, carrying the query it sent
+> and the snippets it handed to the Planner.
 >
 > **When no tool fits, a model may write code** — the escape hatch §2 of the
 > design chose, built last and off by default. It runs in a separate process
