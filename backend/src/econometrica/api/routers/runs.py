@@ -42,6 +42,7 @@ from econometrica.api.deps import (
     get_chat_or_404,
     get_project_or_404,
 )
+from econometrica.config import get_settings
 from econometrica.data.base import DataUnavailableError
 from econometrica.data.project_source import build_project_source
 from econometrica.db.models import Chat, Project, Run
@@ -57,6 +58,7 @@ from econometrica.schemas.run import (
 )
 from econometrica.services.capabilities import resolve_capabilities
 from econometrica.services.tracing import record_run
+from econometrica.tools.web_search import build_search_provider
 
 router = APIRouter(prefix="/api/chats", tags=["runs"])
 #: Reading a trace is not scoped to a chat — a run id is enough, and the trace
@@ -305,6 +307,23 @@ async def _build(
     # sandbox is the one capability a chat cannot override: the rule about
     # which scope decides belongs in `services.capabilities` and nowhere else.
     capabilities = resolve_capabilities(project, chat)
+
+    # Built only when the capability is on, so a project with search off never
+    # constructs a provider and never reaches a vendor.
+    searcher = None
+    if capabilities.web_search:
+        settings = get_settings()
+        try:
+            searcher = build_search_provider(
+                settings.search_provider, api_key=settings.brave_api_key
+            )
+        except (KeyError, ValueError):
+            # A provider named wrongly, or one needing a key it was not given,
+            # is a deployment problem — and search is context, so it must not
+            # cost the user their analysis. The run proceeds with no searcher,
+            # which the orchestrator reads as "none configured".
+            searcher = None
+
     coder = None
     if capabilities.code_sandbox and "quant_coder" in (project.model_assignments or {}):
         provider, model = _bind("quant_coder", project, registry)
@@ -326,6 +345,8 @@ async def _build(
         narrator=Narrator(narrator_provider, narrator_model),
         coder=coder,
         code_sandbox=capabilities.code_sandbox,
+        searcher=searcher,
+        web_search=capabilities.web_search,
         tier=tier,
     )
 

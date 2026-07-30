@@ -569,3 +569,83 @@ async def test_rerun_answers_409_when_the_dataset_is_gone(client, session, uploa
     # A run whose data is gone is a finding, not a crash.
     assert response.status_code == 409
     assert "LONDON" in response.json()["detail"]
+
+
+# --- web search ---------------------------------------------------------------
+
+
+class RouteSpyProvider:
+    name = "spy"
+
+    def __init__(self) -> None:
+        self.asked: list[str] = []
+
+    async def search(self, query: str, *, limit: int = 5):
+        from econometrica.tools.web_search import SearchResult
+
+        self.asked.append(query)
+        return [
+            SearchResult(
+                title="Nifty 50",
+                url="https://example.invalid/nifty",
+                snippet="Listed as ^NSEI.",
+            )
+        ]
+
+
+async def test_a_run_searches_when_the_project_enables_it(client, scripted, monkeypatch):
+    spy = RouteSpyProvider()
+    monkeypatch.setattr(
+        "econometrica.api.routers.runs.build_search_provider", lambda *a, **k: spy
+    )
+
+    project = (await client.post("/api/projects", json={"name": "Search"})).json()
+    await client.patch(
+        f"/api/projects/{project['id']}",
+        json={
+            "validation_tier": "single",
+            "web_search_enabled": True,
+            "model_assignments": {
+                "planner": {"provider": "ollama", "model": "fake-1"},
+                "narrator": {"provider": "ollama", "model": "fake-1"},
+            },
+        },
+    )
+    chat = (
+        await client.post(f"/api/projects/{project['id']}/chats", json={"name": "c"})
+    ).json()
+
+    response = await client.post(
+        f"/api/chats/{chat['id']}/runs", json={"question": QUESTION}
+    )
+
+    assert response.status_code == 200
+    assert spy.asked == [QUESTION]
+    trace = events(response.text)[-1]["data"]["payload"]["trace"]
+    assert any((step["tool"] or "").startswith("web_search:") for step in trace)
+
+
+async def test_a_run_does_not_build_a_provider_when_search_is_off(
+    client, scripted, monkeypatch
+):
+    """Off by default, and the provider is never even constructed.
+
+    Asserted on construction rather than on the trace: a provider built and
+    then unused would still have read configuration and could still have been
+    reached, which is what "a disabled search never reaches the provider" is
+    about.
+    """
+    built: list[tuple] = []
+
+    def spy_build(*args, **kwargs):
+        built.append(args)
+        return RouteSpyProvider()
+
+    monkeypatch.setattr(
+        "econometrica.api.routers.runs.build_search_provider", spy_build
+    )
+
+    chat_id = await make_chat(client)  # make_chat leaves web search off
+    await client.post(f"/api/chats/{chat_id}/runs", json={"question": QUESTION})
+
+    assert built == []

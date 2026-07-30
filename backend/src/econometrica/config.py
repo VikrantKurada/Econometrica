@@ -50,7 +50,22 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("ECONOMETRICA_PRICE_SOURCE", "PRICE_SOURCE"),
     )
 
+    #: Which web-search provider a run uses when the capability is on. An env
+    #: setting rather than a project field for the same reason `price_source`
+    #: is one: which vendor this machine can reach is a property of the
+    #: deployment, not of a piece of analysis. `duckduckgo` is the default
+    #: because it needs no key, which keeps the zero-configuration path intact.
+    search_provider: Literal["duckduckgo", "brave"] = Field(
+        default="duckduckgo",
+        validation_alias=AliasChoices("ECONOMETRICA_SEARCH_PROVIDER", "SEARCH_PROVIDER"),
+    )
+
     ollama_base_url: str = "http://localhost:11434"
+    #: Not the keystore. That is reached through `PUT /api/providers/{name}/key`,
+    #: whose name is validated against the *LLM* provider registry, so a search
+    #: key could not be put there without teaching that route about a second
+    #: kind of provider.
+    brave_api_key: str = ""
     nvidia_api_key: str = ""
     gemini_api_key: str = ""
     anthropic_api_key: str = ""

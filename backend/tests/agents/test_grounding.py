@@ -289,3 +289,19 @@ def test_a_range_of_numbers_that_are_not_years_is_not_exempt():
 
 def test_a_range_outside_the_year_window_is_not_exempt():
     assert grounded("Counts ranged 2500-2600 over the period.") is False
+
+
+def test_a_number_read_from_a_search_snippet_is_still_ungrounded():
+    """`tools/` is context, `econ/` is computation.
+
+    Wiring web search into the run pipeline is exactly the change that could
+    quietly widen what counts as grounded, so the rule gets an assertion naming
+    the new source of stray numbers rather than only the old ones. 1.2977 was
+    computed by a tool; 18.4 was read off a web page, and the gate cannot tell
+    the difference between that and one a model invented — which is the point.
+    """
+    report = check_grounding("The beta is 1.2977, and the index rose 18.4% last year.", ALLOWED)
+
+    assert report.grounded is False
+    [issue] = report.issues
+    assert issue.value == 18.4
