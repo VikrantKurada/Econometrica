@@ -63,6 +63,15 @@ compute statistics themselves.
 > are served through the same `PriceSource` protocol as Yahoo, so nothing above
 > that seam knows whether a series was fetched or uploaded.
 >
+> **A run reads a project's uploads first and falls through to the market
+> source for everything else**, so an uploaded index and a listed ticker can be
+> analysed in one frame — which is the point, since a question like "how does
+> this index co-move with that stock" is unanswerable if a run can only read
+> one kind of source. Any run drawing on more than one says so: the quality
+> report names every ticker under the source that served it, and a re-run
+> resolves against the same upload rather than quietly reproducing from the
+> market.
+>
 > `ECONOMETRICA_PRICE_SOURCE=synthetic` still generates reproducible random
 > walks so the pipeline runs with no network at all; it is never the default, it
 > is not going away, and every run built on it carries a `synthetic_data` risk

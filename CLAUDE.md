@@ -207,12 +207,59 @@ make a batch exporter impossible to shut down. OTLP is off unless
 `OTEL_EXPORTER_OTLP_ENDPOINT` is set, and its export timeout is 2s so an
 unreachable collector cannot hold a shutdown open.
 
-**Uploads work end to end.** A file is profiled, its mapping confirmed by a
-person, and its observations stored in `observations` — **the project's first
-Timescale hypertable**. `UploadedPriceSource` then serves it through the same
-`PriceSource` protocol as Yahoo, so nothing above the protocol knows uploads
-exist. Verified on a real two-ticker export: 1506 observations stored, 36
-monthly rows resolved, `capm` beta 0.812.
+**Uploads work end to end, and since 2026-07-30 that includes being read by a
+run.** A file is profiled, its mapping confirmed by a person, and its
+observations stored in `observations` — **the project's first Timescale
+hypertable**. `UploadedPriceSource` serves it through the same `PriceSource`
+protocol as Yahoo, so nothing above the protocol knows uploads exist. Verified
+on a real two-ticker export: 1506 observations stored, 36 monthly rows
+resolved, `capm` beta 0.812.
+
+**`UploadedPriceSource` satisfied the protocol from Phase 6 and nothing
+constructed one until now** — the claim above was true of the class and false
+of the application, which is the shape of gap worth looking for elsewhere in
+this tree (`tools/web_search.py`, `services/rag.py` and `mcp/` are each still
+imported only by their own tests).
+
+**`data/project_source.py` is what closed it.** `build_project_source` wraps
+the configured market source with the project's uploads, **upload-first**: a
+symbol any of the project's datasets carries is served from there, everything
+else falls through. That ordering exists so one run can mix a file with fetched
+tickers — an uploaded index against a listed stock is not answerable otherwise,
+and that question is what found the gap. A project with **no** uploads gets the
+market source back unwrapped, not a wrapper that always delegates.
+
+**Provenance travels on two channels, because `DataQualityReport.source` is
+read from `label` before anything is fetched** and so cannot describe a mixed
+run. The label says what was *available*; a post-fetch `mixed_sources` **info**
+flag says what was *used*, naming every ticker under the source that served it,
+and it is the authoritative record. Info rather than warning: mixing is the
+feature. The steward reads `provenance` off the source with `getattr`, exactly
+as it reads `label`, so an ordinary source needs no new property.
+
+**`shadowed_symbol` was designed and deliberately not built.** Knowing the
+market source *also* carries a symbol an upload served needs a counterfactual
+fetch — a network call whose only product is a warning, and one that would make
+an upload-only run require the network it was meant to avoid. `mixed_sources`
+already names the source of every ticker.
+
+**A user's filename can reach the `synthetic_data` substring check**, so
+`services/datasets.source_label` refuses one containing "synthetic" at confirm
+time. Refused rather than rewritten: the label is provenance, and quietly
+editing where a number came from is invisible. Note the guard lives in
+`datasets.py`, not `ingest.py` — `ingest.py` profiles and never builds a label.
+
+**Re-run is scoped to the project too.** It used to take the global source and
+never look at one, so an uploaded run reproduced from Yahoo. A dataset deleted
+since the run is now a **409** naming what is missing, not a 500.
+
+**Ordering datasets by `created_at` ties inside one transaction.** It is
+`func.now()` — transaction start — so the "newest upload wins" rule is
+well-ordered in use (two confirmations are two requests) but a test writing two
+datasets at once must set the column itself or assert a coin flip. Same reason
+`Message.seq` exists. Postgres also refuses an `ORDER BY` expression a
+`SELECT DISTINCT` does not carry, which is why `created_at` is in that select
+list.
 
 **Three things about the hypertable that alembic cannot see.** The conversion
 itself is invisible to autogenerate, so `create_hypertable` is hand-written in
