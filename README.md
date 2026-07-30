@@ -1,3 +1,9 @@
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/capability-map-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="docs/assets/capability-map-light.svg">
+  <img alt="Econometrica — capability and feature map: data sources, the multi-agent pipeline, 37 typed econometric tools in five families, what comes out, and the guardrails" src="docs/assets/capability-map-light.svg">
+</picture>
+
 # Econometrica
 
 Econometrica is a local, GenAI-powered econometrics workbench for financial asset
@@ -271,6 +277,7 @@ frontend/         React + TypeScript, three-pane workbench
   gallery.html    Dev-only: every chart type over fixture data
   e2e/            Playwright specs
 docs/plans/       Design and implementation plans
+docs/assets/      The capability map above, and the script that generates it
 infra/initdb/     SQL run once on first database startup
 docker-compose.yml
 start.ps1         Starts the whole stack; `-Stop` takes it down again

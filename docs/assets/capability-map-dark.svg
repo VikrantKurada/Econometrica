@@ -1,0 +1,174 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 1020" width="1440" height="1020" role="img" aria-label="Econometrica capability and feature map">
+<title>Econometrica — capability and feature map</title>
+<rect x="0" y="0" width="1440" height="1020" rx="0" fill="#0f1319" stroke="none"/>
+<text x="40" y="58" fill="#e8ecf1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="34" font-weight="700" text-anchor="start" letter-spacing="0">Econometrica</text>
+<text x="272" y="58" fill="#93a0b1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="15" font-weight="400" text-anchor="start" letter-spacing="0">a local econometrics workbench for asset pricing and market efficiency</text>
+<rect x="40" y="78" width="1360" height="44" rx="8" fill="#171c24" stroke="#272e39"/>
+<rect x="40" y="78" width="3" height="44" rx="1.5" fill="#008300" stroke="none"/>
+<text x="56" y="105" fill="#e8ecf1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="13.5" font-weight="400" text-anchor="start" letter-spacing="0">The one invariant — LLMs never compute statistics. They select from a registry of 37 typed, versioned tools; the tools compute.</text>
+<rect x="40" y="149" width="3" height="12" rx="1.5" fill="#3987e5" stroke="none"/>
+<text x="52" y="158" fill="#93a0b1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" font-weight="700" text-anchor="start" letter-spacing="1.4">DATA IN</text>
+<rect x="40.0" y="174" width="259.2" height="96" rx="10" fill="#171c24" stroke="#272e39"/>
+<rect x="40.0" y="174" width="3" height="96" rx="1.5" fill="#3987e5" stroke="none"/>
+<text x="56.0" y="200" fill="#e8ecf1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="15" font-weight="600" text-anchor="start" letter-spacing="0">Market prices</text>
+<text x="56.0" y="220" fill="#93a0b1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="400" text-anchor="start" letter-spacing="0">yfinance, dividend-adjusted</text>
+<text x="56.0" y="237" fill="#93a0b1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="400" text-anchor="start" letter-spacing="0">daily closes, cached on disk</text>
+<rect x="315.2" y="174" width="259.2" height="96" rx="10" fill="#171c24" stroke="#272e39"/>
+<rect x="315.2" y="174" width="3" height="96" rx="1.5" fill="#3987e5" stroke="none"/>
+<text x="331.2" y="200" fill="#e8ecf1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="15" font-weight="600" text-anchor="start" letter-spacing="0">Risk-free rates</text>
+<text x="331.2" y="220" fill="#93a0b1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="400" text-anchor="start" letter-spacing="0">FRED, 17 treasury series,</text>
+<text x="331.2" y="237" fill="#93a0b1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="400" text-anchor="start" letter-spacing="0">de-annualised by compounding</text>
+<rect x="590.4" y="174" width="259.2" height="96" rx="10" fill="#171c24" stroke="#272e39"/>
+<rect x="590.4" y="174" width="3" height="96" rx="1.5" fill="#3987e5" stroke="none"/>
+<text x="606.4" y="200" fill="#e8ecf1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="15" font-weight="600" text-anchor="start" letter-spacing="0">Factor sets</text>
+<text x="606.4" y="220" fill="#93a0b1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="400" text-anchor="start" letter-spacing="0">Ken French library</text>
+<text x="606.4" y="239" fill="#6f7c8d" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11.5" font-weight="400" text-anchor="start" letter-spacing="0">ff3 · ff5 · carhart4</text>
+<rect x="865.5999999999999" y="174" width="259.2" height="96" rx="10" fill="#171c24" stroke="#272e39"/>
+<rect x="865.5999999999999" y="174" width="3" height="96" rx="1.5" fill="#3987e5" stroke="none"/>
+<text x="881.5999999999999" y="200" fill="#e8ecf1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="15" font-weight="600" text-anchor="start" letter-spacing="0">Your own files</text>
+<text x="881.5999999999999" y="220" fill="#93a0b1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="400" text-anchor="start" letter-spacing="0">CSV, XLSX, Parquet: profiled,</text>
+<text x="881.5999999999999" y="237" fill="#93a0b1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="400" text-anchor="start" letter-spacing="0">mapped, then a hypertable</text>
+<rect x="1140.8" y="174" width="259.2" height="96" rx="10" fill="#171c24" stroke="#272e39"/>
+<rect x="1140.8" y="174" width="3" height="96" rx="1.5" fill="#3987e5" stroke="none"/>
+<text x="1156.8" y="200" fill="#e8ecf1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="15" font-weight="600" text-anchor="start" letter-spacing="0">Synthetic</text>
+<text x="1156.8" y="220" fill="#93a0b1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="400" text-anchor="start" letter-spacing="0">reproducible walks, no network.</text>
+<text x="1156.8" y="237" fill="#93a0b1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="400" text-anchor="start" letter-spacing="0">Every run flagged as generated</text>
+<rect x="40" y="297" width="3" height="12" rx="1.5" fill="#9085e9" stroke="none"/>
+<text x="52" y="306" fill="#93a0b1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" font-weight="700" text-anchor="start" letter-spacing="1.4">MULTI-AGENT PIPELINE</text>
+<rect x="40.0" y="324" width="198.33333333333334" height="38" rx="8" fill="#171c24" stroke="#272e39"/>
+<rect x="40.0" y="324" width="3" height="38" rx="1.5" fill="#9085e9" stroke="none"/>
+<text x="141.16666666666669" y="348" fill="#e8ecf1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="13.5" font-weight="600" text-anchor="middle" letter-spacing="0">Planner</text>
+<path d="M248.33333333333334 343.0 h14 m-5 -4 l5 4 l-5 4" fill="none" stroke="#6f7c8d" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="272.33333333333337" y="324" width="198.33333333333334" height="38" rx="8" fill="#171c24" stroke="#272e39"/>
+<rect x="272.33333333333337" y="324" width="3" height="38" rx="1.5" fill="#9085e9" stroke="none"/>
+<text x="373.50000000000006" y="348" fill="#e8ecf1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="13.5" font-weight="600" text-anchor="middle" letter-spacing="0">Data Steward</text>
+<path d="M480.66666666666674 343.0 h14 m-5 -4 l5 4 l-5 4" fill="none" stroke="#6f7c8d" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="504.6666666666667" y="324" width="198.33333333333334" height="38" rx="8" fill="#171c24" stroke="#272e39"/>
+<rect x="504.6666666666667" y="324" width="3" height="38" rx="1.5" fill="#9085e9" stroke="none"/>
+<text x="605.8333333333334" y="348" fill="#e8ecf1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="13.5" font-weight="600" text-anchor="middle" letter-spacing="0">Econometrician</text>
+<path d="M713.0 343.0 h14 m-5 -4 l5 4 l-5 4" fill="none" stroke="#6f7c8d" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="737.0" y="324" width="198.33333333333334" height="38" rx="8" fill="#171c24" stroke="#272e39"/>
+<rect x="737.0" y="324" width="3" height="38" rx="1.5" fill="#9085e9" stroke="none"/>
+<text x="838.1666666666666" y="348" fill="#e8ecf1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="13.5" font-weight="600" text-anchor="middle" letter-spacing="0">Validator</text>
+<path d="M945.3333333333334 343.0 h14 m-5 -4 l5 4 l-5 4" fill="none" stroke="#6f7c8d" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="969.3333333333334" y="324" width="198.33333333333334" height="38" rx="8" fill="#171c24" stroke="#272e39"/>
+<rect x="969.3333333333334" y="324" width="3" height="38" rx="1.5" fill="#9085e9" stroke="none"/>
+<text x="1070.5" y="348" fill="#e8ecf1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="13.5" font-weight="600" text-anchor="middle" letter-spacing="0">Narrator</text>
+<path d="M1177.6666666666667 343.0 h14 m-5 -4 l5 4 l-5 4" fill="none" stroke="#6f7c8d" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="1201.6666666666667" y="324" width="198.33333333333334" height="38" rx="8" fill="#171c24" stroke="#272e39"/>
+<rect x="1201.6666666666667" y="324" width="3" height="38" rx="1.5" fill="#9085e9" stroke="none"/>
+<text x="1302.8333333333335" y="348" fill="#e8ecf1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="13.5" font-weight="600" text-anchor="middle" letter-spacing="0">Visualizer</text>
+<text x="40" y="386" fill="#93a0b1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="400" text-anchor="start" letter-spacing="0">Validation tiers: single · critic · consensus      Providers: Ollama · Anthropic · OpenAI · Gemini · NVIDIA NIM</text>
+<text x="40" y="404" fill="#93a0b1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="400" text-anchor="start" letter-spacing="0">Plus a Quant Coder that writes code in an OS-sandboxed process when no tool fits — off by default, and its results are marked unvalidated everywhere they surface.</text>
+<rect x="40" y="443" width="3" height="12" rx="1.5" fill="#199e70" stroke="none"/>
+<text x="52" y="452" fill="#93a0b1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" font-weight="700" text-anchor="start" letter-spacing="1.4">ECONOMETRICS CORE — 37 TYPED TOOLS, FIVE FAMILIES</text>
+<rect x="40.0" y="468" width="259.2" height="218" rx="10" fill="#171c24" stroke="#272e39"/>
+<rect x="40.0" y="468" width="3" height="218" rx="1.5" fill="#199e70" stroke="none"/>
+<text x="56.0" y="494" fill="#e8ecf1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="15" font-weight="600" text-anchor="start" letter-spacing="0">Asset pricing</text>
+<text x="283.2" y="494" fill="#199e70" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="15" font-weight="700" text-anchor="end" letter-spacing="0">7</text>
+<text x="56.0" y="516" fill="#6f7c8d" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11.5" font-weight="400" text-anchor="start" letter-spacing="0">capm</text>
+<text x="56.0" y="531" fill="#6f7c8d" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11.5" font-weight="400" text-anchor="start" letter-spacing="0">ff3</text>
+<text x="56.0" y="546" fill="#6f7c8d" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11.5" font-weight="400" text-anchor="start" letter-spacing="0">ff5</text>
+<text x="56.0" y="561" fill="#6f7c8d" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11.5" font-weight="400" text-anchor="start" letter-spacing="0">carhart4</text>
+<text x="56.0" y="576" fill="#6f7c8d" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11.5" font-weight="400" text-anchor="start" letter-spacing="0">fama_macbeth</text>
+<text x="56.0" y="591" fill="#6f7c8d" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11.5" font-weight="400" text-anchor="start" letter-spacing="0">grs_test</text>
+<text x="56.0" y="606" fill="#6f7c8d" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11.5" font-weight="400" text-anchor="start" letter-spacing="0">rolling_beta</text>
+<rect x="315.2" y="468" width="259.2" height="218" rx="10" fill="#171c24" stroke="#272e39"/>
+<rect x="315.2" y="468" width="3" height="218" rx="1.5" fill="#199e70" stroke="none"/>
+<text x="331.2" y="494" fill="#e8ecf1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="15" font-weight="600" text-anchor="start" letter-spacing="0">Market efficiency</text>
+<text x="558.4" y="494" fill="#199e70" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="15" font-weight="700" text-anchor="end" letter-spacing="0">10</text>
+<text x="331.2" y="516" fill="#6f7c8d" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11.5" font-weight="400" text-anchor="start" letter-spacing="0">adf</text>
+<text x="331.2" y="531" fill="#6f7c8d" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11.5" font-weight="400" text-anchor="start" letter-spacing="0">kpss</text>
+<text x="331.2" y="546" fill="#6f7c8d" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11.5" font-weight="400" text-anchor="start" letter-spacing="0">phillips_perron</text>
+<text x="331.2" y="561" fill="#6f7c8d" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11.5" font-weight="400" text-anchor="start" letter-spacing="0">variance_ratio</text>
+<text x="331.2" y="576" fill="#6f7c8d" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11.5" font-weight="400" text-anchor="start" letter-spacing="0">acf</text>
+<text x="331.2" y="591" fill="#6f7c8d" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11.5" font-weight="400" text-anchor="start" letter-spacing="0">ljung_box</text>
+<text x="331.2" y="606" fill="#6f7c8d" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11.5" font-weight="400" text-anchor="start" letter-spacing="0">runs_test</text>
+<text x="331.2" y="621" fill="#6f7c8d" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11.5" font-weight="400" text-anchor="start" letter-spacing="0">bds</text>
+<text x="331.2" y="636" fill="#6f7c8d" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11.5" font-weight="400" text-anchor="start" letter-spacing="0">hurst</text>
+<text x="331.2" y="651" fill="#6f7c8d" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11.5" font-weight="400" text-anchor="start" letter-spacing="0">weak_form_score</text>
+<rect x="590.4" y="468" width="259.2" height="218" rx="10" fill="#171c24" stroke="#272e39"/>
+<rect x="590.4" y="468" width="3" height="218" rx="1.5" fill="#199e70" stroke="none"/>
+<text x="606.4" y="494" fill="#e8ecf1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="15" font-weight="600" text-anchor="start" letter-spacing="0">Volatility and risk</text>
+<text x="833.5999999999999" y="494" fill="#199e70" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="15" font-weight="700" text-anchor="end" letter-spacing="0">11</text>
+<text x="606.4" y="516" fill="#6f7c8d" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11.5" font-weight="400" text-anchor="start" letter-spacing="0">garch</text>
+<text x="606.4" y="531" fill="#6f7c8d" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11.5" font-weight="400" text-anchor="start" letter-spacing="0">egarch</text>
+<text x="606.4" y="546" fill="#6f7c8d" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11.5" font-weight="400" text-anchor="start" letter-spacing="0">gjr_garch</text>
+<text x="606.4" y="561" fill="#6f7c8d" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11.5" font-weight="400" text-anchor="start" letter-spacing="0">realized_vol</text>
+<text x="606.4" y="576" fill="#6f7c8d" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11.5" font-weight="400" text-anchor="start" letter-spacing="0">ewma_vol</text>
+<text x="606.4" y="591" fill="#6f7c8d" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11.5" font-weight="400" text-anchor="start" letter-spacing="0">historical_var</text>
+<text x="606.4" y="606" fill="#6f7c8d" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11.5" font-weight="400" text-anchor="start" letter-spacing="0">parametric_var</text>
+<text x="606.4" y="621" fill="#6f7c8d" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11.5" font-weight="400" text-anchor="start" letter-spacing="0">cvar</text>
+<text x="606.4" y="636" fill="#6f7c8d" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11.5" font-weight="400" text-anchor="start" letter-spacing="0">drawdown</text>
+<text x="606.4" y="651" fill="#6f7c8d" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11.5" font-weight="400" text-anchor="start" letter-spacing="0">kupiec_test</text>
+<text x="606.4" y="666" fill="#6f7c8d" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11.5" font-weight="400" text-anchor="start" letter-spacing="0">christoffersen_test</text>
+<rect x="865.5999999999999" y="468" width="259.2" height="218" rx="10" fill="#171c24" stroke="#272e39"/>
+<rect x="865.5999999999999" y="468" width="3" height="218" rx="1.5" fill="#199e70" stroke="none"/>
+<text x="881.5999999999999" y="494" fill="#e8ecf1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="15" font-weight="600" text-anchor="start" letter-spacing="0">Multivariate</text>
+<text x="1108.8" y="494" fill="#199e70" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="15" font-weight="700" text-anchor="end" letter-spacing="0">8</text>
+<text x="881.5999999999999" y="516" fill="#6f7c8d" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11.5" font-weight="400" text-anchor="start" letter-spacing="0">var_model</text>
+<text x="881.5999999999999" y="531" fill="#6f7c8d" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11.5" font-weight="400" text-anchor="start" letter-spacing="0">irf</text>
+<text x="881.5999999999999" y="546" fill="#6f7c8d" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11.5" font-weight="400" text-anchor="start" letter-spacing="0">fevd</text>
+<text x="881.5999999999999" y="561" fill="#6f7c8d" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11.5" font-weight="400" text-anchor="start" letter-spacing="0">johansen</text>
+<text x="881.5999999999999" y="576" fill="#6f7c8d" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11.5" font-weight="400" text-anchor="start" letter-spacing="0">engle_granger</text>
+<text x="881.5999999999999" y="591" fill="#6f7c8d" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11.5" font-weight="400" text-anchor="start" letter-spacing="0">vecm</text>
+<text x="881.5999999999999" y="606" fill="#6f7c8d" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11.5" font-weight="400" text-anchor="start" letter-spacing="0">granger_causality</text>
+<text x="881.5999999999999" y="621" fill="#6f7c8d" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11.5" font-weight="400" text-anchor="start" letter-spacing="0">markov_switching</text>
+<rect x="1140.8" y="468" width="259.2" height="218" rx="10" fill="#171c24" stroke="#272e39"/>
+<rect x="1140.8" y="468" width="3" height="218" rx="1.5" fill="#199e70" stroke="none"/>
+<text x="1156.8" y="494" fill="#e8ecf1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="15" font-weight="600" text-anchor="start" letter-spacing="0">Event study</text>
+<text x="1384.0" y="494" fill="#199e70" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="15" font-weight="700" text-anchor="end" letter-spacing="0">1</text>
+<text x="1156.8" y="516" fill="#6f7c8d" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11.5" font-weight="400" text-anchor="start" letter-spacing="0">event_study</text>
+<text x="40" y="706" fill="#93a0b1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="400" text-anchor="start" letter-spacing="0">Beside them: a deterministic diagnostics engine (normality, heteroskedasticity, autocorrelation, ARCH effects, structural breaks) and executable preconditions that decline a fit the data cannot support.</text>
+<rect x="40" y="739" width="3" height="12" rx="1.5" fill="#d95926" stroke="none"/>
+<text x="52" y="748" fill="#93a0b1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" font-weight="700" text-anchor="start" letter-spacing="1.4">WHAT COMES OUT</text>
+<rect x="40.0" y="764" width="259.2" height="96" rx="10" fill="#171c24" stroke="#272e39"/>
+<rect x="40.0" y="764" width="3" height="96" rx="1.5" fill="#d95926" stroke="none"/>
+<text x="56.0" y="790" fill="#e8ecf1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="15" font-weight="600" text-anchor="start" letter-spacing="0">Charts</text>
+<text x="56.0" y="810" fill="#93a0b1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="400" text-anchor="start" letter-spacing="0">14 spec types, chosen from the</text>
+<text x="56.0" y="827" fill="#93a0b1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="400" text-anchor="start" letter-spacing="0">result's shape. Light and dark,</text>
+<text x="56.0" y="844" fill="#93a0b1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="400" text-anchor="start" letter-spacing="0">each with a table view</text>
+<rect x="315.2" y="764" width="259.2" height="96" rx="10" fill="#171c24" stroke="#272e39"/>
+<rect x="315.2" y="764" width="3" height="96" rx="1.5" fill="#d95926" stroke="none"/>
+<text x="331.2" y="790" fill="#e8ecf1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="15" font-weight="600" text-anchor="start" letter-spacing="0">Canvas</text>
+<text x="331.2" y="810" fill="#93a0b1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="400" text-anchor="start" letter-spacing="0">A tab per chart, plus Narrative,</text>
+<text x="331.2" y="827" fill="#93a0b1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="400" text-anchor="start" letter-spacing="0">Diagnostics, a Trace DAG</text>
+<text x="331.2" y="844" fill="#93a0b1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="400" text-anchor="start" letter-spacing="0">and a Cost dashboard</text>
+<rect x="590.4" y="764" width="259.2" height="96" rx="10" fill="#171c24" stroke="#272e39"/>
+<rect x="590.4" y="764" width="3" height="96" rx="1.5" fill="#d95926" stroke="none"/>
+<text x="606.4" y="790" fill="#e8ecf1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="15" font-weight="600" text-anchor="start" letter-spacing="0">Exports</text>
+<text x="606.4" y="810" fill="#93a0b1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="400" text-anchor="start" letter-spacing="0">JSON, Markdown, CSV, XLSX, ZIP.</text>
+<text x="606.4" y="827" fill="#93a0b1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="400" text-anchor="start" letter-spacing="0">PNG and SVG from the live chart.</text>
+<text x="606.4" y="844" fill="#93a0b1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="400" text-anchor="start" letter-spacing="0">PDF from a print stylesheet</text>
+<rect x="865.5999999999999" y="764" width="259.2" height="96" rx="10" fill="#171c24" stroke="#272e39"/>
+<rect x="865.5999999999999" y="764" width="3" height="96" rx="1.5" fill="#d95926" stroke="none"/>
+<text x="881.5999999999999" y="790" fill="#e8ecf1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="15" font-weight="600" text-anchor="start" letter-spacing="0">Reproducibility</text>
+<text x="881.5999999999999" y="810" fill="#93a0b1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="400" text-anchor="start" letter-spacing="0">A manifest under every result.</text>
+<text x="881.5999999999999" y="827" fill="#93a0b1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="400" text-anchor="start" letter-spacing="0">Re-run re-executes the plan</text>
+<text x="881.5999999999999" y="844" fill="#93a0b1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="400" text-anchor="start" letter-spacing="0">and consults no model</text>
+<rect x="1140.8" y="764" width="259.2" height="96" rx="10" fill="#171c24" stroke="#272e39"/>
+<rect x="1140.8" y="764" width="3" height="96" rx="1.5" fill="#d95926" stroke="none"/>
+<text x="1156.8" y="790" fill="#e8ecf1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="15" font-weight="600" text-anchor="start" letter-spacing="0">Telemetry</text>
+<text x="1156.8" y="810" fill="#93a0b1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="400" text-anchor="start" letter-spacing="0">Spans for latency, run steps for</text>
+<text x="1156.8" y="827" fill="#93a0b1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="400" text-anchor="start" letter-spacing="0">tokens and cost. No number is</text>
+<text x="1156.8" y="844" fill="#93a0b1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="400" text-anchor="start" letter-spacing="0">summed from both</text>
+<rect x="40" y="889" width="3" height="12" rx="1.5" fill="#008300" stroke="none"/>
+<text x="52" y="898" fill="#93a0b1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" font-weight="700" text-anchor="start" letter-spacing="1.4">HOW IT AVOIDS MAKING NUMBERS UP</text>
+<rect x="40.0" y="918" width="262.4" height="52" rx="8" fill="#171c24" stroke="#272e39"/>
+<text x="52.0" y="939" fill="#e8ecf1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="11.5" font-weight="600" text-anchor="start" letter-spacing="0">LLMs never compute statistics</text>
+<text x="52.0" y="956" fill="#6f7c8d" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="10.5" font-weight="400" text-anchor="start" letter-spacing="0">they select from the registry; the tools compute</text>
+<rect x="314.4" y="918" width="262.4" height="52" rx="8" fill="#171c24" stroke="#272e39"/>
+<text x="326.4" y="939" fill="#e8ecf1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="11.5" font-weight="600" text-anchor="start" letter-spacing="0">Tools refuse work the data cannot support</text>
+<text x="326.4" y="956" fill="#6f7c8d" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="10.5" font-weight="400" text-anchor="start" letter-spacing="0">preconditions are executable, not advice</text>
+<rect x="588.8" y="918" width="262.4" height="52" rx="8" fill="#171c24" stroke="#272e39"/>
+<text x="600.8" y="939" fill="#e8ecf1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="11.5" font-weight="600" text-anchor="start" letter-spacing="0">Prose is checked against the results</text>
+<text x="600.8" y="956" fill="#6f7c8d" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="10.5" font-weight="400" text-anchor="start" letter-spacing="0">an unmatched number withholds the whole narration</text>
+<rect x="863.1999999999999" y="918" width="262.4" height="52" rx="8" fill="#171c24" stroke="#272e39"/>
+<text x="875.1999999999999" y="939" fill="#e8ecf1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="11.5" font-weight="600" text-anchor="start" letter-spacing="0">Diagnostics are tri-state</text>
+<text x="875.1999999999999" y="956" fill="#6f7c8d" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="10.5" font-weight="400" text-anchor="start" letter-spacing="0">“not judged” is never “failed”</text>
+<rect x="1137.6" y="918" width="262.4" height="52" rx="8" fill="#171c24" stroke="#272e39"/>
+<text x="1149.6" y="939" fill="#e8ecf1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="11.5" font-weight="600" text-anchor="start" letter-spacing="0">Generated data and generated code are marked</text>
+<text x="1149.6" y="956" fill="#6f7c8d" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="10.5" font-weight="400" text-anchor="start" letter-spacing="0">in the manifest, the banner and the printout</text>
+<text x="40" y="1000" fill="#6f7c8d" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="11.5" font-weight="400" text-anchor="start" letter-spacing="0">Built and tested, not yet reachable from a run: web search · document retrieval over pgvector · the MCP tool allowlist</text>
+<text x="1400" y="1000" fill="#6f7c8d" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="11.5" font-weight="400" text-anchor="end" letter-spacing="0">1417 backend tests · 320 frontend · 6 end-to-end · Python + FastAPI · React + TypeScript · Postgres, TimescaleDB, pgvector</text>
+</svg>
