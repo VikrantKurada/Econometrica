@@ -253,6 +253,13 @@ editing where a number came from is invisible. Note the guard lives in
 never look at one, so an uploaded run reproduced from Yahoo. A dataset deleted
 since the run is now a **409** naming what is missing, not a 500.
 
+**The canvas banner showed `risk` and `warning` only, so an `info` flag reached
+nobody** — `mixed_sources` was raised, stored, exported, and invisible. Found by
+looking at the app, not by any test. `artifacts.ts` now partitions the flags:
+`riskFlags` for the red alert, `infoFlags` for a neutral `role="note"` block.
+A third severity added later needs a home in one of them or it disappears the
+same way.
+
 **Ordering datasets by `created_at` ties inside one transaction.** It is
 `func.now()` — transaction start — so the "newest upload wins" rule is
 well-ordered in use (two confirmations are two requests) but a test writing two

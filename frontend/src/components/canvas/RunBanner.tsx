@@ -1,8 +1,8 @@
-import { AlertTriangle, Download, RefreshCw } from "lucide-react";
+import { AlertTriangle, Download, Info, RefreshCw } from "lucide-react";
 import { useState } from "react";
 
 import type { RerunReport, RunDetail } from "../../lib/types";
-import { riskFlags, unvalidatedMethods } from "./artifacts";
+import { infoFlags, riskFlags, unvalidatedMethods } from "./artifacts";
 import { ExportMenu } from "./ExportMenu";
 
 const STATUS_LABEL: Record<string, string> = {
@@ -34,6 +34,7 @@ export function RunBanner({
   const [exporting, setExporting] = useState(false);
 
   const flags = riskFlags(run.outcome);
+  const notes = infoFlags(run.outcome);
   const generated = unvalidatedMethods(run.outcome);
 
   const rerun = async (): Promise<void> => {
@@ -127,6 +128,28 @@ export function RunBanner({
               {generated.map((method) => `${method.method} (${method.stepId})`).join(", ")}
             </span>
           </p>
+        </div>
+      )}
+
+      {notes.length > 0 && (
+        // A note, not an alert. `mixed_sources` says which series came from
+        // which source, which a reader of a run built on both an upload and a
+        // market source needs — but it describes the data rather than being
+        // something wrong with it, so it must not read as a defect and must
+        // not interrupt a screen reader the way the risk block does.
+        <div
+          role="note"
+          aria-label="Data notes"
+          className="rounded-md border border-border bg-surface-1 px-3 py-2 text-2xs"
+        >
+          {notes.map((flag) => (
+            <p key={flag.code} className="flex gap-2">
+              <Info aria-hidden className="mt-0.5 size-3.5 shrink-0 text-text-secondary" />
+              <span>
+                <span className="font-medium">{flag.code.replace(/_/g, " ")}</span> — {flag.detail}
+              </span>
+            </p>
+          ))}
         </div>
       )}
 

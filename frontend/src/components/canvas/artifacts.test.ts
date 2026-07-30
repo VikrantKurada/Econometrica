@@ -4,6 +4,7 @@ import type { PreconditionVerdict, RunOutcome, StepOutcome } from "../../lib/typ
 import { FIXTURE_RESULT } from "../charts/fixtures";
 import {
   chartArtifacts,
+  infoFlags,
   refusals,
   riskFlags,
   unjudged,
@@ -144,6 +145,44 @@ describe("riskFlags", () => {
 
   it("is empty when the data has nothing wrong with it", () => {
     expect(riskFlags(outcome())).toEqual([]);
+  });
+});
+
+describe("infoFlags", () => {
+  it("surfaces mixed_sources, which riskFlags deliberately excludes", () => {
+    // A run drawing on an upload and a market source has to say which series
+    // came from where, and that is not a warning — mixing is the feature. It
+    // was invisible until this existed, because the banner rendered risk and
+    // warning only.
+    const quality = {
+      tickers: ["LONDON", "GOOGL"],
+      frequency: "M",
+      return_method: "log",
+      source: "yfinance + 1 uploaded dataset",
+      rows: 65,
+      start: "2016-02-29",
+      end: "2023-12-31",
+      dropped_rows: 0,
+      fingerprint: "sha256:…",
+      flags: [
+        {
+          code: "mixed_sources",
+          severity: "info" as const,
+          detail: "LONDON from upload: hpi.csv; GOOGL from yfinance",
+        },
+        { code: "calendar_misalignment", severity: "warning" as const, detail: "1978 dropped" },
+      ],
+    };
+
+    expect(infoFlags(outcome({ quality })).map((flag) => flag.code)).toEqual(["mixed_sources"]);
+    // The two selectors partition the flags; nothing is shown twice.
+    expect(riskFlags(outcome({ quality })).map((flag) => flag.code)).toEqual([
+      "calendar_misalignment",
+    ]);
+  });
+
+  it("is empty when there is nothing to note", () => {
+    expect(infoFlags(outcome())).toEqual([]);
   });
 });
 

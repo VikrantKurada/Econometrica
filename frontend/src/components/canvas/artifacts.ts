@@ -96,6 +96,21 @@ export function riskFlags(outcome: Partial<RunOutcome>): QualityFlag[] {
 }
 
 /**
+ * Flags that qualify the data without being wrong with it.
+ *
+ * `mixed_sources` is why this exists: a run that read a series from an upload
+ * and another from a market source has to say which came from where, and the
+ * banner showed risk and warning only — so the disclosure the backend raises
+ * reached nobody. It is not a warning, because mixing an upload with fetched
+ * tickers is the feature rather than a defect, so it renders as a note instead
+ * of an alert. Together with `riskFlags` this partitions the flags: nothing is
+ * shown twice and nothing is dropped.
+ */
+export function infoFlags(outcome: Partial<RunOutcome>): QualityFlag[] {
+  return (outcome.quality?.flags ?? []).filter((flag) => flag.severity === "info");
+}
+
+/**
  * Every prefix a result's tool name can carry that means "no tested function
  * produced this". One entry, and it mirrors `SANDBOX_TOOL_PREFIX` in
  * `agents/quant_coder.py`. A colon cannot appear in a registry tool name, so
