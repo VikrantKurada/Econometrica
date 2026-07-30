@@ -174,6 +174,23 @@ needs `BRAVE_API_KEY` — a settings field, **not** the keystore, which is reach
 through a route that validates names against the *LLM* provider registry. A
 misconfigured provider degrades to no searcher rather than refusing the run.
 
+**The verbatim question is a poor search query, and this is measured, not
+suspected.** Probed 2026-07-30 against live DuckDuckGo:
+
+| query | symbols surfaced |
+|---|---|
+| "How has the National Stock Exchange of India grown over the last 10 years?" | none |
+| "Nifty 50 Yahoo Finance ticker symbol" | **`^NSEI`** — top hit is "NIFTY 50 (^NSEI) - Yahoo Finance" |
+| "How has London's real estate moved over the last 30 years?" | none |
+
+So the wiring works and **the motivating case is not yet fixed**: re-running the
+NSEI question with search on, the Planner invented `NIFTY 50` and the run died
+in the Data Steward exactly as before. An analytical question returns market
+commentary; a symbol-shaped query returns the symbol. Closing this means one
+model-written query before planning — a billed turn and a parse that can fail,
+which is why it was deferred rather than assumed. Do not treat "search is
+wired" as "the Planner names real tickers now".
+
 **Web search reads the *resolved* capability**, so a chat that turned it off is
 honoured, and a disabled search never reaches the provider. A failed search
 degrades the run rather than failing it: search is context, and losing the
