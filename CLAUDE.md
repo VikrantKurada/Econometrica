@@ -457,6 +457,17 @@ in narrator prose that is not in `ResultSet.all_numeric_values()`.
 
 ## Commands
 
+Whole stack, from the repo root — database, migrations, API on 8001, web app on
+5173, each in its own window (`start.cmd` is the double-clickable wrapper):
+
+```powershell
+.\start.ps1
+```
+
+```powershell
+.\start.ps1 -Stop
+```
+
 Backend, from `backend/` — everything runs under `uv run`, there is no venv to
 activate:
 
@@ -544,11 +555,25 @@ These cost real time when rediscovered. All are verified on this machine.
 - **Docker Model Runner is disabled** (`"EnableInference": false` in
   `%APPDATA%\Docker\settings-store.json`). It was crash-looping Docker Desktop
   via an orphaned socket. Leave it off unless you want that fight back.
-- **Port 8000 is contested.** An `opennotebook-surrealdb` container holds
-  `0.0.0.0:8000`. `127.0.0.1:8000` reaches our uvicorn; **`localhost:8000`
-  resolves to `::1` and hits SurrealDB instead**, returning confusing 404s.
-  Always name `127.0.0.1`. The Vite proxy and the Playwright config already do,
-  and e2e uses port 8100 to sidestep it entirely.
+- **Port 8000 is contested, and naming `127.0.0.1` does not save you.** An
+  `opennotebook-surrealdb` container holds the wildcard address on 8000, and a
+  wildcard socket answers `127.0.0.1` traffic too. Measured 2026-07-30: with
+  uvicorn bound to `127.0.0.1:8000` and `Get-NetTCPConnection` naming it as the
+  listener, **25 consecutive polls of `http://127.0.0.1:8000/api/health` came
+  back 404 with `Server: SurrealDB`** — and the same URL answered 200 from
+  uvicorn minutes later. It is a race, not a rule, which is why it reads as
+  "the fix didn't work". **Use another port.** e2e uses 8100/8101 and
+  `start.ps1` uses 8001, pointing the Vite proxy at it with
+  `ECONOMETRICA_API_URL`.
+- **`uvicorn --reload` cannot be stopped by port.** The reloader binds the
+  socket in the *parent* and hands it to the child, so killing either leaves an
+  orphan holding the port — the next start fails with `[Errno 10048]` and every
+  request reaches the old code. `start.ps1` runs without `--reload` and records
+  the window pids so `-Stop` can `taskkill /T` the whole tree.
+- **A `.ps1` with no BOM is read as ANSI by Windows PowerShell 5.1.** An em dash
+  in a double-quoted string decoded to `â€"` — whose embedded `"` closed the
+  string and produced a `Missing closing '}'` parse error pointing at the wrong
+  line. `start.ps1` is ASCII-only *and* BOM'd; keep it that way.
 - **The Phase 3 e2e needs a live Ollama and a small chat model.** `chat.spec.ts`
   sends a real prompt to a real model. It prefers `tinyllama` and falls back to
   whatever else streams — which on this machine means a 40 GB model, so keep a

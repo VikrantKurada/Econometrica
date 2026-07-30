@@ -110,6 +110,24 @@ Python 3.12 is required and pinned via `requires-python` in `backend/pyproject.t
 
 ## Quickstart
 
+On Windows, one command does all of it — database, migrations, API and web app,
+each in its own window:
+
+```powershell
+.\start.ps1
+```
+
+`start.cmd` is a double-clickable wrapper around the same script. It creates
+`.env` if it is missing, starts Docker Desktop if the engine is down, waits for
+the API to answer `/api/health` before opening the browser, and stops
+everything again with `.\start.ps1 -Stop`. Use `-PriceSource synthetic` to work
+offline on generated data, or `-SkipInstall` once dependencies are settled.
+
+It puts the API on **port 8001**, not 8000 — see the note on ports below.
+
+The rest of this section is what the script does, for anyone not on Windows or
+wanting to run the pieces separately.
+
 ### 1. Configure the environment
 
 ```bash
@@ -209,11 +227,14 @@ alone, so it never ships.
 > `127.0.0.1:5173` is refused outright. Pass `--host 127.0.0.1` if you want it
 > reachable there too, as `playwright.config.ts` does.
 >
-> Point everything at the **API** at `127.0.0.1:8000`, never `localhost:8000`.
-> `localhost` resolves to `::1` first, and anything else bound there answers
-> instead of uvicorn — which returns puzzling 404s rather than a connection
-> error. `vite.config.ts` already names the address explicitly, and
-> `--host 127.0.0.1` above is what makes uvicorn own it.
+> **Port 8000 is not safely ours on a machine running another container on it.**
+> Naming `127.0.0.1` is not enough: a container holding the wildcard address
+> answers `127.0.0.1:8000` too, and it wins often enough that uvicorn's own
+> successful bind proves nothing — a health poll got 25 consecutive 404s with
+> `Server: SurrealDB` while uvicorn sat bound to `127.0.0.1:8000`. Run the API
+> on a port nobody else wants and point the proxy at it with
+> `ECONOMETRICA_API_URL`, as `start.ps1` does; `vite.config.ts` reads that
+> variable and falls back to `http://127.0.0.1:8000`.
 
 Providers other than Ollama need an API key, stored encrypted at rest:
 
@@ -243,6 +264,7 @@ frontend/         React + TypeScript, three-pane workbench
 docs/plans/       Design and implementation plans
 infra/initdb/     SQL run once on first database startup
 docker-compose.yml
+start.ps1         Starts the whole stack; `-Stop` takes it down again
 ```
 
 ## How it avoids making numbers up
