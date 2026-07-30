@@ -7,7 +7,7 @@ chat route and its e2e gate are untouched by any of this.
 
 import json
 from datetime import date
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import numpy as np
 import pandas as pd
@@ -15,6 +15,8 @@ import pytest
 import pytest_asyncio
 
 from econometrica.api.deps import get_price_source, get_provider_registry
+from econometrica.data.base import DataUnavailableError
+from econometrica.db.models import Dataset, Observation
 from econometrica.llm.fake import FakeProvider
 from econometrica.main import app
 
@@ -411,3 +413,111 @@ async def test_a_run_that_never_planned_cannot_be_rerun(client, scripted):
 
 async def test_rerunning_an_unknown_run_is_a_404(client, scripted):
     assert (await client.post(f"/api/runs/{uuid4()}/rerun")).status_code == 404
+
+
+# --- reading the project's own uploads ----------------------------------------
+
+UPLOAD_PLAN = {
+    "question": "Describe LONDON",
+    "dataset": {"tickers": ["LONDON"], "start": "2024-01-01", "end": "2024-06-30"},
+    "steps": [{"id": "s1", "tool": "adf", "params": {"column": "LONDON"}}],
+}
+
+
+class EmptyMarket:
+    """Knows nothing.
+
+    Deliberately not a source that merely happens to lack LONDON: if a run
+    resolves against this, it resolved from the upload and there is no other
+    reading available.
+    """
+
+    label = "Fake Market (dividend-adjusted)"
+
+    async def prices(self, ticker: str, *, start: date, end: date) -> pd.Series:
+        raise DataUnavailableError(f"{ticker}: not listed")
+
+
+@pytest_asyncio.fixture
+async def uploading():
+    registry = ScriptedRegistry([json.dumps(UPLOAD_PLAN), NARRATIVE])
+    app.dependency_overrides[get_provider_registry] = lambda: registry
+    app.dependency_overrides[get_price_source] = lambda: EmptyMarket()
+    yield registry
+    app.dependency_overrides.pop(get_provider_registry, None)
+    app.dependency_overrides.pop(get_price_source, None)
+
+
+async def make_project_and_chat(client) -> tuple[str, str]:
+    """As `make_chat`, but hands back the project id the upload needs."""
+    project = (await client.post("/api/projects", json={"name": "Uploads"})).json()
+    await client.patch(
+        f"/api/projects/{project['id']}",
+        json={
+            "validation_tier": "single",
+            "model_assignments": {
+                "planner": {"provider": "ollama", "model": "fake-1"},
+                "narrator": {"provider": "ollama", "model": "fake-1"},
+            },
+        },
+    )
+    chat = (
+        await client.post(f"/api/projects/{project['id']}/chats", json={"name": "c"})
+    ).json()
+    return str(project["id"]), str(chat["id"])
+
+
+async def ingest_london(session, project_id: str) -> Dataset:
+    """180 daily levels under the symbol LONDON, shaped the way ingest writes."""
+    dataset = Dataset(
+        project_id=UUID(project_id),
+        name="hpi.csv",
+        filename="hpi.csv",
+        blob_path="uploads/hpi.csv",
+        source_label="upload: hpi.csv (ingested 2024-01-05)",
+        fingerprint="a" * 64,
+        rows=180,
+        column_roles={"date": "date", "LONDON": "price"},
+    )
+    session.add(dataset)
+    await session.flush()
+
+    days = pd.date_range("2024-01-01", periods=180, freq="D")
+    rng = np.random.default_rng(11)
+    values = 500.0 + np.cumsum(rng.normal(size=180))
+    session.add_all(
+        Observation(
+            dataset_id=dataset.id,
+            ts=day.tz_localize("UTC").to_pydatetime(),
+            symbol="LONDON",
+            field="price",
+            value=float(value),
+        )
+        for day, value in zip(days, values, strict=True)
+    )
+    await session.flush()
+    return dataset
+
+
+async def test_a_run_resolves_a_symbol_from_the_projects_upload(
+    client, session, uploading
+):
+    """The end the whole upload path was built for.
+
+    Asserted through the route rather than against the steward, because the
+    wiring is the thing that was missing — every piece below it already worked.
+    """
+    project_id, chat_id = await make_project_and_chat(client)
+    await ingest_london(session, project_id)
+
+    async with client.stream(
+        "POST", f"/api/chats/{chat_id}/runs", json={"question": "Describe LONDON"}
+    ) as response:
+        body = "".join([chunk async for chunk in response.aiter_text()])
+
+    finished = [e for e in events(body) if e["event"] == "run.finished"]
+    assert finished, body
+    outcome = finished[0]["data"]["payload"]
+    assert outcome["status"] == "completed", outcome["error"]
+    assert outcome["quality"]["tickers"] == ["LONDON"]
+    assert "upload: hpi.csv" in outcome["quality"]["source"]

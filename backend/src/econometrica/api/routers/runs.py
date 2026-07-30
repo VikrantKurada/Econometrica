@@ -21,6 +21,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sse_starlette.sse import EventSourceResponse
 
@@ -41,6 +42,7 @@ from econometrica.api.deps import (
     get_chat_or_404,
     get_project_or_404,
 )
+from econometrica.data.project_source import build_project_source
 from econometrica.db.models import Chat, Project, Run
 from econometrica.econ.types import ResultSet
 from econometrica.llm.base import LLMProvider
@@ -217,7 +219,9 @@ async def start_run(
     chat = await get_chat_or_404(session, chat_id)
     project = await get_project_or_404(session, chat.project_id)
 
-    orchestrator = _build(project, chat, registry, source, rate_source, factor_source)
+    orchestrator = await _build(
+        project, chat, registry, source, rate_source, factor_source, session
+    )
 
     async def events() -> AsyncIterator[dict[str, str]]:
         outcome: RunOutcome | None = None
@@ -260,13 +264,14 @@ async def start_run(
 # --- internals --------------------------------------------------------------
 
 
-def _build(
+async def _build(
     project: Project,
     chat: Chat,
     registry: ProviderRegistry,
     source: PriceSourceDep,
     rate_source: PriceSourceDep,
     factor_source: FactorSourceDep,
+    session: AsyncSession,
 ) -> Orchestrator:
     planner_provider, planner_model = _bind("planner", project, registry)
     narrator_provider, narrator_model = _bind("narrator", project, registry)
@@ -286,12 +291,17 @@ def _build(
         provider, model = _bind("quant_coder", project, registry)
         coder = QuantCoder(provider, model)
 
+    # The project's own uploads take precedence over the configured market
+    # source, so one run can mix a file with fetched tickers. A project with no
+    # uploads gets `source` back unchanged.
+    prices = await build_project_source(session, project.id, market=source)
+
     return Orchestrator(
         planners=[
             Planner(planner_provider, planner_model, code_sandbox=capabilities.code_sandbox)
         ],
         steward=DataSteward(
-            source, rate_source=rate_source, factor_source=factor_source
+            prices, rate_source=rate_source, factor_source=factor_source
         ),
         validator=validator,
         narrator=Narrator(narrator_provider, narrator_model),
