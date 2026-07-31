@@ -45,6 +45,7 @@ from econometrica.charts.propose import propose_charts
 from econometrica.charts.spec import ChartSpec
 from econometrica.econ.diagnostics.engine import run_diagnostics
 from econometrica.econ.types import Diagnostic
+from econometrica.tools.retrieval import Retriever
 from econometrica.tools.web_search import SearchProvider, search
 
 Tier = Literal["single", "critic", "consensus"]
@@ -114,6 +115,7 @@ class Orchestrator:
         searcher: SearchProvider | None = None,
         web_search: bool = False,
         query_writer: QueryWriter | None = None,
+        retriever: Retriever | None = None,
         tier: Tier = "critic",
         max_revisions: int = 1,
     ) -> None:
@@ -143,6 +145,10 @@ class Orchestrator:
         #: Passed in for the same reason `searcher` is: `agents/` decides nothing
         #: about projects; the router supplies one only when the role is assigned.
         self.query_writer = query_writer
+        #: A project's own documents, retrieved for the Planner. Passed in like
+        #: `searcher`: `agents/` knows nothing about projects, and the router
+        #: supplies one only when the project has documents to retrieve.
+        self.retriever = retriever
         self.econometrician = Econometrician()
         self.tier: Tier = tier
         self.max_revisions = max_revisions
@@ -183,6 +189,7 @@ class Orchestrator:
         for warning in outcome.warnings:
             yield RunEvent(name="run.warning", detail=warning)
 
+        context = await self._retrieval_context(question, context, trace)
         context = await self._search_context(question, context, trace)
         plan = await self._plan(question, context, outcome, trace)
         # Before the data is fetched, not after: a run that is not permitted to
@@ -453,6 +460,31 @@ class Orchestrator:
         )
         if warning:
             outcome.warnings.append(warning)
+
+    async def _retrieval_context(
+        self, question: str, context: str, trace: TraceBuilder
+    ) -> str:
+        """A project's own documents as extra context for the Planner.
+
+        The Planner benefits and the Narrator must not: the grounding gate judges
+        the narration and withholds a whole one over a single number it cannot
+        match, and retrieved passages are dense with numbers — the same reason
+        web search is withheld from it. A retrieval that fails (the embedder is
+        unreachable) degrades the run rather than failing it.
+        """
+        if self.retriever is None:
+            return context
+
+        outcome = await self.retriever.fetch(question)
+        record = outcome.to_step_record()
+        record.prompt = question[:PROMPT_LIMIT]
+        record.response = outcome.as_context()[:PROMPT_LIMIT]
+        trace.add(record)
+
+        found = outcome.as_context()
+        if not found:
+            return context
+        return f"{context}\n\n{found}" if context else found
 
     async def _search_context(self, question: str, context: str, trace: TraceBuilder) -> str:
         """Web results as extra context for the Planner, or the context unchanged.

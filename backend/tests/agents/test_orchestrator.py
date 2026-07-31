@@ -89,6 +89,7 @@ def build(
     searcher: object | None = None,
     web_search: bool = False,
     query_writer_provider: FakeProvider | None = None,
+    retriever: object | None = None,
 ) -> tuple[Orchestrator, dict[str, FakeProvider]]:
     planner_fakes = planner_providers or [
         FakeProvider(name="p", responses=plans or [json.dumps(PLAN)])
@@ -110,6 +111,7 @@ def build(
         searcher=searcher,
         web_search=web_search,
         query_writer=query_writer,
+        retriever=retriever,
     )
     fakes = {
         "planner": planner_fakes[0],
@@ -660,3 +662,85 @@ async def test_the_writer_turn_precedes_the_search_and_the_plan():
         i for i, s in enumerate(outcome.trace) if s.agent == "planner" and s.kind == "llm"
     )
     assert writer < search < plan
+
+
+# --- retrieval --------------------------------------------------------------
+
+
+class SpyRetriever:
+    """A retriever that returns a scripted outcome and records the query."""
+
+    def __init__(self, *, hits=None, fail: str = "") -> None:
+        self.model = "spy-embed"
+        self._hits = [] if hits is None else hits
+        self._fail = fail
+        self.asked: list[str] = []
+
+    async def fetch(self, query: str):
+        from econometrica.tools.retrieval import RetrievalOutcome
+
+        self.asked.append(query)
+        if self._fail:
+            return RetrievalOutcome(model=self.model, query=query, failed=True, detail=self._fail)
+        return RetrievalOutcome(model=self.model, query=query, hits=self._hits)
+
+
+def a_passage():
+    from uuid import uuid4
+
+    from econometrica.tools.retrieval import Retrieved
+
+    return Retrieved(
+        document_id=uuid4(),
+        document_name="methodology.md",
+        ordinal=0,
+        text="Use the Fama-French five-factor model for this asset class.",
+        score=0.9,
+    )
+
+
+def retrieval_step(outcome):
+    return next(s for s in outcome.trace if (s.tool or "").startswith("retrieval:"))
+
+
+async def test_retrieved_passages_reach_the_planner():
+    spy = SpyRetriever(hits=[a_passage()])
+    orchestrator, fakes = build(retriever=spy)
+
+    await orchestrator.run(QUESTION)
+
+    assert spy.asked == [QUESTION]
+    assert "read from documents, not computed" in planner_prompt(fakes)
+    assert "Fama-French five-factor" in planner_prompt(fakes)
+
+
+async def test_without_a_retriever_nothing_is_retrieved():
+    orchestrator, _ = build()  # retriever is None
+
+    outcome = await orchestrator.run(QUESTION)
+
+    assert not any((s.tool or "").startswith("retrieval:") for s in outcome.trace)
+
+
+async def test_a_failed_retrieval_degrades_the_run():
+    spy = SpyRetriever(fail="ollama unreachable")
+    orchestrator, fakes = build(retriever=spy)
+
+    outcome = await orchestrator.run(QUESTION)
+
+    assert outcome.status == "completed"
+    assert "read from documents" not in planner_prompt(fakes)
+    assert retrieval_step(outcome).status == "failed"
+
+
+async def test_the_retrieval_step_precedes_the_plan():
+    spy = SpyRetriever(hits=[a_passage()])
+    orchestrator, _ = build(retriever=spy)
+
+    outcome = await orchestrator.run(QUESTION)
+
+    retrieval = outcome.trace.index(retrieval_step(outcome))
+    plan = next(
+        i for i, s in enumerate(outcome.trace) if s.agent == "planner" and s.kind == "llm"
+    )
+    assert retrieval < plan
