@@ -223,6 +223,20 @@ touching a search — which now includes `agents/`. Its tests still resolve
 through `resolve_capabilities` and pass `.web_search`, because the point of the
 disabled-search tests is that project-and-chat resolution decides.
 
+**Document retrieval is wired end to end, as of 2026-07-31.** A run consults a
+project's uploaded documents whenever it has any — **documents-presence is the
+gate, no toggle** — retrieving the passages relevant to the question into the
+Planner's context, never the Narrator's, for the same grounding-gate reason web
+search is withheld from it. Documents arrive through a route
+(`POST`/`GET`/`DELETE /api/projects/{id}/documents`, `.txt`/`.md`/`.pdf` with PDF
+via `pypdf`), and the trace step is `agent="planner"`, so this feature needs **no
+migration**. The seam is web search's, split because the concrete retriever
+touches the database: the `Retriever` protocol and `RetrievalOutcome` live in
+db-free `tools/retrieval.py` so `agents/` stays off `db.models`, while
+`ProjectRetriever` — which holds the session and project — lives in
+`services/rag.py`. Design and step plan:
+`docs/plans/2026-07-31-econometrica-retrieval-{design,implementation}.md`.
+
 **Retrieval is scoped by a column, not a join.** `document_chunks.project_id` is
 denormalised so a query filters on the row it ranks — a join can be forgotten,
 a `WHERE` on the row cannot. Chunks also record their embedding model and
@@ -287,11 +301,10 @@ resolved, `capm` beta 0.812.
 constructed one until now** — the claim above was true of the class and false
 of the application, which is the shape of gap worth looking for elsewhere in
 this tree. `tools/web_search.py` was the same shape and was wired on
-2026-07-30; **`services/rag.py` and `mcp/` are still imported only by their own
-tests**, and each needs its own design note — retrieval is missing an entire
-half (there is no route to add a document, so a project has nothing to retrieve
-from), and MCP has no schema for `project.mcp_servers` and nothing that decides
-*when* a tool gets called.
+2026-07-30; **`services/rag.py` was wired on 2026-07-31** (see below); **`mcp/`
+is now the one thing still imported only by its own tests** — it has no schema
+for `project.mcp_servers` and nothing that decides *when* a tool gets called, and
+it needs its own design note.
 
 **`data/project_source.py` is what closed it.** `build_project_source` wraps
 the configured market source with the project's uploads, **upload-first**: a

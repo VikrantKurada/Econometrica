@@ -92,6 +92,13 @@ compute statistics themselves.
 > computed, so a figure read on a web page is exactly as ungrounded as one a
 > model invented, and there is a test saying so.
 >
+> **A run also reads a project's own documents**, when it has any. Upload a
+> `.txt`, `.md` or `.pdf` and it is chunked into pgvector; a run then retrieves
+> the passages relevant to the question into the Planner's context — no toggle,
+> having documents is the opt-in. Retrieved text is held to the same rule as the
+> web: nothing read from a document can become a number, only what a tool
+> computed can.
+>
 > Every run records its own trace — a DAG of model calls and tool
 > invocations with tokens, latency and parent links, readable at
 > `GET /api/runs/{id}`. Rejected attempts are steps in their own right,
