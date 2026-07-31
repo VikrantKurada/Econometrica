@@ -112,7 +112,12 @@ Multipart file upload, mirroring `create_upload`. The flow:
 6. **`await session.commit()`.** This is the exact scar CLAUDE.md records: "`get_
    session` does not commit and the route did not either, so the whole ingest was
    discarded while the response reported what it would have stored." The commit is
-   not optional and its test must prove it (below).
+   not optional. Its test cannot read back through a separate session — the
+   test harness shares one rolled-back session, so a route's `commit()` is nested
+   in the fixture's outer transaction and durable to nobody. The only signal that
+   harness leaves is the call itself, so the test **counts commits** with a spy,
+   exactly as `test_confirming_commits_so_the_ingest_survives_the_request` does
+   for uploads.
 7. Return `DocumentRead`.
 
 Embedding failure (Ollama down) surfaces as **502** with the embedder's reason —
@@ -226,9 +231,10 @@ Strict TDD — each test written, run, and watched fail before the implementatio
 **`tests/api/test_documents.py`** (the routes):
 
 - add a `.txt`, then `GET` lists it with the right `chunks_count`;
-- **the commit test**: read the document back through a *separate* session, not
-  the request's — the shared-session client "cannot tell a flush from a write",
-  so only a second session proves the route committed;
+- **the commit test**: count `session.commit` calls with a spy — the
+  shared-session client "cannot tell a flush from a write", and a nested commit
+  is durable to no separate session either, so the call count is the only signal,
+  exactly as the uploads confirm-commit test asserts;
 - a second add of the same bytes → **409**;
 - an unsupported type → **415**; an empty document → **400**;
 - with the embedder stubbed to raise, add → **502** and nothing is stored;
