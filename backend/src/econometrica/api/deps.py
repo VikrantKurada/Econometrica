@@ -16,8 +16,10 @@ from econometrica.data.famafrench import FamaFrenchFactorSource
 from econometrica.data.registry import RATE_SOURCE, build_price_source
 from econometrica.db.models import Chat, Project
 from econometrica.db.session import get_session
+from econometrica.llm.embeddings import OllamaEmbedder
 from econometrica.llm.registry import ProviderRegistry
 from econometrica.services.keystore import KeyStore
+from econometrica.services.rag import Embedder
 from econometrica.services.uploads import UploadStore
 
 # Declared as an ``Annotated`` alias rather than a ``Depends()`` default so that
@@ -104,6 +106,20 @@ def get_upload_store() -> UploadStore:
 
 
 UploadStoreDep = Annotated[UploadStore, Depends(get_upload_store)]
+
+
+def get_embedder() -> Embedder:
+    """The embedding model for documents and retrieval.
+
+    `all-minilm` at 384 dimensions, the width `document_chunks.embedding` is
+    declared at. Constructing it is cheap and touches no network — `.embed` is
+    the only call that reaches Ollama — so a run that ends up not retrieving
+    pays nothing for holding one.
+    """
+    return OllamaEmbedder()
+
+
+EmbedderDep = Annotated[Embedder, Depends(get_embedder)]
 
 
 def _not_found(entity: str, entity_id: UUID) -> HTTPException:

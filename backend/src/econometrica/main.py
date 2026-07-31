@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from econometrica import __version__
 from econometrica.api.routers import (
     chats,
+    documents,
     exports,
     health,
     messages,
@@ -73,4 +74,6 @@ app.include_router(runs.traces)
 app.include_router(exports.router)
 app.include_router(uploads.router)
 app.include_router(uploads.uploads)
+app.include_router(documents.router)
+app.include_router(documents.documents)
 app.include_router(metrics.router)
