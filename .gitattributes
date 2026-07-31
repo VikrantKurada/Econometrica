@@ -1,0 +1,13 @@
+# Binary assets must never get EOL conversion — a PDF's byte offsets (its xref
+# table) are corrupted the moment LF becomes CRLF, which silently breaks it on a
+# fresh checkout. Test fixtures under tests/ live or die by this.
+*.pdf binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.xlsx binary
+*.parquet binary
