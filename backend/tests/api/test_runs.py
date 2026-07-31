@@ -649,3 +649,84 @@ async def test_a_run_does_not_build_a_provider_when_search_is_off(
     await client.post(f"/api/chats/{chat_id}/runs", json={"question": QUESTION})
 
     assert built == []
+
+
+async def test_a_run_uses_a_model_written_query_when_a_writer_is_assigned(
+    client, scripted, monkeypatch
+):
+    spy = RouteSpyProvider()
+    monkeypatch.setattr(
+        "econometrica.api.routers.runs.build_search_provider", lambda *a, **k: spy
+    )
+    # The shared scripted provider now serves three turns in order: the query
+    # writer, then the plan, then the narrative.
+    scripted.provider.responses = [
+        json.dumps({"queries": ["Nifty 50 ticker symbol Yahoo Finance"]}),
+        json.dumps(PLAN),
+        NARRATIVE,
+    ]
+
+    project = (await client.post("/api/projects", json={"name": "Writer"})).json()
+    await client.patch(
+        f"/api/projects/{project['id']}",
+        json={
+            "validation_tier": "single",
+            "web_search_enabled": True,
+            "model_assignments": {
+                "planner": {"provider": "ollama", "model": "fake-1"},
+                "narrator": {"provider": "ollama", "model": "fake-1"},
+                "query_writer": {"provider": "ollama", "model": "fake-1"},
+            },
+        },
+    )
+    chat = (
+        await client.post(f"/api/projects/{project['id']}/chats", json={"name": "c"})
+    ).json()
+
+    response = await client.post(
+        f"/api/chats/{chat['id']}/runs", json={"question": QUESTION}
+    )
+
+    assert response.status_code == 200
+    assert spy.asked == ["Nifty 50 ticker symbol Yahoo Finance"]
+    trace = events(response.text)[-1]["data"]["payload"]["trace"]
+    assert any(
+        step["agent"] == "query_writer" and step["kind"] == "llm" for step in trace
+    )
+
+
+async def test_a_misconfigured_query_writer_degrades_to_the_verbatim_question(
+    client, scripted, monkeypatch
+):
+    """A search aid must not 503 a run. Unknown provider on the writer role ->
+    no writer built -> the verbatim question is searched."""
+    spy = RouteSpyProvider()
+    monkeypatch.setattr(
+        "econometrica.api.routers.runs.build_search_provider", lambda *a, **k: spy
+    )
+    # No writer turn is consumed, because the writer is never built.
+    scripted.provider.responses = [json.dumps(PLAN), NARRATIVE]
+
+    project = (await client.post("/api/projects", json={"name": "Broken"})).json()
+    await client.patch(
+        f"/api/projects/{project['id']}",
+        json={
+            "validation_tier": "single",
+            "web_search_enabled": True,
+            "model_assignments": {
+                "planner": {"provider": "ollama", "model": "fake-1"},
+                "narrator": {"provider": "ollama", "model": "fake-1"},
+                "query_writer": {"provider": "nope", "model": "m"},
+            },
+        },
+    )
+    chat = (
+        await client.post(f"/api/projects/{project['id']}/chats", json={"name": "c"})
+    ).json()
+
+    response = await client.post(
+        f"/api/chats/{chat['id']}/runs", json={"question": QUESTION}
+    )
+
+    assert response.status_code == 200
+    assert spy.asked == [QUESTION]

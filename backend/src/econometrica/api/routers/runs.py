@@ -31,6 +31,7 @@ from econometrica.agents.narrator import Narrator
 from econometrica.agents.orchestrator import TIERS, Orchestrator, RunOutcome, Tier
 from econometrica.agents.planner import Planner
 from econometrica.agents.quant_coder import QuantCoder
+from econometrica.agents.query_writer import QueryWriter
 from econometrica.agents.schemas import AnalysisPlan
 from econometrica.agents.validator import Validator
 from econometrica.api.deps import (
@@ -324,6 +325,19 @@ async def _build(
             # which the orchestrator reads as "none configured".
             searcher = None
 
+    # Built only when search is on and the role is assigned. A misconfigured
+    # writer must not 503 a run: it is a search aid, and the web-search subsystem
+    # degrades rather than fails. Only a core role (planner, narrator) is worth
+    # refusing a run over. Mirrors the searcher build, which swallows its own
+    # construction errors for the same reason.
+    query_writer = None
+    if capabilities.web_search and "query_writer" in (project.model_assignments or {}):
+        try:
+            qw_provider, qw_model = _bind("query_writer", project, registry)
+            query_writer = QueryWriter(qw_provider, qw_model)
+        except HTTPException:
+            query_writer = None
+
     coder = None
     if capabilities.code_sandbox and "quant_coder" in (project.model_assignments or {}):
         provider, model = _bind("quant_coder", project, registry)
@@ -347,6 +361,7 @@ async def _build(
         code_sandbox=capabilities.code_sandbox,
         searcher=searcher,
         web_search=capabilities.web_search,
+        query_writer=query_writer,
         tier=tier,
     )
 
