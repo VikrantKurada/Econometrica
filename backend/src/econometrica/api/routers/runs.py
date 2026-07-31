@@ -35,6 +35,7 @@ from econometrica.agents.query_writer import QueryWriter
 from econometrica.agents.schemas import AnalysisPlan
 from econometrica.agents.validator import Validator
 from econometrica.api.deps import (
+    EmbedderDep,
     FactorSourceDep,
     PriceSourceDep,
     ProviderRegistryDep,
@@ -46,7 +47,7 @@ from econometrica.api.deps import (
 from econometrica.config import get_settings
 from econometrica.data.base import DataUnavailableError
 from econometrica.data.project_source import build_project_source
-from econometrica.db.models import Chat, Project, Run
+from econometrica.db.models import Chat, DocumentChunk, Project, Run
 from econometrica.econ.types import ResultSet
 from econometrica.llm.base import LLMProvider
 from econometrica.llm.registry import ProviderRegistry
@@ -58,6 +59,7 @@ from econometrica.schemas.run import (
     StepReproduction,
 )
 from econometrica.services.capabilities import resolve_capabilities
+from econometrica.services.rag import ProjectRetriever
 from econometrica.services.tracing import record_run
 from econometrica.tools.web_search import build_search_provider
 
@@ -236,13 +238,14 @@ async def start_run(
     source: PriceSourceDep,
     rate_source: RateSourceDep,
     factor_source: FactorSourceDep,
+    embedder: EmbedderDep,
 ) -> EventSourceResponse:
     """Run the full pipeline for one question, streaming progress as SSE."""
     chat = await get_chat_or_404(session, chat_id)
     project = await get_project_or_404(session, chat.project_id)
 
     orchestrator = await _build(
-        project, chat, registry, source, rate_source, factor_source, session
+        project, chat, registry, source, rate_source, factor_source, session, embedder
     )
 
     async def events() -> AsyncIterator[dict[str, str]]:
@@ -294,6 +297,7 @@ async def _build(
     rate_source: PriceSourceDep,
     factor_source: FactorSourceDep,
     session: AsyncSession,
+    embedder: EmbedderDep,
 ) -> Orchestrator:
     planner_provider, planner_model = _bind("planner", project, registry)
     narrator_provider, narrator_model = _bind("narrator", project, registry)
@@ -338,6 +342,18 @@ async def _build(
         except HTTPException:
             query_writer = None
 
+    # Documents-presence is the gate: no toggle. A run retrieves whenever the
+    # project has indexed chunks, and never embeds when it has none. The check is
+    # an EXISTS, not a COUNT — one row is enough to know.
+    retriever = None
+    has_documents = await session.scalar(
+        select(DocumentChunk.document_id)
+        .where(DocumentChunk.project_id == project.id)
+        .limit(1)
+    )
+    if has_documents is not None:
+        retriever = ProjectRetriever(session, project.id, embedder)
+
     coder = None
     if capabilities.code_sandbox and "quant_coder" in (project.model_assignments or {}):
         provider, model = _bind("quant_coder", project, registry)
@@ -362,6 +378,7 @@ async def _build(
         searcher=searcher,
         web_search=capabilities.web_search,
         query_writer=query_writer,
+        retriever=retriever,
         tier=tier,
     )
 

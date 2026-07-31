@@ -730,3 +730,66 @@ async def test_a_misconfigured_query_writer_degrades_to_the_verbatim_question(
 
     assert response.status_code == 200
     assert spy.asked == [QUESTION]
+
+
+# --- retrieval ----------------------------------------------------------------
+
+
+class RunFakeEmbedder:
+    model = "fake-embed"
+    dimensions = 8
+
+    async def embed(self, texts):
+        return [[float(len(t) % 5)] + [0.0] * 7 for t in texts]
+
+
+async def test_a_run_retrieves_when_the_project_has_documents(client, scripted, session):
+    from econometrica.api.deps import get_embedder
+    from econometrica.services.rag import ingest_document
+
+    fake = RunFakeEmbedder()
+    app.dependency_overrides[get_embedder] = lambda: fake
+    scripted.provider.responses = [json.dumps(PLAN), NARRATIVE]
+    try:
+        project = (await client.post("/api/projects", json={"name": "R"})).json()
+        await client.patch(
+            f"/api/projects/{project['id']}",
+            json={
+                "validation_tier": "single",
+                "model_assignments": {
+                    "planner": {"provider": "ollama", "model": "fake-1"},
+                    "narrator": {"provider": "ollama", "model": "fake-1"},
+                },
+            },
+        )
+        # A document to retrieve, ingested through the same shared session.
+        await ingest_document(
+            session,
+            project_id=UUID(project["id"]),
+            name="m.txt",
+            text="Beta exceeded one.",
+            embedder=fake,
+        )
+        await session.flush()
+
+        chat = (
+            await client.post(f"/api/projects/{project['id']}/chats", json={"name": "c"})
+        ).json()
+        response = await client.post(
+            f"/api/chats/{chat['id']}/runs", json={"question": "beta"}
+        )
+    finally:
+        app.dependency_overrides.pop(get_embedder, None)
+
+    assert response.status_code == 200
+    trace = events(response.text)[-1]["data"]["payload"]["trace"]
+    assert any((s["tool"] or "").startswith("retrieval:") for s in trace)
+
+
+async def test_a_run_without_documents_does_not_retrieve(client, scripted):
+    chat_id = await make_chat(client)  # a fresh project, no documents
+
+    response = await client.post(f"/api/chats/{chat_id}/runs", json={"question": QUESTION})
+
+    trace = events(response.text)[-1]["data"]["payload"]["trace"]
+    assert not any((s["tool"] or "").startswith("retrieval:") for s in trace)
