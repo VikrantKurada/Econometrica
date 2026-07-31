@@ -12,6 +12,7 @@ from econometrica.agents.data_steward import DataSteward
 from econometrica.agents.narrator import Narrator
 from econometrica.agents.orchestrator import Orchestrator, RunEvent
 from econometrica.agents.planner import Planner
+from econometrica.agents.query_writer import QueryWriter
 from econometrica.agents.validator import Validator
 from econometrica.charts.spec import unresolved_references
 from econometrica.llm.errors import ProviderUnavailableError
@@ -87,12 +88,18 @@ def build(
     source: object | None = None,
     searcher: object | None = None,
     web_search: bool = False,
+    query_writer_provider: FakeProvider | None = None,
 ) -> tuple[Orchestrator, dict[str, FakeProvider]]:
     planner_fakes = planner_providers or [
         FakeProvider(name="p", responses=plans or [json.dumps(PLAN)])
     ]
     validator_fake = FakeProvider(name="v", responses=verdicts or [APPROVED])
     narrator_fake = FakeProvider(name="n", responses=prose or [narrative()])
+    query_writer = (
+        QueryWriter(query_writer_provider, "fake-1")
+        if query_writer_provider is not None
+        else None
+    )
 
     orchestrator = Orchestrator(
         planners=[Planner(fake, "fake-1") for fake in planner_fakes],
@@ -102,12 +109,16 @@ def build(
         tier=tier,
         searcher=searcher,
         web_search=web_search,
+        query_writer=query_writer,
     )
-    return orchestrator, {
+    fakes = {
         "planner": planner_fakes[0],
         "validator": validator_fake,
         "narrator": narrator_fake,
     }
+    if query_writer_provider is not None:
+        fakes["query_writer"] = query_writer_provider
+    return orchestrator, fakes
 
 
 # --- the happy path ---------------------------------------------------------
@@ -522,16 +533,71 @@ def search_step(outcome):
     return next(step for step in outcome.trace if (step.tool or "").startswith("web_search:"))
 
 
-async def test_search_context_reaches_the_planner():
+#: The query a scripted writer emits. The fake does not reason about the
+#: question — it returns this — so a test asserts the searcher was handed
+#: exactly this, which the verbatim question never was.
+QUERY = "Nifty 50 ticker symbol Yahoo Finance"
+
+
+def a_query(*queries: str) -> FakeProvider:
+    """A writer fake that emits `queries` (defaulting to the one QUERY)."""
+    payload = {"queries": list(queries) or [QUERY]}
+    return FakeProvider(name="q", responses=[json.dumps(payload)])
+
+
+def query_writer_step(outcome):
+    return next(s for s in outcome.trace if s.agent == "query_writer" and s.kind == "llm")
+
+
+async def test_a_model_written_query_is_searched_not_the_verbatim_question():
     provider = SpyProvider([a_result()])
-    orchestrator, fakes = build(searcher=provider, web_search=True)
+    orchestrator, fakes = build(
+        searcher=provider, web_search=True, query_writer_provider=a_query()
+    )
+
+    await orchestrator.run(QUESTION)
+
+    assert provider.asked == [QUERY]  # the generated query, not QUESTION
+    # The header is what tells the model this text is read, not computed.
+    assert "read from the web, not computed" in planner_prompt(fakes)
+    assert "^NSEI" in planner_prompt(fakes)  # the results still reach the Planner
+
+
+async def test_without_a_query_writer_the_verbatim_question_is_the_floor():
+    provider = SpyProvider([a_result()])
+    orchestrator, _ = build(searcher=provider, web_search=True)  # no writer
 
     await orchestrator.run(QUESTION)
 
     assert provider.asked == [QUESTION]
-    # The header is what tells the model this text is read, not computed.
-    assert "read from the web, not computed" in planner_prompt(fakes)
-    assert "^NSEI" in planner_prompt(fakes)
+
+
+async def test_at_most_three_queries_are_searched():
+    provider = SpyProvider([a_result()])
+    orchestrator, _ = build(
+        searcher=provider,
+        web_search=True,
+        query_writer_provider=a_query(*(f"q{n} ticker symbol" for n in range(5))),
+    )
+
+    await orchestrator.run(QUESTION)
+
+    assert len(provider.asked) == 3
+
+
+async def test_a_writer_that_will_not_answer_falls_back_to_the_verbatim_question():
+    provider = SpyProvider([a_result()])
+    # Two unparseable replies exhaust the writer's attempts.
+    orchestrator, _ = build(
+        searcher=provider,
+        web_search=True,
+        query_writer_provider=FakeProvider(name="q", responses=["not json", "still not json"]),
+    )
+
+    outcome = await orchestrator.run(QUESTION)
+
+    assert provider.asked == [QUESTION]
+    assert outcome.status == "completed"
 
 
 async def test_a_disabled_search_never_reaches_the_provider():
@@ -541,7 +607,9 @@ async def test_a_disabled_search_never_reaches_the_provider():
     called and its results dropped, which is the bug worth preventing.
     """
     provider = SpyProvider([a_result()])
-    orchestrator, _ = build(searcher=provider, web_search=False)
+    orchestrator, _ = build(
+        searcher=provider, web_search=False, query_writer_provider=a_query()
+    )
 
     await orchestrator.run(QUESTION)
 
@@ -550,7 +618,9 @@ async def test_a_disabled_search_never_reaches_the_provider():
 
 async def test_a_failed_search_degrades_the_run_rather_than_failing_it():
     provider = SpyProvider(boom="the endpoint returned 503")
-    orchestrator, fakes = build(searcher=provider, web_search=True)
+    orchestrator, fakes = build(
+        searcher=provider, web_search=True, query_writer_provider=a_query()
+    )
 
     outcome = await orchestrator.run(QUESTION)
 
@@ -561,18 +631,32 @@ async def test_a_failed_search_degrades_the_run_rather_than_failing_it():
     assert "503" in step.detail
 
 
-async def test_the_search_step_records_what_the_planner_was_shown():
+async def test_the_search_step_records_the_query_it_ran():
     provider = SpyProvider([a_result()])
-    orchestrator, _ = build(searcher=provider, web_search=True)
+    orchestrator, _ = build(
+        searcher=provider, web_search=True, query_writer_provider=a_query()
+    )
 
     outcome = await orchestrator.run(QUESTION)
 
     step = search_step(outcome)
     assert step.kind == "tool"
-    assert step.agent == "planner"
-    assert step.prompt == QUESTION
+    assert step.agent == "planner"  # the search feeds the planner
+    assert step.prompt == QUERY  # the query it ran, not the question
     assert "^NSEI" in step.response
-    # It informed the plan, so it has to precede the plan in the trace.
-    assert outcome.trace.index(step) < next(
+
+
+async def test_the_writer_turn_precedes_the_search_and_the_plan():
+    provider = SpyProvider([a_result()])
+    orchestrator, _ = build(
+        searcher=provider, web_search=True, query_writer_provider=a_query()
+    )
+
+    outcome = await orchestrator.run(QUESTION)
+
+    writer = outcome.trace.index(query_writer_step(outcome))
+    search = outcome.trace.index(search_step(outcome))
+    plan = next(
         i for i, s in enumerate(outcome.trace) if s.agent == "planner" and s.kind == "llm"
     )
+    assert writer < search < plan

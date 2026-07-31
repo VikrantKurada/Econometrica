@@ -23,7 +23,11 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-from econometrica.agents.base import PROMPT_LIMIT
+from econometrica.agents.base import (
+    PROMPT_LIMIT,
+    AgentAttemptsExhaustedError,
+    AgentRefusedError,
+)
 from econometrica.agents.data_steward import DataQualityReport, DataSteward
 from econometrica.agents.econometrician import Econometrician, ExecutionReport, StepOutcome
 from econometrica.agents.narrator import Narration, Narrator
@@ -33,6 +37,7 @@ from econometrica.agents.quant_coder import (
     SandboxNotPermittedError,
     check_permitted,
 )
+from econometrica.agents.query_writer import QueryWriter
 from econometrica.agents.schemas import AnalysisPlan, ValidationVerdict
 from econometrica.agents.trace import StepRecord, TraceBuilder, tool_call_hash
 from econometrica.agents.validator import Validator, independence_warning
@@ -46,6 +51,11 @@ Tier = Literal["single", "critic", "consensus"]
 TIERS: tuple[Tier, ...] = ("single", "critic", "consensus")
 
 RunStatus = Literal["completed", "blocked", "failed"]
+
+#: The most queries a run will search. A question naming two instruments needs
+#: two lookups; a small headroom is cheap. Above this is a runaway model, not a
+#: real question, and each query is a live call against a contract-free endpoint.
+MAX_SEARCH_QUERIES = 3
 
 #: The Econometrician's own status words, in the trace's vocabulary. "ran" is
 #: the only one that differs, and only because "ok" reads better beside a
@@ -103,6 +113,7 @@ class Orchestrator:
         code_sandbox: bool = False,
         searcher: SearchProvider | None = None,
         web_search: bool = False,
+        query_writer: QueryWriter | None = None,
         tier: Tier = "critic",
         max_revisions: int = 1,
     ) -> None:
@@ -127,6 +138,11 @@ class Orchestrator:
         #: this project.
         self.searcher = searcher
         self.web_search = web_search
+        #: Writes the search queries when present. Absent means the verbatim
+        #: question is searched — the floor this feature never does worse than.
+        #: Passed in for the same reason `searcher` is: `agents/` decides nothing
+        #: about projects; the router supplies one only when the role is assigned.
+        self.query_writer = query_writer
         self.econometrician = Econometrician()
         self.tier: Tier = tier
         self.max_revisions = max_revisions
@@ -444,34 +460,61 @@ class Orchestrator:
         The Planner is the agent that benefits: it picks tickers and a window
         out of prose, and the failures this exists to reduce are exactly that —
         a Planner invented `LON` for London real estate and `NSEI` for the Nifty
-        50, and both runs died in the Data Steward rather than in the model.
+        50 (the real symbol is `^NSEI`), and both runs died in the Data Steward.
 
-        Deliberately not offered to the Narrator. The Narrator's output is what
-        the grounding gate judges, the gate withholds a whole narration over a
-        single number it cannot match, and web snippets are dense with numbers.
-        A reader left with no interpretation is worse off than one left with an
-        uninformed interpretation.
+        The verbatim question is a poor query for that — it returns commentary,
+        not a symbol — so a query writer turns it into symbol-shaped lookups
+        first. Deliberately not offered to the Narrator: its output is what the
+        grounding gate judges, the gate withholds a whole narration over one
+        number it cannot match, and web snippets are dense with numbers.
         """
         if not (self.web_search and self.searcher is not None):
             return context
 
-        outcome = await search(question, provider=self.searcher, enabled=self.web_search)
+        blocks: list[str] = []
+        for query in await self._search_queries(question, trace):
+            outcome = await search(query, provider=self.searcher, enabled=self.web_search)
+            record = outcome.to_step_record()
+            # The fields 6.10 added to answer "what was the model actually
+            # shown" — here the query it ran and the results it found.
+            record.prompt = query[:PROMPT_LIMIT]
+            record.response = outcome.as_context()[:PROMPT_LIMIT]
+            trace.add(record)
+            found = outcome.as_context()
+            if found:
+                blocks.append(found)
 
-        record = outcome.to_step_record()
-        # The fields 6.10 added to answer "what was the model actually shown".
-        # Without them the trace says a search happened but not what it found,
-        # which is most of what a reader wants from a step that shaped the plan.
-        record.prompt = question[:PROMPT_LIMIT]
-        record.response = outcome.as_context()[:PROMPT_LIMIT]
-        trace.add(record)
-
-        found = outcome.as_context()
-        if not found:
+        if not blocks:
             # A failed or empty search leaves the context alone rather than
             # appending a bare header, which would tell the model a search ran
             # and found nothing — a different claim from no search at all.
             return context
-        return f"{context}\n\n{found}" if context else found
+        combined = "\n\n".join(blocks)
+        return f"{context}\n\n{combined}" if context else combined
+
+    async def _search_queries(self, question: str, trace: TraceBuilder) -> list[str]:
+        """The queries to search: model-written when a writer is configured,
+        the verbatim question otherwise.
+
+        A writer that refuses or cannot produce a usable reply falls back to the
+        question. Search is context; losing it — or the whole run — to a query
+        writer that would not answer is the worse trade.
+        """
+        if self.query_writer is None:
+            return [question]
+        try:
+            result = await self.query_writer.write(question)
+        except (AgentAttemptsExhaustedError, AgentRefusedError):
+            return [question]
+
+        trace.add_agent_turn(
+            result,
+            agent="query_writer",
+            provider=getattr(self.query_writer.provider, "name", None),
+            model=self.query_writer.model,
+            parent=trace.last,
+        )
+        return result.output.queries[:MAX_SEARCH_QUERIES] or [question]
 
     async def _plan(
         self, question: str, context: str, outcome: RunOutcome, trace: TraceBuilder
