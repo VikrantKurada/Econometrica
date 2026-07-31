@@ -21,7 +21,6 @@ as a fragment that reads like a claim with its qualifier removed.
 import hashlib
 import re
 from collections.abc import Sequence
-from dataclasses import dataclass
 from typing import Protocol
 from uuid import UUID
 
@@ -30,6 +29,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from econometrica.db.models import Document, DocumentChunk
 from econometrica.db.models.document import EMBEDDING_DIMENSIONS
+from econometrica.tools.retrieval import Retrieved
 
 #: Characters per chunk, and how much consecutive chunks share. The overlap is
 #: what stops an answer that straddles a boundary from being invisible to both
@@ -72,18 +72,6 @@ class Embedder(Protocol):
     async def embed(self, texts: list[str]) -> list[list[float]]:
         """One vector per input, in the order given."""
         ...
-
-
-@dataclass(frozen=True)
-class Retrieved:
-    """One passage, and where it came from."""
-
-    document_id: UUID
-    document_name: str
-    ordinal: int
-    text: str
-    #: 0 to 1, from cosine distance. Comparable within one query only.
-    score: float
 
 
 def chunk_text(
@@ -245,23 +233,3 @@ def _padded(vector: Sequence[float], dimensions: int = EMBEDDING_DIMENSIONS) -> 
             " rather than a truncation"
         )
     return values + [0.0] * (dimensions - len(values))
-
-
-def as_context(hits: Sequence[Retrieved]) -> str:
-    """Retrieved passages as prompt text, each attributed.
-
-    Attribution is not decoration: §9 asks retrieval to be attributed in the
-    trace, and a passage whose source cannot be named is a quotation from
-    nowhere. The header also marks the text as *read* rather than *computed*,
-    which is the distinction the grounding gate enforces mechanically.
-    """
-    if not hits:
-        return ""
-    blocks = [
-        f"[{hit.document_name} #{hit.ordinal}]\n{hit.text}" for hit in hits
-    ]
-    return (
-        "# Retrieved context — read from documents, not computed.\n"
-        "Nothing here is a result. Do not cite a number from it.\n\n"
-        + "\n\n".join(blocks)
-    )
