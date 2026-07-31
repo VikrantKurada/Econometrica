@@ -146,13 +146,16 @@ become a source of numbers — the grounding gate admits only what a registry to
 computed, and both web search and retrieval have a test proving a figure quoted
 verbatim out of their text is still blocked.
 
-**Web search runs, as of 2026-07-30.** `Orchestrator._search_context` searches
-the user's question **verbatim, before planning**, and appends the attributed
-results to the Planner's context. The motivation is in this repo's own history:
-a Planner invented `LON` for London real estate and `NSEI` for the Nifty 50 (the
-real symbol is `^NSEI`), and both runs died in the Data Steward. Neither was a
-reasoning failure — both were a model asked to name a listed instrument with
-nothing in front of it.
+**Web search runs, and since 2026-07-31 it writes its own query.**
+`Orchestrator._search_context` no longer searches the question verbatim — a
+`QueryWriter` turns it into up to three **symbol-shaped** lookups first (`Nifty
+50 ticker symbol Yahoo Finance`), searches each **before planning**, and appends
+the attributed results to the Planner's context. The motivation is in this
+repo's own history: a Planner invented `LON` for London real estate and `NSEI`
+for the Nifty 50 (the real symbol is `^NSEI`), and both runs died in the Data
+Steward. Neither was a reasoning failure — both were a model asked to name a
+listed instrument with nothing in front of it. Design and step plan:
+`docs/plans/2026-07-31-econometrica-search-query-{design,implementation}.md`.
 
 **The Narrator deliberately does not get it, and that is a mechanism.** The
 Narrator's output is what the grounding gate judges, the gate withholds an
@@ -161,21 +164,33 @@ with numbers. A reader left with no interpretation is worse off than one left
 with an uninformed interpretation. Giving it to the Narrator needs a design that
 answers that first.
 
-**Two constructor parameters, not one** — `searcher` and `web_search`, mirroring
-`coder`/`code_sandbox`. A provider may be absent because none is configured on
-this deployment, which is not the same as search being off for this project.
-`agents/` still knows nothing about projects or chats; `api/routers/runs.py`
-decides, and builds a provider **only** when the capability is on, so a project
-with search off never constructs one. The test asserts on construction, not on
-the trace.
+**Three constructor parameters for search, not one** — `searcher`, `web_search`,
+and `query_writer`, mirroring `coder`/`code_sandbox`. A provider may be absent
+because none is configured on this deployment, which is not the same as search
+being off for this project. `agents/` still knows nothing about projects or
+chats; `api/routers/runs.py` decides, and builds each **only** when the
+capability is on, so a project with search off never constructs one. The test
+asserts on construction, not on the trace.
+
+**The query writer is a dedicated model role**, `query_writer`, assigned in
+`Project.model_assignments` beside `validator` and `quant_coder`. It is **not**
+required: a project with search on but no writer assigned searches the verbatim
+question — the floor the feature never does worse than — and a *misconfigured*
+writer (unknown provider, no key) degrades to that floor rather than 503-ing,
+caught the same way the searcher build is. Its billed turn is traced as
+`agent="query_writer"` (which cost the `quant_coder` CHECK-migration dance again
+— `f0a1c2d3e4b5`); the searches stay `agent="planner"`, because they feed the
+planner. `MAX_SEARCH_QUERIES = 3`, searched sequentially to be gentle on the
+keyless DuckDuckGo endpoint. **The Narrator still never sees the results** — that
+mechanism is untouched.
 
 **`ECONOMETRICA_SEARCH_PROVIDER`** picks the engine, default `duckduckgo`. Brave
 needs `BRAVE_API_KEY` — a settings field, **not** the keystore, which is reached
 through a route that validates names against the *LLM* provider registry. A
 misconfigured provider degrades to no searcher rather than refusing the run.
 
-**The verbatim question is a poor search query, and this is measured, not
-suspected.** Probed 2026-07-30 against live DuckDuckGo:
+**Why the writer exists — the verbatim question is a poor search query, and this
+is measured, not suspected.** Probed 2026-07-30 against live DuckDuckGo:
 
 | query | symbols surfaced |
 |---|---|
@@ -183,13 +198,15 @@ suspected.** Probed 2026-07-30 against live DuckDuckGo:
 | "Nifty 50 Yahoo Finance ticker symbol" | **`^NSEI`** — top hit is "NIFTY 50 (^NSEI) - Yahoo Finance" |
 | "How has London's real estate moved over the last 30 years?" | none |
 
-So the wiring works and **the motivating case is not yet fixed**: re-running the
-NSEI question with search on, the Planner invented `NIFTY 50` and the run died
-in the Data Steward exactly as before. An analytical question returns market
-commentary; a symbol-shaped query returns the symbol. Closing this means one
-model-written query before planning — a billed turn and a parse that can fail,
-which is why it was deferred rather than assumed. Do not treat "search is
-wired" as "the Planner names real tickers now".
+**Closed 2026-07-31, and verified against reality.** `ministral-3:8b` turned the
+NSEI question into `Nifty 50 ticker symbol Yahoo Finance`, whose top hit is
+`NIFTY 50 (^NSEI) — Yahoo Finance`, so the Planner is now handed `^NSEI` instead
+of inventing `NIFTY 50`. The live proof is
+`tests/agents/test_live_query_writer.py`, which asserts the *symbol* comes back,
+never the arithmetic — a smaller model may need a prompt nudge, so the assertion
+is on `^NSEI`, not the answer. The writer's whole job is to produce a
+symbol-shaped query from an analytical one, which no string transform can do (it
+must pull "Nifty 50" out of "National Stock Exchange of India") and a model can.
 
 **Web search reads the *resolved* capability**, so a chat that turned it off is
 honoured, and a disabled search never reaches the provider. A failed search

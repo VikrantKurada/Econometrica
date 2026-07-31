@@ -84,11 +84,13 @@ compute statistics themselves.
 > flag. Left unset, a run refuses with an explanation rather than inventing data.
 >
 > **A run can read the web for context**, when a project turns it on — off by
-> default. The question is searched before planning and the attributed results
-> go to the Planner, which is the agent that has to name a real ticker from
-> prose. Nothing it returns can become a number: the grounding gate admits only
-> what a tool computed, so a figure read on a web page is exactly as ungrounded
-> as one a model invented, and there is a test saying so.
+> default. A small model first turns the question into symbol-shaped lookups
+> ("Nifty 50 ticker symbol Yahoo Finance"); those are searched before planning,
+> and the attributed results go to the Planner — the agent that has to name a
+> real ticker from prose, and that used to invent one. Nothing the search
+> returns can become a number: the grounding gate admits only what a tool
+> computed, so a figure read on a web page is exactly as ungrounded as one a
+> model invented, and there is a test saying so.
 >
 > Every run records its own trace — a DAG of model calls and tool
 > invocations with tokens, latency and parent links, readable at
