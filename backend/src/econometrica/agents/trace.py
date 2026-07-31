@@ -34,6 +34,9 @@ AGENTS = (
     # so it is a first-class agent in the trace rather than folded into the
     # econometrician's rows.
     "quant_coder",
+    # Written before planning: turns the question into symbol-shaped search
+    # queries so the Planner is shown real tickers instead of inventing them.
+    "query_writer",
 )
 
 

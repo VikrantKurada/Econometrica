@@ -192,3 +192,17 @@ async def test_a_quant_coder_step_is_accepted(session):
     session.add(Step(run_id=run.id, agent="quant_coder", kind="llm", status="ok"))
 
     await session.flush()
+
+
+async def test_a_query_writer_step_is_accepted(session):
+    """The query writer's billed turn has to reach the trace.
+
+    Exercises the *model's* constraint against Postgres. Whether the
+    hand-written migration widening `ck_run_steps_agent_known` exists is
+    `test_every_value_in_a_check_constraint_vocabulary_reaches_a_migration`'s
+    job — the test database is built with `create_all`, not the migrations.
+    """
+    run = await make_run(session)
+    session.add(Step(run_id=run.id, agent="query_writer", kind="llm", status="ok"))
+
+    await session.flush()

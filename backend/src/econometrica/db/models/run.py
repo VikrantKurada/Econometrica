@@ -53,6 +53,7 @@ STEP_AGENTS = (
     "validator",
     "narrator",
     "quant_coder",
+    "query_writer",
 )
 STEP_KINDS = ("llm", "tool")
 STEP_STATUSES = ("ok", "refused", "failed", "skipped")
