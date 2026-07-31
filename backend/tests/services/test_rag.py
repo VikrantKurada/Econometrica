@@ -316,6 +316,44 @@ async def test_a_hit_is_attributable(session):
     assert 0.0 <= hit.score <= 1.0
 
 
+# --- the concrete retriever -----------------------------------------------------
+
+
+async def test_project_retriever_returns_an_attributed_outcome(session):
+    from econometrica.services.rag import ProjectRetriever
+
+    project = await make_project(session)
+    embedder = FakeEmbedder()
+    await ingest_document(
+        session,
+        project_id=project.id,
+        name="notes.txt",
+        text="Beta exceeded one.",
+        embedder=embedder,
+    )
+
+    outcome = await ProjectRetriever(session, project.id, embedder).fetch("beta")
+
+    assert outcome.failed is False
+    assert outcome.model == "fake-embed"
+    assert outcome.query == "beta"
+    assert outcome.hits and outcome.hits[0].document_name == "notes.txt"
+
+
+async def test_project_retriever_degrades_when_the_embedder_fails(session):
+    from econometrica.services.rag import ProjectRetriever
+
+    project = await make_project(session)
+    broken = FakeEmbedder(error=RuntimeError("model not pulled"))
+
+    outcome = await ProjectRetriever(session, project.id, broken).fetch("beta")
+
+    # Degrades, does not raise: a run with less context beats a lost run.
+    assert outcome.failed is True
+    assert "not pulled" in outcome.detail
+    assert outcome.hits == []
+
+
 # --- the invariant --------------------------------------------------------------
 
 

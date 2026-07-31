@@ -29,7 +29,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from econometrica.db.models import Document, DocumentChunk
 from econometrica.db.models.document import EMBEDDING_DIMENSIONS
-from econometrica.tools.retrieval import Retrieved
+from econometrica.tools.retrieval import RetrievalOutcome, Retrieved
 
 #: Characters per chunk, and how much consecutive chunks share. The overlap is
 #: what stops an answer that straddles a boundary from being invisible to both
@@ -233,3 +233,40 @@ def _padded(vector: Sequence[float], dimensions: int = EMBEDDING_DIMENSIONS) -> 
             " rather than a truncation"
         )
     return values + [0.0] * (dimensions - len(values))
+
+
+class ProjectRetriever:
+    """The concrete `Retriever`, bound to one project's documents.
+
+    Holds the session and project so the orchestrator does not have to — it sees
+    only `tools.retrieval.Retriever`. An embedding failure mid-run becomes a
+    *failed* outcome rather than a raise: retrieval is context, and a run with
+    less context is better than a run lost to an unreachable model.
+    """
+
+    def __init__(
+        self,
+        session: AsyncSession,
+        project_id: UUID,
+        embedder: Embedder,
+        *,
+        limit: int = DEFAULT_LIMIT,
+    ) -> None:
+        self._session = session
+        self._project_id = project_id
+        self._embedder = embedder
+        self._limit = limit
+        self.model = embedder.model
+
+    async def fetch(self, query: str) -> RetrievalOutcome:
+        try:
+            hits = await retrieve(
+                self._session,
+                project_id=self._project_id,
+                query=query,
+                embedder=self._embedder,
+                limit=self._limit,
+            )
+        except EmbeddingError as exc:
+            return RetrievalOutcome(model=self.model, query=query, failed=True, detail=str(exc))
+        return RetrievalOutcome(model=self.model, query=query, hits=hits)
