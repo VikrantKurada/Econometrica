@@ -4,6 +4,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from econometrica.mcp.config import McpServerConfig
+
 # The validation tiers the orchestrator knows how to run. Anything else is a
 # client bug, so it is rejected at the edge rather than stored.
 ValidationTier = Literal["single", "critic", "consensus"]
@@ -45,8 +47,11 @@ class ProjectUpdate(BaseModel):
     model_assignments: dict[str, Any] | None = None
     #: Sent whole rather than patched. An allowlist edited by delta is one
     #: whose current contents the client has to have guessed right, and this is
-    #: the field where guessing wrong grants a permission.
-    mcp_servers: list[Any] | None = None
+    #: the field where guessing wrong grants a permission. Typed on update so a
+    #: malformed server (stdio without a command) is a 422 here rather than a
+    #: connect failure later; reads stay lenient (`ProjectRead.mcp_servers` is
+    #: `list[Any]`), the same reason `validation_tier` is a plain `str` on read.
+    mcp_servers: list[McpServerConfig] | None = None
     mcp_allowlist: list[str] | None = None
 
     @field_validator("name")

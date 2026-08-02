@@ -10,6 +10,7 @@ from econometrica.api.routers import (
     documents,
     exports,
     health,
+    mcp,
     messages,
     metrics,
     projects,
@@ -76,4 +77,5 @@ app.include_router(uploads.router)
 app.include_router(uploads.uploads)
 app.include_router(documents.router)
 app.include_router(documents.documents)
+app.include_router(mcp.router)
 app.include_router(metrics.router)
