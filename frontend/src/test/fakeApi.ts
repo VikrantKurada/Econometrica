@@ -1,6 +1,6 @@
 import { vi, type Mock } from "vitest";
 
-import type { Chat, Project } from "../lib/types";
+import type { Chat, Dataset, Project } from "../lib/types";
 
 /**
  * A stand-in for the backend, installed over `globalThis.fetch`.
@@ -22,6 +22,7 @@ export interface RecordedCall {
 export interface FakeApi {
   projects: Project[];
   chats: Chat[];
+  datasets: Dataset[];
   calls: RecordedCall[];
   fetchMock: Mock;
   /** Calls narrowed to a method and an optional path substring. */
@@ -49,6 +50,21 @@ export function makeProject(overrides: Partial<Project> = {}): Project {
     model_assignments: {},
     created_at: NOW,
     updated_at: NOW,
+    ...overrides,
+  };
+}
+
+export function makeDataset(projectId: string, overrides: Partial<Dataset> = {}): Dataset {
+  return {
+    id: nextId("d"),
+    project_id: projectId,
+    name: "prices.csv",
+    source_label: "Uploaded file",
+    rows: 100,
+    column_roles: { date: "date", AAA: "price" },
+    fingerprint: "abc123",
+    created_at: NOW,
+    symbols: ["AAA"],
     ...overrides,
   };
 }
@@ -85,10 +101,13 @@ function blankName(name: unknown): boolean {
   return typeof name !== "string" || name.trim() === "";
 }
 
-export function installFakeApi(seed: { projects?: Project[]; chats?: Chat[] } = {}): FakeApi {
+export function installFakeApi(
+  seed: { projects?: Project[]; chats?: Chat[]; datasets?: Dataset[] } = {},
+): FakeApi {
   const state: FakeApi = {
     projects: [...(seed.projects ?? [])],
     chats: [...(seed.chats ?? [])],
+    datasets: [...(seed.datasets ?? [])],
     calls: [],
     fetchMock: vi.fn(),
     callsTo: (method, pathIncludes) =>
@@ -176,6 +195,15 @@ export function installFakeApi(seed: { projects?: Project[]; chats?: Chat[] } = 
         state.chats = state.chats.filter((candidate) => candidate.id !== chat.id);
         return new Response(null, { status: 204 });
       }
+    }
+
+    const projectDatasets = /^\/api\/projects\/([^/]+)\/datasets$/.exec(path);
+    if (projectDatasets && method === "GET") {
+      const projectId = projectDatasets[1] as string;
+      return json(
+        200,
+        state.datasets.filter((dataset) => dataset.project_id === projectId),
+      );
     }
 
     return json(404, { detail: `No fake route for ${method} ${path}` });

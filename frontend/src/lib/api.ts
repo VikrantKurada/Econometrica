@@ -4,6 +4,7 @@ import type {
   ChatCreate,
   ChatUpdate,
   ColumnRole,
+  Dataset,
   Health,
   Metrics,
   Message,
@@ -159,6 +160,9 @@ export const api = {
 
   confirmUpload: (uploadId: string, roles: Record<string, ColumnRole>): Promise<Upload> =>
     request<Upload>(`/uploads/${uploadId}/confirm`, { method: "POST", body: { roles } }),
+
+  listDatasets: (projectId: string): Promise<Dataset[]> =>
+    request<Dataset[]>(`/projects/${projectId}/datasets`),
 
   listChats: (projectId: string): Promise<Chat[]> =>
     request<Chat[]>(`/projects/${projectId}/chats`),

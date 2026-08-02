@@ -22,4 +22,5 @@ export const queryKeys = {
   projects: ["projects"] as const,
   chats: (projectId: string) => ["chats", projectId] as const,
   capabilities: (chatId: string) => ["capabilities", chatId] as const,
+  datasets: (projectId: string) => ["datasets", projectId] as const,
 };

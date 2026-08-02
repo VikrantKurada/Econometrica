@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { installFakeApi, makeChat, makeProject, type FakeApi } from "../test/fakeApi";
+import { installFakeApi, makeChat, makeDataset, makeProject, type FakeApi } from "../test/fakeApi";
 import { ApiError, api, formatApiError } from "./api";
 
 let fake: FakeApi;
@@ -18,6 +18,20 @@ describe("api", () => {
 
     expect(projects.map((project) => project.name)).toEqual(["Momentum"]);
     expect(fake.calls[0]).toMatchObject({ method: "GET", path: "/api/projects" });
+  });
+
+  it("lists a project's datasets from the proxied path", async () => {
+    const project = makeProject();
+    fake.projects.push(project);
+    fake.datasets.push(makeDataset(project.id, { name: "prices.csv" }));
+
+    const datasets = await api.listDatasets(project.id);
+
+    expect(datasets.map((d) => d.name)).toEqual(["prices.csv"]);
+    expect(fake.calls.at(-1)).toMatchObject({
+      method: "GET",
+      path: `/api/projects/${project.id}/datasets`,
+    });
   });
 
   it("sends only the fields given to a project patch", async () => {

@@ -485,6 +485,18 @@ export interface Upload {
   fields: string[];
 }
 
+export interface Dataset {
+  id: string;
+  project_id: string;
+  name: string;
+  source_label: string;
+  rows: number;
+  column_roles: Record<string, string>;
+  fingerprint: string;
+  created_at: string;
+  symbols: string[];
+}
+
 // --- telemetry ---------------------------------------------------------------
 
 export interface SpanMetric {
