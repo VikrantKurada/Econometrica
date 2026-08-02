@@ -262,6 +262,31 @@ permitting.
 **real** server rather than a mock — the proof an unlisted tool never ran is the
 server's own execution log.
 
+**MCP is wired end to end, as of 2026-08-01.** MCP is a fourth context channel
+beside retrieval and web search — read, not computed — so the one invariant
+holds: a `researcher` model role runs a **bounded tool-calling loop** over the
+project's allowlisted tools *before* planning, and its summary reaches the
+Planner only, never the Narrator, with the grounding gate still blocking any
+number quoted from a tool. The connection layer keeps `agents/` off both
+`db.models` and the SDK's transport types: `mcp/config.py` types the server,
+`mcp/connect.py` holds the stdio/streamable-http transports and the
+`McpConnector`, and `agents/researcher.py` runs the loop over a `Connector`; the
+router translates the ORM configs and gates the whole thing on capability +
+servers + allowlist + role + tool-calling. The loop caps at
+`MAX_RESEARCH_ROUNDS = 4`, then makes one tool-free call for a clean summary. A
+new `researcher` trace agent cost a CHECK migration (`a7b3c9d1e2f4`), the
+`quant_coder` pattern again, and `McpCall.to_step_record` moved off its
+`econometrician` placeholder onto `researcher`. Design and step plan:
+`docs/plans/2026-07-31-econometrica-mcp-{design,implementation}.md`.
+
+**stdio is trust-the-command.** A stdio MCP server is an arbitrary local command
+spawned with host privileges — **not** sandboxed like the quant-coder; the
+allowlist gates which *tools* run, not what the spawned process can do. HTTP is
+the choice for a server you do not fully trust. Discovery
+(`GET /api/projects/{id}/mcp/tools`) connects live and lists each server's tools
+with `allowed` flags, which is how a user builds the allowlist — and listing is
+never permitting.
+
 **A step now records its prompt and response.** §8 asked for them from the
 start and nothing captured them until 6.10, so a trace could name the model but
 not the decision. `AgentResult.prompts` pairs one prompt per attempt — a retry
@@ -301,10 +326,10 @@ resolved, `capm` beta 0.812.
 constructed one until now** — the claim above was true of the class and false
 of the application, which is the shape of gap worth looking for elsewhere in
 this tree. `tools/web_search.py` was the same shape and was wired on
-2026-07-30; **`services/rag.py` was wired on 2026-07-31** (see below); **`mcp/`
-is now the one thing still imported only by its own tests** — it has no schema
-for `project.mcp_servers` and nothing that decides *when* a tool gets called, and
-it needs its own design note.
+2026-07-30; **`services/rag.py` was wired on 2026-07-31** (see below); and
+**`mcp/` was wired on 2026-08-01** (see below). Nothing in this tree is now
+imported only by its own tests — that shape of gap is closed everywhere it was
+found.
 
 **`data/project_source.py` is what closed it.** `build_project_source` wraps
 the configured market source with the project's uploads, **upload-first**: a

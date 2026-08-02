@@ -99,6 +99,13 @@ compute statistics themselves.
 > web: nothing read from a document can become a number, only what a tool
 > computed can.
 >
+> **A run can also call a project's MCP tools**, when they are configured. A
+> research agent runs a short tool-calling loop before planning, calling only the
+> tools an explicit per-tool allowlist permits, and hands a summary to the
+> Planner. Like the web and documents, nothing an MCP tool returns becomes a
+> number. A stdio server is an unsandboxed local command, so it is
+> trust-the-command; HTTP is the choice for anything less.
+>
 > Every run records its own trace — a DAG of model calls and tool
 > invocations with tokens, latency and parent links, readable at
 > `GET /api/runs/{id}`. Rejected attempts are steps in their own right,
