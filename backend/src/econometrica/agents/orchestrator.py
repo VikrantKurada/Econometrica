@@ -38,6 +38,7 @@ from econometrica.agents.quant_coder import (
     check_permitted,
 )
 from econometrica.agents.query_writer import QueryWriter
+from econometrica.agents.researcher import Researcher
 from econometrica.agents.schemas import AnalysisPlan, ValidationVerdict
 from econometrica.agents.trace import StepRecord, TraceBuilder, tool_call_hash
 from econometrica.agents.validator import Validator, independence_warning
@@ -116,6 +117,7 @@ class Orchestrator:
         web_search: bool = False,
         query_writer: QueryWriter | None = None,
         retriever: Retriever | None = None,
+        researcher: Researcher | None = None,
         tier: Tier = "critic",
         max_revisions: int = 1,
     ) -> None:
@@ -149,6 +151,9 @@ class Orchestrator:
         #: `searcher`: `agents/` knows nothing about projects, and the router
         #: supplies one only when the project has documents to retrieve.
         self.retriever = retriever
+        #: The MCP research agent, passed in like the others. The router builds
+        #: one only when MCP is configured and its model can call tools.
+        self.researcher = researcher
         self.econometrician = Econometrician()
         self.tier: Tier = tier
         self.max_revisions = max_revisions
@@ -189,6 +194,7 @@ class Orchestrator:
         for warning in outcome.warnings:
             yield RunEvent(name="run.warning", detail=warning)
 
+        context = await self._research_context(question, context, trace)
         context = await self._retrieval_context(question, context, trace)
         context = await self._search_context(question, context, trace)
         plan = await self._plan(question, context, outcome, trace)
@@ -460,6 +466,29 @@ class Orchestrator:
         )
         if warning:
             outcome.warnings.append(warning)
+
+    async def _research_context(
+        self, question: str, context: str, trace: TraceBuilder
+    ) -> str:
+        """MCP tools, called by a research agent, as context for the Planner.
+
+        Planner only, never the Narrator — the grounding-gate reason web search
+        and retrieval are withheld from it. A research phase that fails or finds
+        nothing degrades the run: MCP is context, and losing it is the smaller
+        loss.
+        """
+        if self.researcher is None:
+            return context
+
+        outcome = await self.researcher.research(question)
+        for record in outcome.records:
+            record.parent = trace.last
+            trace.add(record)
+
+        found = outcome.as_context()
+        if not found:
+            return context
+        return f"{context}\n\n{found}" if context else found
 
     async def _retrieval_context(
         self, question: str, context: str, trace: TraceBuilder

@@ -90,6 +90,7 @@ def build(
     web_search: bool = False,
     query_writer_provider: FakeProvider | None = None,
     retriever: object | None = None,
+    researcher: object | None = None,
 ) -> tuple[Orchestrator, dict[str, FakeProvider]]:
     planner_fakes = planner_providers or [
         FakeProvider(name="p", responses=plans or [json.dumps(PLAN)])
@@ -112,6 +113,7 @@ def build(
         web_search=web_search,
         query_writer=query_writer,
         retriever=retriever,
+        researcher=researcher,
     )
     fakes = {
         "planner": planner_fakes[0],
@@ -744,3 +746,57 @@ async def test_the_retrieval_step_precedes_the_plan():
         i for i, s in enumerate(outcome.trace) if s.agent == "planner" and s.kind == "llm"
     )
     assert retrieval < plan
+
+
+# --- mcp research -----------------------------------------------------------
+
+
+class SpyResearcher:
+    def __init__(self, *, summary="", fail=False) -> None:
+        from econometrica.agents.trace import StepRecord
+
+        self._summary = summary
+        self._fail = fail
+        self.asked: list[str] = []
+        self._Step = StepRecord
+
+    async def research(self, question: str):
+        from econometrica.agents.researcher import ResearchOutcome
+
+        self.asked.append(question)
+        rec = self._Step(agent="researcher", kind="llm", status="ok", response=self._summary)
+        return ResearchOutcome(summary=self._summary, records=[rec], failed=self._fail)
+
+
+def research_step(outcome):
+    return next(s for s in outcome.trace if s.agent == "researcher")
+
+
+async def test_a_research_summary_reaches_the_planner():
+    spy = SpyResearcher(summary="The internal universe lists ^NSEI as the Nifty 50.")
+    orchestrator, fakes = build(researcher=spy)
+
+    await orchestrator.run(QUESTION)
+
+    assert spy.asked == [QUESTION]
+    assert "read, not computed" in planner_prompt(fakes).lower()
+    assert "^NSEI" in planner_prompt(fakes)
+
+
+async def test_without_a_researcher_nothing_is_researched():
+    orchestrator, _ = build()
+
+    outcome = await orchestrator.run(QUESTION)
+
+    assert not any(s.agent == "researcher" for s in outcome.trace)
+
+
+async def test_the_research_steps_precede_the_plan():
+    spy = SpyResearcher(summary="context")
+    orchestrator, _ = build(researcher=spy)
+
+    outcome = await orchestrator.run(QUESTION)
+
+    research = outcome.trace.index(research_step(outcome))
+    plan = next(i for i, s in enumerate(outcome.trace) if s.agent == "planner" and s.kind == "llm")
+    assert research < plan
