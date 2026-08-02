@@ -1,6 +1,6 @@
 import { vi, type Mock } from "vitest";
 
-import type { Chat, Dataset, Project } from "../lib/types";
+import type { Chat, Dataset, Project, Upload } from "../lib/types";
 
 /**
  * A stand-in for the backend, installed over `globalThis.fetch`.
@@ -23,6 +23,7 @@ export interface FakeApi {
   projects: Project[];
   chats: Chat[];
   datasets: Dataset[];
+  uploads: Upload[];
   calls: RecordedCall[];
   fetchMock: Mock;
   /** Calls narrowed to a method and an optional path substring. */
@@ -69,6 +70,45 @@ export function makeDataset(projectId: string, overrides: Partial<Dataset> = {})
   };
 }
 
+export function makeUpload(projectId: string, overrides: Partial<Upload> = {}): Upload {
+  return {
+    id: nextId("u"),
+    project_id: projectId,
+    filename: "prices.csv",
+    profile: {
+      filename: "prices.csv",
+      format: "csv",
+      rows: 100,
+      layout: "wide",
+      delimiter: ",",
+      columns: [
+        {
+          name: "date", dtype: "datetime", present: 100, missing: 0, unique: 100,
+          minimum: null, maximum: null, sample: ["2020-01-01"],
+          parses_as_date: true, decimal_comma: false, candidates: [],
+        },
+        {
+          name: "AAA", dtype: "number", present: 100, missing: 0, unique: 99,
+          minimum: 90, maximum: 110, sample: ["100.5"],
+          parses_as_date: false, decimal_comma: false, candidates: [],
+        },
+      ],
+    },
+    proposal: {
+      roles: { date: "date", AAA: "price" },
+      rationale: { date: "parses as a date", AAA: "numeric, price-like" },
+      ambiguous: [],
+    },
+    consulted_model: false,
+    confirmed: false,
+    mapping: null,
+    observations: null,
+    symbols: [],
+    fields: [],
+    ...overrides,
+  };
+}
+
 export function makeChat(projectId: string, overrides: Partial<Chat> = {}): Chat {
   return {
     id: nextId("c"),
@@ -108,6 +148,7 @@ export function installFakeApi(
     projects: [...(seed.projects ?? [])],
     chats: [...(seed.chats ?? [])],
     datasets: [...(seed.datasets ?? [])],
+    uploads: [],
     calls: [],
     fetchMock: vi.fn(),
     callsTo: (method, pathIncludes) =>
@@ -204,6 +245,27 @@ export function installFakeApi(
         200,
         state.datasets.filter((dataset) => dataset.project_id === projectId),
       );
+    }
+
+    const projectUploads = /^\/api\/projects\/([^/]+)\/uploads$/.exec(path);
+    if (projectUploads && method === "POST") {
+      const upload = makeUpload(projectUploads[1] as string);
+      state.uploads.push(upload);
+      return json(201, upload);
+    }
+
+    const uploadConfirm = /^\/api\/uploads\/([^/]+)\/confirm$/.exec(path);
+    if (uploadConfirm && method === "POST") {
+      const upload = state.uploads.find((candidate) => candidate.id === uploadConfirm[1]);
+      if (!upload) return json(404, { detail: "Upload not found" });
+      state.datasets.push(makeDataset(upload.project_id, { name: upload.filename }));
+      return json(200, {
+        ...upload,
+        confirmed: true,
+        observations: 100,
+        symbols: ["AAA"],
+        fields: ["price"],
+      });
     }
 
     return json(404, { detail: `No fake route for ${method} ${path}` });
