@@ -32,6 +32,7 @@ from econometrica.agents.orchestrator import TIERS, Orchestrator, RunOutcome, Ti
 from econometrica.agents.planner import Planner
 from econometrica.agents.quant_coder import QuantCoder
 from econometrica.agents.query_writer import QueryWriter
+from econometrica.agents.researcher import Researcher
 from econometrica.agents.schemas import AnalysisPlan
 from econometrica.agents.validator import Validator
 from econometrica.api.deps import (
@@ -51,6 +52,9 @@ from econometrica.db.models import Chat, DocumentChunk, Project, Run
 from econometrica.econ.types import ResultSet
 from econometrica.llm.base import LLMProvider
 from econometrica.llm.registry import ProviderRegistry
+from econometrica.mcp.allowlist import Allowlist
+from econometrica.mcp.config import McpServerConfig
+from econometrica.mcp.connect import McpConnector
 from econometrica.schemas.run import (
     RerunReport,
     RunDetail,
@@ -354,6 +358,28 @@ async def _build(
     if has_documents is not None:
         retriever = ProjectRetriever(session, project.id, embedder)
 
+    # MCP research runs when the capability is on, a server is configured, the
+    # allowlist permits something, a researcher is assigned, and its model can
+    # call tools. Anything missing -> no researcher, and the run is unchanged.
+    researcher = None
+    allowlist = Allowlist.for_project(project)
+    if (
+        capabilities.mcp
+        and (project.mcp_servers or [])
+        and len(allowlist)
+        and "researcher" in (project.model_assignments or {})
+    ):
+        r_provider = None
+        try:
+            r_provider, r_model = _bind("researcher", project, registry)
+        except HTTPException:
+            # A misconfigured researcher degrades to no research, like search.
+            r_provider = None
+        if r_provider is not None and await _supports_tools(r_provider, r_model):
+            researcher = Researcher(
+                r_provider, r_model, McpConnector(_server_configs(project), allowlist)
+            )
+
     coder = None
     if capabilities.code_sandbox and "quant_coder" in (project.model_assignments or {}):
         provider, model = _bind("quant_coder", project, registry)
@@ -379,8 +405,32 @@ async def _build(
         web_search=capabilities.web_search,
         query_writer=query_writer,
         retriever=retriever,
+        researcher=researcher,
         tier=tier,
     )
+
+
+def _server_configs(project: Project) -> list[McpServerConfig]:
+    """The project's typed server configs, dropping any that will not parse — a
+    malformed entry costs itself, not the whole research phase."""
+    configs: list[McpServerConfig] = []
+    for entry in project.mcp_servers or []:
+        try:
+            configs.append(McpServerConfig.from_mapping(entry))
+        except (ValueError, TypeError):
+            continue
+    return configs
+
+
+async def _supports_tools(provider: LLMProvider, model: str) -> bool:
+    """Whether the assigned model can call tools at all; if not, research is
+    skipped rather than looping uselessly."""
+    try:
+        infos = {info.id: info for info in await provider.list_models()}
+    except Exception:
+        return False
+    info = infos.get(model)
+    return bool(info and info.capabilities.tool_calling)
 
 
 def _tier(project: Project) -> Tier:

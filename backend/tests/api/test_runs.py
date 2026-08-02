@@ -793,3 +793,57 @@ async def test_a_run_without_documents_does_not_retrieve(client, scripted):
 
     trace = events(response.text)[-1]["data"]["payload"]["trace"]
     assert not any((s["tool"] or "").startswith("retrieval:") for s in trace)
+
+
+# --- mcp research -------------------------------------------------------------
+
+
+async def test_a_run_builds_a_researcher_when_mcp_is_configured(client, scripted, monkeypatch):
+    built: list[str] = []
+
+    class DummyResearcher:
+        def __init__(self, *a, **k):
+            built.append("researcher")
+
+        async def research(self, question):
+            from econometrica.agents.researcher import ResearchOutcome
+
+            return ResearchOutcome(summary="")
+
+    monkeypatch.setattr("econometrica.api.routers.runs.Researcher", DummyResearcher)
+    scripted.provider.responses = [json.dumps(PLAN), NARRATIVE]
+
+    project = (await client.post("/api/projects", json={"name": "M"})).json()
+    await client.patch(
+        f"/api/projects/{project['id']}",
+        json={
+            "validation_tier": "single",
+            "mcp_enabled": True,
+            "mcp_servers": [{"name": "facts", "transport": "http", "url": "https://x/api"}],
+            "mcp_allowlist": ["facts:lookup"],
+            "model_assignments": {
+                "planner": {"provider": "ollama", "model": "fake-1"},
+                "narrator": {"provider": "ollama", "model": "fake-1"},
+                "researcher": {"provider": "ollama", "model": "fake-1"},
+            },
+        },
+    )
+    chat = (await client.post(f"/api/projects/{project['id']}/chats", json={"name": "c"})).json()
+
+    response = await client.post(f"/api/chats/{chat['id']}/runs", json={"question": QUESTION})
+
+    assert response.status_code == 200
+    assert built == ["researcher"]
+
+
+async def test_a_run_without_mcp_builds_no_researcher(client, scripted, monkeypatch):
+    built: list[str] = []
+    monkeypatch.setattr(
+        "econometrica.api.routers.runs.Researcher",
+        lambda *a, **k: built.append("x"),
+    )
+    chat_id = await make_chat(client)  # no mcp
+
+    await client.post(f"/api/chats/{chat_id}/runs", json={"question": QUESTION})
+
+    assert built == []
