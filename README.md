@@ -63,9 +63,10 @@ compute statistics themselves.
 >
 > **A CSV, XLSX or Parquet file can be analysed the same way.** An upload is
 > profiled, every column scored for the roles it *could* play, and the mapping
-> confirmed by a person before anything is stored — a model may only reorder
-> candidates the profiler already found admissible, and only a confirmed
-> mapping is ever ingested. The observations land in a Timescale hypertable and
+> confirmed by a person — in the app's Data screen, which opens when you select
+> a project — before anything is stored. A model may only reorder candidates the
+> profiler already found admissible, and only a confirmed mapping is ever
+> ingested. The observations land in a Timescale hypertable and
 > are served through the same `PriceSource` protocol as Yahoo, so nothing above
 > that seam knows whether a series was fetched or uploaded.
 >

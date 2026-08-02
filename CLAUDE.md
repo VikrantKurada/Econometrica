@@ -386,9 +386,16 @@ on every run — so `create_default_indexes => FALSE` and we declare
 `ix_observations_ts` ourselves. And `field` is part of the primary key: a wide
 file mapping both a close and a volume has two rows per (ts, symbol).
 
-**The `ColumnMapping` screen is still only in `/gallery.html`.** The backend can
-honour an upload fully now; what remains is deciding where "Data" lives in the
-three-pane layout.
+**The Data screen is wired into the app, as of 2026-08-02.** Selecting a project
+(with no chat) shows its Data in the centre pane — the empty state the canvas
+otherwise falls to: a `DatasetList` of what the project has stored, and an
+upload → `ColumnMapping` → confirm flow driven by
+`components/data/ProjectData.tsx`, which lists `api.listDatasets` and refetches
+on confirm so the new dataset appears. The three-pane shell is untouched — no
+fourth pane, no store change; the selection model reads "a project shows its
+data, a chat shows its runs". `gallery.tsx` keeps its static `ColumnMapping`
+preview. Design and step plan:
+`docs/plans/2026-08-02-econometrica-data-screen-{design,implementation}.md`.
 
 **Uploads profile, propose and confirm — but store nothing analysable yet.**
 `POST /api/projects/{id}/uploads` returns a profile plus a suggested mapping;
