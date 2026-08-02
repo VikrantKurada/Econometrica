@@ -3,6 +3,7 @@ import { useState } from "react";
 
 import { RunPanel } from "./components/canvas/RunPanel";
 import { Conversation } from "./components/chat/Conversation";
+import { ProjectData } from "./components/data/ProjectData";
 import { HealthIndicator } from "./components/HealthIndicator";
 import { AppShell } from "./components/layout/AppShell";
 import { ProjectTree } from "./components/projects/ProjectTree";
@@ -33,6 +34,10 @@ function Workbench() {
             chatId={selectedChatId}
             projectId={selectedProjectId}
           />
+        ) : selectedProjectId ? (
+          // A project with no chat selected shows its Data, in the empty state
+          // the canvas would otherwise fall to.
+          <ProjectData key={selectedProjectId} projectId={selectedProjectId} />
         ) : undefined
       }
       chat={
