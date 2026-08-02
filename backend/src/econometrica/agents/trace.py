@@ -37,6 +37,9 @@ AGENTS = (
     # Written before planning: turns the question into symbol-shaped search
     # queries so the Planner is shown real tickers instead of inventing them.
     "query_writer",
+    # Runs a bounded tool-calling loop over the project's allowlisted MCP tools
+    # before planning; its model turns and its MCP calls both land under this.
+    "researcher",
 )
 
 

@@ -70,12 +70,12 @@ class McpCall:
     def to_step_record(self) -> StepRecord:
         """As a step in the run's trace.
 
-        `kind="tool"` and a `mcp:` prefix rather than a new agent or kind: an
-        MCP call *is* a tool invocation, and inventing a vocabulary for it would
-        mean a migration and a second thing for the trace viewer to understand.
+        `kind="tool"` and a `mcp:` prefix rather than a new *kind*: an MCP call
+        *is* a tool invocation. The agent is `researcher` — the role that drives
+        every MCP call — which the earlier `econometrician` placeholder predated.
         """
         return StepRecord(
-            agent="econometrician",
+            agent="researcher",
             kind="tool",
             status="failed" if self.failed else "ok",
             tool=f"mcp:{self.server}:{self.tool}",

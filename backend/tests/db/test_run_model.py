@@ -206,3 +206,10 @@ async def test_a_query_writer_step_is_accepted(session):
     session.add(Step(run_id=run.id, agent="query_writer", kind="llm", status="ok"))
 
     await session.flush()
+
+
+async def test_a_researcher_step_is_accepted(session):
+    """The research agent's turns and MCP calls have to reach the trace."""
+    run = await make_run(session)
+    session.add(Step(run_id=run.id, agent="researcher", kind="llm", status="ok"))
+    await session.flush()
