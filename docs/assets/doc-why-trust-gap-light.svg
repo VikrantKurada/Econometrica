@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 608" width="1280" height="608" role="img" aria-label="Three ways a language model produces a wrong number, each paired with the mechanism in Econometrica that prevents it">
+<title>The trust gap, and the three mechanisms that close it</title>
+<rect x="0" y="0" width="1280" height="608" rx="0" fill="#ffffff" stroke="none"/>
+<text x="44" y="54" fill="#14181d" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="27" font-weight="700" text-anchor="start" letter-spacing="0">Why this exists</text>
+<text x="44" y="80" fill="#5b6675" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="14" font-weight="400" text-anchor="start" letter-spacing="0">Three ways a language model produces a number you should not trust, and what closes each.</text>
+<rect x="44" y="95" width="3" height="12" rx="1.5" fill="#e34948" stroke="none"/>
+<text x="56" y="104" fill="#5b6675" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" font-weight="700" text-anchor="start" letter-spacing="1.4">THE FAILURE</text>
+<rect x="570" y="95" width="3" height="12" rx="1.5" fill="#1baf7a" stroke="none"/>
+<text x="582" y="104" fill="#5b6675" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" font-weight="700" text-anchor="start" letter-spacing="1.4">THE MECHANISM</text>
+<rect x="44" y="118" width="430" height="128" rx="10" fill="#fafafa" stroke="#e3e7ec"/>
+<rect x="44" y="118" width="3" height="128" rx="1.5" fill="#e34948" stroke="none"/>
+<text x="60" y="145" fill="#14181d" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="15" font-weight="600" text-anchor="start" letter-spacing="0">It invents the statistic</text>
+<text x="60" y="169" fill="#5b6675" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="400" text-anchor="start" letter-spacing="0">Asked for a beta, a model will produce a plausible</text>
+<text x="60" y="186" fill="#5b6675" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="400" text-anchor="start" letter-spacing="0">number without ever touching the data.</text>
+<path d="M502 182.0 h40 m-6 -4.5 l6 4.5 l-6 4.5" fill="none" stroke="#8d97a5" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="570" y="118" width="666" height="128" rx="10" fill="#fafafa" stroke="#e3e7ec"/>
+<rect x="570" y="118" width="3" height="128" rx="1.5" fill="#1baf7a" stroke="none"/>
+<text x="586" y="145" fill="#14181d" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="15" font-weight="600" text-anchor="start" letter-spacing="0">Models select, tools compute</text>
+<text x="1220" y="145" fill="#8d97a5" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11.5" font-weight="400" text-anchor="end" letter-spacing="0">econ/registry.py</text>
+<text x="586" y="169" fill="#5b6675" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="400" text-anchor="start" letter-spacing="0">A plan names a tool from a registry of 37 typed, versioned functions. The</text>
+<text x="586" y="186" fill="#5b6675" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="400" text-anchor="start" letter-spacing="0">function does the arithmetic.</text>
+<rect x="44" y="262" width="430" height="128" rx="10" fill="#fafafa" stroke="#e3e7ec"/>
+<rect x="44" y="262" width="3" height="128" rx="1.5" fill="#e34948" stroke="none"/>
+<text x="60" y="289" fill="#14181d" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="15" font-weight="600" text-anchor="start" letter-spacing="0">It runs a method the data cannot support</text>
+<text x="60" y="313" fill="#5b6675" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="400" text-anchor="start" letter-spacing="0">A GARCH fitted to a series with no ARCH effects</text>
+<text x="60" y="330" fill="#5b6675" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="400" text-anchor="start" letter-spacing="0">returns a persistence figure a reader will take</text>
+<text x="60" y="347" fill="#5b6675" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="400" text-anchor="start" letter-spacing="0">seriously.</text>
+<path d="M502 326.0 h40 m-6 -4.5 l6 4.5 l-6 4.5" fill="none" stroke="#8d97a5" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="570" y="262" width="666" height="128" rx="10" fill="#fafafa" stroke="#e3e7ec"/>
+<rect x="570" y="262" width="3" height="128" rx="1.5" fill="#1baf7a" stroke="none"/>
+<text x="586" y="289" fill="#14181d" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="15" font-weight="600" text-anchor="start" letter-spacing="0">Preconditions that refuse</text>
+<text x="1220" y="289" fill="#8d97a5" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11.5" font-weight="400" text-anchor="end" letter-spacing="0">econ/gates.py</text>
+<text x="586" y="313" fill="#5b6675" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="400" text-anchor="start" letter-spacing="0">A gate is checked against the real series before the tool runs. The refusal</text>
+<text x="586" y="330" fill="#5b6675" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="400" text-anchor="start" letter-spacing="0">names the reason, so it teaches something.</text>
+<rect x="44" y="406" width="430" height="128" rx="10" fill="#fafafa" stroke="#e3e7ec"/>
+<rect x="44" y="406" width="3" height="128" rx="1.5" fill="#e34948" stroke="none"/>
+<text x="60" y="433" fill="#14181d" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="15" font-weight="600" text-anchor="start" letter-spacing="0">It writes a number the results do not contain</text>
+<text x="60" y="457" fill="#5b6675" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="400" text-anchor="start" letter-spacing="0">The methodology can be perfect and the paragraph</text>
+<text x="60" y="474" fill="#5b6675" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="400" text-anchor="start" letter-spacing="0">describing it still carries a figure from nowhere.</text>
+<path d="M502 470.0 h40 m-6 -4.5 l6 4.5 l-6 4.5" fill="none" stroke="#8d97a5" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="570" y="406" width="666" height="128" rx="10" fill="#fafafa" stroke="#e3e7ec"/>
+<rect x="570" y="406" width="3" height="128" rx="1.5" fill="#1baf7a" stroke="none"/>
+<text x="586" y="433" fill="#14181d" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="15" font-weight="600" text-anchor="start" letter-spacing="0">The numeric grounding gate</text>
+<text x="1220" y="433" fill="#8d97a5" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11.5" font-weight="400" text-anchor="end" letter-spacing="0">agents/grounding.py</text>
+<text x="586" y="457" fill="#5b6675" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="400" text-anchor="start" letter-spacing="0">Every number in the prose is matched against what the tools computed. One</text>
+<text x="586" y="474" fill="#5b6675" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="400" text-anchor="start" letter-spacing="0">that does not match withholds the whole narration.</text>
+<line x1="44" y1="562" x2="1236" y2="562" stroke="#e3e7ec" stroke-width="1" stroke-linecap="round"/>
+<text x="44" y="582" fill="#8d97a5" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="400" text-anchor="start" letter-spacing="0">None of the three is a prompt asking the model to behave. Each is code with a test that fails when it stops working.</text>
+</svg>

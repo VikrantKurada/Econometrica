@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 600" width="1280" height="600" role="img" aria-label="Three options for how an LLM produces econometrics, and why the third was chosen">
+<title>The central decision: how generative AI produces econometrics</title>
+<rect x="0" y="0" width="1280" height="600" rx="0" fill="#0f1319" stroke="none"/>
+<text x="44" y="54" fill="#e8ecf1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="27" font-weight="700" text-anchor="start" letter-spacing="0">The decision everything else follows from</text>
+<text x="44" y="80" fill="#93a0b1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="14" font-weight="400" text-anchor="start" letter-spacing="0">How does a language model produce econometrics you would stake a decision on?</text>
+<rect x="44.0" y="122" width="384.0" height="214" rx="10" fill="#171c24" stroke="#272e39"/>
+<rect x="44.0" y="122" width="3" height="214" rx="1.5" fill="#6f7c8d" stroke="none"/>
+<text x="62.0" y="156" fill="#6f7c8d" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="24" font-weight="700" text-anchor="start" letter-spacing="0">A</text>
+<text x="92.0" y="156" fill="#e8ecf1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="15" font-weight="600" text-anchor="start" letter-spacing="0">Tool registry only</text>
+<text x="62.0" y="184" fill="#93a0b1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="400" text-anchor="start" letter-spacing="0">The model never writes code. It picks from a fixed</text>
+<text x="62.0" y="201" fill="#93a0b1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="400" text-anchor="start" letter-spacing="0">set of typed, versioned functions. Deterministic,</text>
+<text x="62.0" y="218" fill="#93a0b1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="400" text-anchor="start" letter-spacing="0">traceable, and bounded by whatever the registry</text>
+<text x="62.0" y="235" fill="#93a0b1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="400" text-anchor="start" letter-spacing="0">happens to contain.</text>
+<text x="62.0" y="318" fill="#6f7c8d" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="700" text-anchor="start" letter-spacing="0">Rejected: too narrow</text>
+<rect x="448.0" y="122" width="384.0" height="214" rx="10" fill="#171c24" stroke="#272e39"/>
+<rect x="448.0" y="122" width="3" height="214" rx="1.5" fill="#6f7c8d" stroke="none"/>
+<text x="466.0" y="156" fill="#6f7c8d" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="24" font-weight="700" text-anchor="start" letter-spacing="0">B</text>
+<text x="496.0" y="156" fill="#e8ecf1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="15" font-weight="600" text-anchor="start" letter-spacing="0">Code generation in a sandbox</text>
+<text x="466.0" y="184" fill="#93a0b1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="400" text-anchor="start" letter-spacing="0">The model writes statsmodels and arch code and the</text>
+<text x="466.0" y="201" fill="#93a0b1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="400" text-anchor="start" letter-spacing="0">code runs. Unbounded, and it brings invented</text>
+<text x="466.0" y="218" fill="#93a0b1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="400" text-anchor="start" letter-spacing="0">methodology, results nobody can reproduce, and a</text>
+<text x="466.0" y="235" fill="#93a0b1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="400" text-anchor="start" letter-spacing="0">real security surface.</text>
+<text x="466.0" y="318" fill="#6f7c8d" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="700" text-anchor="start" letter-spacing="0">Rejected: wrong default</text>
+<rect x="852.0" y="122" width="384.0" height="214" rx="10" fill="#171c24" stroke="#199e70"/>
+<rect x="852.0" y="122" width="3" height="214" rx="1.5" fill="#199e70" stroke="none"/>
+<text x="870.0" y="156" fill="#199e70" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="24" font-weight="700" text-anchor="start" letter-spacing="0">C</text>
+<text x="900.0" y="156" fill="#e8ecf1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="15" font-weight="600" text-anchor="start" letter-spacing="0">Registry first, with a gated escape hatch</text>
+<text x="870.0" y="184" fill="#93a0b1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="400" text-anchor="start" letter-spacing="0">The registry answers the canonical majority. When</text>
+<text x="870.0" y="201" fill="#93a0b1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="400" text-anchor="start" letter-spacing="0">nothing fits, a Quant Coder writes code that runs</text>
+<text x="870.0" y="218" fill="#93a0b1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="400" text-anchor="start" letter-spacing="0">in a locked-down process, and the result is marked</text>
+<text x="870.0" y="235" fill="#93a0b1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="400" text-anchor="start" letter-spacing="0">unvalidated everywhere it surfaces.</text>
+<text x="870.0" y="318" fill="#199e70" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="700" text-anchor="start" letter-spacing="0">Chosen</text>
+<path d="M1044.0 336 L1044.0 358 L640.0 358 L640.0 380" fill="none" stroke="#199e70" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M640.0 372 v10 m-4.5 -6 l4.5 6 l4.5 -6" fill="none" stroke="#199e70" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="44" y="405" width="3" height="12" rx="1.5" fill="#199e70" stroke="none"/>
+<text x="56" y="414" fill="#93a0b1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" font-weight="700" text-anchor="start" letter-spacing="1.4">AND THE ESCAPE HATCH IS GATED FOUR WAYS</text>
+<rect x="44.0" y="432" width="287.5" height="92" rx="8" fill="#171c24" stroke="#272e39"/>
+<rect x="44.0" y="432" width="3" height="92" rx="1.5" fill="#199e70" stroke="none"/>
+<text x="58.0" y="456" fill="#e8ecf1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="13" font-weight="600" text-anchor="start" letter-spacing="0">The project enables it</text>
+<text x="58.0" y="476" fill="#93a0b1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="11.5" font-weight="400" text-anchor="start" letter-spacing="0">A chat cannot. It is the most</text>
+<text x="58.0" y="491" fill="#93a0b1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="11.5" font-weight="400" text-anchor="start" letter-spacing="0">security-sensitive toggle in the</text>
+<text x="58.0" y="506" fill="#93a0b1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="11.5" font-weight="400" text-anchor="start" letter-spacing="0">system.</text>
+<rect x="345.5" y="432" width="287.5" height="92" rx="8" fill="#171c24" stroke="#272e39"/>
+<rect x="345.5" y="432" width="3" height="92" rx="1.5" fill="#199e70" stroke="none"/>
+<text x="359.5" y="456" fill="#e8ecf1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="13" font-weight="600" text-anchor="start" letter-spacing="0">The tier has a Validator</text>
+<text x="359.5" y="476" fill="#93a0b1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="11.5" font-weight="400" text-anchor="start" letter-spacing="0">The single tier is refused outright</text>
+<text x="359.5" y="491" fill="#93a0b1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="11.5" font-weight="400" text-anchor="start" letter-spacing="0">rather than degraded.</text>
+<rect x="647.0" y="432" width="287.5" height="92" rx="8" fill="#171c24" stroke="#272e39"/>
+<rect x="647.0" y="432" width="3" height="92" rx="1.5" fill="#199e70" stroke="none"/>
+<text x="661.0" y="456" fill="#e8ecf1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="13" font-weight="600" text-anchor="start" letter-spacing="0">A Quant Coder is configured</text>
+<text x="661.0" y="476" fill="#93a0b1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="11.5" font-weight="400" text-anchor="start" letter-spacing="0">No role assigned means no code path,</text>
+<text x="661.0" y="491" fill="#93a0b1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="11.5" font-weight="400" text-anchor="start" letter-spacing="0">not a silent fallback.</text>
+<rect x="948.5" y="432" width="287.5" height="92" rx="8" fill="#171c24" stroke="#272e39"/>
+<rect x="948.5" y="432" width="3" height="92" rx="1.5" fill="#199e70" stroke="none"/>
+<text x="962.5" y="456" fill="#e8ecf1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="13" font-weight="600" text-anchor="start" letter-spacing="0">The marking survives</text>
+<text x="962.5" y="476" fill="#93a0b1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="11.5" font-weight="400" text-anchor="start" letter-spacing="0">sandbox:&lt;method&gt; in the tool name,</text>
+<text x="962.5" y="491" fill="#93a0b1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="11.5" font-weight="400" text-anchor="start" letter-spacing="0">unvalidated in the manifest.</text>
+<line x1="44" y1="556" x2="1236" y2="556" stroke="#272e39" stroke-width="1" stroke-linecap="round"/>
+<text x="44" y="576" fill="#6f7c8d" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="400" text-anchor="start" letter-spacing="0">A live probe settled it: a local model asked for a Gini coefficient wrote correct code four runs in five, and the fifth ran cleanly and reported -42.49. Nothing in a sandbox catches that, so the marking is the deliverable.</text>
+</svg>

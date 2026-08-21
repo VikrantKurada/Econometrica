@@ -1,0 +1,83 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 570" width="1280" height="570" role="img" aria-label="The three-pane workbench layout and what each pane holds">
+<title>The Econometrica workbench</title>
+<rect x="0" y="0" width="1280" height="570" rx="0" fill="#ffffff" stroke="none"/>
+<text x="44" y="54" fill="#14181d" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="27" font-weight="700" text-anchor="start" letter-spacing="0">What is in the box</text>
+<text x="44" y="80" fill="#5b6675" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="14" font-weight="400" text-anchor="start" letter-spacing="0">One window, three panes, and a run that leaves a trail behind it.</text>
+<rect x="44" y="99" width="3" height="12" rx="1.5" fill="#2a78d6" stroke="none"/>
+<text x="56" y="108" fill="#5b6675" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" font-weight="700" text-anchor="start" letter-spacing="1.4">THE WINDOW</text>
+<rect x="44" y="124" width="220" height="212" rx="10" fill="#fafafa" stroke="#e3e7ec"/>
+<rect x="44" y="124" width="220" height="30" rx="10" fill="#ffffff" stroke="none"/>
+<rect x="44" y="144" width="220" height="10" rx="0" fill="#ffffff" stroke="none"/>
+<line x1="44" y1="154" x2="264" y2="154" stroke="#e3e7ec" stroke-width="1" stroke-linecap="round"/>
+<rect x="44" y="124" width="3" height="30" rx="1.5" fill="#2a78d6" stroke="none"/>
+<text x="60" y="144" fill="#14181d" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="14" font-weight="600" text-anchor="start" letter-spacing="0">Projects</text>
+<text x="60" y="182" fill="#5b6675" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="400" text-anchor="start" letter-spacing="0">A tree of projects and chats.</text>
+<text x="60" y="200" fill="#5b6675" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="400" text-anchor="start" letter-spacing="0">A project owns the data, the</text>
+<text x="60" y="218" fill="#5b6675" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="400" text-anchor="start" letter-spacing="0">documents, the MCP servers,</text>
+<text x="60" y="236" fill="#5b6675" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="400" text-anchor="start" letter-spacing="0">the model assignments and</text>
+<text x="60" y="254" fill="#5b6675" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="400" text-anchor="start" letter-spacing="0">the capability toggles.</text>
+<rect x="278" y="124" width="604" height="212" rx="10" fill="#fafafa" stroke="#e3e7ec"/>
+<rect x="278" y="124" width="604" height="30" rx="10" fill="#ffffff" stroke="none"/>
+<rect x="278" y="144" width="604" height="10" rx="0" fill="#ffffff" stroke="none"/>
+<line x1="278" y1="154" x2="882" y2="154" stroke="#e3e7ec" stroke-width="1" stroke-linecap="round"/>
+<rect x="278" y="124" width="3" height="30" rx="1.5" fill="#1baf7a" stroke="none"/>
+<text x="294" y="144" fill="#14181d" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="14" font-weight="600" text-anchor="start" letter-spacing="0">Canvas</text>
+<text x="294" y="182" fill="#5b6675" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="400" text-anchor="start" letter-spacing="0">Where an analysis is run and where the answer lands. A tab per chart,</text>
+<text x="294" y="200" fill="#5b6675" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="400" text-anchor="start" letter-spacing="0">plus Narrative, Diagnostics, a Trace DAG and a Cost dashboard. Risk</text>
+<text x="294" y="218" fill="#5b6675" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="400" text-anchor="start" letter-spacing="0">flags sit above the tabs where no tab can hide them.</text>
+<text x="294" y="236" fill="#5b6675" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="400" text-anchor="start" letter-spacing="0"></text>
+<text x="294" y="254" fill="#5b6675" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="400" text-anchor="start" letter-spacing="0">Select a project with no chat open and this pane shows its Data instead:</text>
+<text x="294" y="272" fill="#5b6675" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="400" text-anchor="start" letter-spacing="0">upload a file, confirm the column mapping, see what is stored.</text>
+<rect x="896" y="124" width="340" height="212" rx="10" fill="#fafafa" stroke="#e3e7ec"/>
+<rect x="896" y="124" width="340" height="30" rx="10" fill="#ffffff" stroke="none"/>
+<rect x="896" y="144" width="340" height="10" rx="0" fill="#ffffff" stroke="none"/>
+<line x1="896" y1="154" x2="1236" y2="154" stroke="#e3e7ec" stroke-width="1" stroke-linecap="round"/>
+<rect x="896" y="124" width="3" height="30" rx="1.5" fill="#4a3aa7" stroke="none"/>
+<text x="912" y="144" fill="#14181d" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="14" font-weight="600" text-anchor="start" letter-spacing="0">Chat</text>
+<text x="912" y="182" fill="#5b6675" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="400" text-anchor="start" letter-spacing="0">A streaming conversation</text>
+<text x="912" y="200" fill="#5b6675" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="400" text-anchor="start" letter-spacing="0">with one model. It calls no</text>
+<text x="912" y="218" fill="#5b6675" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="400" text-anchor="start" letter-spacing="0">tools and produces no charts,</text>
+<text x="912" y="236" fill="#5b6675" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="400" text-anchor="start" letter-spacing="0">which is deliberate: a chat</text>
+<text x="912" y="254" fill="#5b6675" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="400" text-anchor="start" letter-spacing="0">and a run are different acts.</text>
+<text x="44" y="362" fill="#8d97a5" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" font-weight="400" text-anchor="start" letter-spacing="0">All three panes resize and collapse. Collapsing the last one standing is refused, because that leaves a window with no way back.</text>
+<rect x="44" y="403" width="3" height="12" rx="1.5" fill="#eb6834" stroke="none"/>
+<text x="56" y="412" fill="#5b6675" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" font-weight="700" text-anchor="start" letter-spacing="1.4">WHAT A RUN LEAVES BEHIND</text>
+<rect x="44.0" y="430" width="188.66666666666666" height="92" rx="8" fill="#fafafa" stroke="#e3e7ec"/>
+<rect x="44.0" y="430" width="3" height="92" rx="1.5" fill="#eb6834" stroke="none"/>
+<text x="57.0" y="452" fill="#14181d" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="13.5" font-weight="600" text-anchor="start" letter-spacing="0">Charts</text>
+<text x="57.0" y="470" fill="#5b6675" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="11" font-weight="400" text-anchor="start" letter-spacing="0">one per result shape,</text>
+<text x="57.0" y="485" fill="#5b6675" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="11" font-weight="400" text-anchor="start" letter-spacing="0">light and dark, each</text>
+<text x="57.0" y="500" fill="#5b6675" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="11" font-weight="400" text-anchor="start" letter-spacing="0">with a table view</text>
+<rect x="244.66666666666666" y="430" width="188.66666666666666" height="92" rx="8" fill="#fafafa" stroke="#e3e7ec"/>
+<rect x="244.66666666666666" y="430" width="3" height="92" rx="1.5" fill="#eb6834" stroke="none"/>
+<text x="257.66666666666663" y="452" fill="#14181d" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="13.5" font-weight="600" text-anchor="start" letter-spacing="0">Narrative</text>
+<text x="257.66666666666663" y="470" fill="#5b6675" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="11" font-weight="400" text-anchor="start" letter-spacing="0">prose that survived</text>
+<text x="257.66666666666663" y="485" fill="#5b6675" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="11" font-weight="400" text-anchor="start" letter-spacing="0">the grounding gate,</text>
+<text x="257.66666666666663" y="500" fill="#5b6675" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="11" font-weight="400" text-anchor="start" letter-spacing="0">or an honest absence</text>
+<rect x="445.3333333333333" y="430" width="188.66666666666666" height="92" rx="8" fill="#fafafa" stroke="#e3e7ec"/>
+<rect x="445.3333333333333" y="430" width="3" height="92" rx="1.5" fill="#eb6834" stroke="none"/>
+<text x="458.3333333333333" y="452" fill="#14181d" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="13.5" font-weight="600" text-anchor="start" letter-spacing="0">Diagnostics</text>
+<text x="458.3333333333333" y="470" fill="#5b6675" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="11" font-weight="400" text-anchor="start" letter-spacing="0">the deterministic</text>
+<text x="458.3333333333333" y="485" fill="#5b6675" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="11" font-weight="400" text-anchor="start" letter-spacing="0">checks, tri-state:</text>
+<text x="458.3333333333333" y="500" fill="#5b6675" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="11" font-weight="400" text-anchor="start" letter-spacing="0">passed, failed, unjudged</text>
+<rect x="646.0" y="430" width="188.66666666666666" height="92" rx="8" fill="#fafafa" stroke="#e3e7ec"/>
+<rect x="646.0" y="430" width="3" height="92" rx="1.5" fill="#eb6834" stroke="none"/>
+<text x="659.0" y="452" fill="#14181d" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="13.5" font-weight="600" text-anchor="start" letter-spacing="0">Trace</text>
+<text x="659.0" y="470" fill="#5b6675" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="11" font-weight="400" text-anchor="start" letter-spacing="0">a DAG of every model</text>
+<text x="659.0" y="485" fill="#5b6675" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="11" font-weight="400" text-anchor="start" letter-spacing="0">call and tool run,</text>
+<text x="659.0" y="500" fill="#5b6675" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="11" font-weight="400" text-anchor="start" letter-spacing="0">rejected attempts too</text>
+<rect x="846.6666666666666" y="430" width="188.66666666666666" height="92" rx="8" fill="#fafafa" stroke="#e3e7ec"/>
+<rect x="846.6666666666666" y="430" width="3" height="92" rx="1.5" fill="#eb6834" stroke="none"/>
+<text x="859.6666666666666" y="452" fill="#14181d" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="13.5" font-weight="600" text-anchor="start" letter-spacing="0">Cost</text>
+<text x="859.6666666666666" y="470" fill="#5b6675" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="11" font-weight="400" text-anchor="start" letter-spacing="0">tokens and spend by</text>
+<text x="859.6666666666666" y="485" fill="#5b6675" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="11" font-weight="400" text-anchor="start" letter-spacing="0">provider and by role,</text>
+<text x="859.6666666666666" y="500" fill="#5b6675" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="11" font-weight="400" text-anchor="start" letter-spacing="0">latency from spans</text>
+<rect x="1047.3333333333333" y="430" width="188.66666666666666" height="92" rx="8" fill="#fafafa" stroke="#e3e7ec"/>
+<rect x="1047.3333333333333" y="430" width="3" height="92" rx="1.5" fill="#eb6834" stroke="none"/>
+<text x="1060.3333333333333" y="452" fill="#14181d" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="13.5" font-weight="600" text-anchor="start" letter-spacing="0">Exports</text>
+<text x="1060.3333333333333" y="470" fill="#5b6675" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="11" font-weight="400" text-anchor="start" letter-spacing="0">JSON, Markdown, CSV,</text>
+<text x="1060.3333333333333" y="485" fill="#5b6675" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="11" font-weight="400" text-anchor="start" letter-spacing="0">XLSX, ZIP, PNG, SVG,</text>
+<text x="1060.3333333333333" y="500" fill="#5b6675" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="11" font-weight="400" text-anchor="start" letter-spacing="0">PDF via print</text>
+<line x1="44" y1="526" x2="1236" y2="526" stroke="#e3e7ec" stroke-width="1" stroke-linecap="round"/>
+<text x="44" y="546" fill="#8d97a5" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="400" text-anchor="start" letter-spacing="0">Every one of them carries the manifest that reproduces it: the data fingerprint, the tool versions, and the source the prices came from.</text>
+</svg>

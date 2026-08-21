@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 690" width="1280" height="690" role="img" aria-label="The layered architecture, with the five typed seams nothing is allowed to cross">
+<title>Econometrica architecture: layers and the seams between them</title>
+<rect x="0" y="0" width="1280" height="690" rx="0" fill="#ffffff" stroke="none"/>
+<text x="44" y="54" fill="#14181d" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="27" font-weight="700" text-anchor="start" letter-spacing="0">The architect's view</text>
+<text x="44" y="80" fill="#5b6675" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="14" font-weight="400" text-anchor="start" letter-spacing="0">Seven layers. Five seams. The seams are the part worth arguing about.</text>
+<rect x="44" y="99" width="3" height="12" rx="1.5" fill="#2a78d6" stroke="none"/>
+<text x="56" y="108" fill="#5b6675" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" font-weight="700" text-anchor="start" letter-spacing="1.4">LAYERS</text>
+<rect x="44" y="122" width="830" height="62" rx="8" fill="#fafafa" stroke="#e3e7ec"/>
+<rect x="44" y="122" width="3" height="62" rx="1.5" fill="#2a78d6" stroke="none"/>
+<text x="60" y="144" fill="#14181d" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="14.5" font-weight="600" text-anchor="start" letter-spacing="0">Browser</text>
+<text x="166" y="144" fill="#8d97a5" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="10.5" font-weight="400" text-anchor="start" letter-spacing="0">React 19 · TypeScript · Vite · TanStack Query · Zustand · Plotly</text>
+<text x="60" y="166" fill="#5b6675" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" font-weight="400" text-anchor="start" letter-spacing="0">Renders. Never decides what a number is.</text>
+<path d="M459.0 185 v6 m-4.5 -6 l4.5 6 l4.5 -6" fill="none" stroke="#e3e7ec" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="44" y="192" width="830" height="62" rx="8" fill="#fafafa" stroke="#e3e7ec"/>
+<rect x="44" y="192" width="3" height="62" rx="1.5" fill="#2a78d6" stroke="none"/>
+<text x="60" y="214" fill="#14181d" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="14.5" font-weight="600" text-anchor="start" letter-spacing="0">Transport</text>
+<text x="166" y="214" fill="#8d97a5" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="10.5" font-weight="400" text-anchor="start" letter-spacing="0">REST for state · SSE for anything that streams</text>
+<text x="60" y="236" fill="#5b6675" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" font-weight="400" text-anchor="start" letter-spacing="0">Two shapes, chosen per endpoint by whether the answer arrives at once.</text>
+<path d="M459.0 255 v6 m-4.5 -6 l4.5 6 l4.5 -6" fill="none" stroke="#e3e7ec" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="44" y="262" width="830" height="62" rx="8" fill="#fafafa" stroke="#e3e7ec"/>
+<rect x="44" y="262" width="3" height="62" rx="1.5" fill="#4a3aa7" stroke="none"/>
+<text x="60" y="284" fill="#14181d" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="14.5" font-weight="600" text-anchor="start" letter-spacing="0">API routers</text>
+<text x="166" y="284" fill="#8d97a5" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="10.5" font-weight="400" text-anchor="start" letter-spacing="0">projects · chats · messages · runs · uploads · documents · mcp · exports · metrics</text>
+<text x="60" y="306" fill="#5b6675" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" font-weight="400" text-anchor="start" letter-spacing="0">The composition root. The only layer that knows a project has settings.</text>
+<path d="M459.0 325 v6 m-4.5 -6 l4.5 6 l4.5 -6" fill="none" stroke="#e3e7ec" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="44" y="332" width="830" height="62" rx="8" fill="#fafafa" stroke="#e3e7ec"/>
+<rect x="44" y="332" width="3" height="62" rx="1.5" fill="#4a3aa7" stroke="none"/>
+<text x="60" y="354" fill="#14181d" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="14.5" font-weight="600" text-anchor="start" letter-spacing="0">Services</text>
+<text x="166" y="354" fill="#8d97a5" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="10.5" font-weight="400" text-anchor="start" letter-spacing="0">capabilities · datasets · ingest · mapping · documents · rag · exports · keystore · tracing</text>
+<text x="60" y="376" fill="#5b6675" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" font-weight="400" text-anchor="start" letter-spacing="0">Everything that needs the database and is not a route.</text>
+<path d="M459.0 395 v6 m-4.5 -6 l4.5 6 l4.5 -6" fill="none" stroke="#e3e7ec" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="44" y="402" width="830" height="62" rx="8" fill="#fafafa" stroke="#e3e7ec"/>
+<rect x="44" y="402" width="3" height="62" rx="1.5" fill="#e87ba4" stroke="none"/>
+<text x="60" y="424" fill="#14181d" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="14.5" font-weight="600" text-anchor="start" letter-spacing="0">Agents</text>
+<text x="166" y="424" fill="#8d97a5" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="10.5" font-weight="400" text-anchor="start" letter-spacing="0">planner · steward · econometrician · validator · narrator · visualizer · coder · writer · researcher · mapper</text>
+<text x="60" y="446" fill="#5b6675" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" font-weight="400" text-anchor="start" letter-spacing="0">Knows nothing about projects, chats or the database.</text>
+<path d="M459.0 465 v6 m-4.5 -6 l4.5 6 l4.5 -6" fill="none" stroke="#e3e7ec" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="44" y="472" width="830" height="62" rx="8" fill="#fafafa" stroke="#e3e7ec"/>
+<rect x="44" y="472" width="3" height="62" rx="1.5" fill="#1baf7a" stroke="none"/>
+<text x="60" y="494" fill="#14181d" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="14.5" font-weight="600" text-anchor="start" letter-spacing="0">Core</text>
+<text x="166" y="494" fill="#8d97a5" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="10.5" font-weight="400" text-anchor="start" letter-spacing="0">econ/ registry, gates, diagnostics · sandbox/ · charts/ · llm/ · data/ · tools/ · mcp/</text>
+<text x="60" y="516" fill="#5b6675" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" font-weight="400" text-anchor="start" letter-spacing="0">Pure computation and typed adapters. No web, no ORM.</text>
+<path d="M459.0 535 v6 m-4.5 -6 l4.5 6 l4.5 -6" fill="none" stroke="#e3e7ec" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="44" y="542" width="830" height="62" rx="8" fill="#fafafa" stroke="#e3e7ec"/>
+<rect x="44" y="542" width="3" height="62" rx="1.5" fill="#eda100" stroke="none"/>
+<text x="60" y="564" fill="#14181d" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="14.5" font-weight="600" text-anchor="start" letter-spacing="0">Stores</text>
+<text x="166" y="564" fill="#8d97a5" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="10.5" font-weight="400" text-anchor="start" letter-spacing="0">Postgres 16 + TimescaleDB + pgvector · on-disk price cache · encrypted keystore · blob storage</text>
+<text x="60" y="586" fill="#5b6675" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" font-weight="400" text-anchor="start" letter-spacing="0">One engine doing three jobs: hypertables, JSONB, vectors.</text>
+<rect x="908" y="99" width="3" height="12" rx="1.5" fill="#1baf7a" stroke="none"/>
+<text x="920" y="108" fill="#5b6675" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" font-weight="700" text-anchor="start" letter-spacing="1.4">SEAMS NOTHING CROSSES</text>
+<rect x="908" y="122" width="328" height="84" rx="8" fill="#fafafa" stroke="#e3e7ec"/>
+<rect x="908" y="122" width="3" height="84" rx="1.5" fill="#1baf7a" stroke="none"/>
+<text x="922" y="146" fill="#14181d" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="13" font-weight="600" text-anchor="start" letter-spacing="0">econ.types.ResultSet</text>
+<text x="922" y="168" fill="#5b6675" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="11.5" font-weight="400" text-anchor="start" letter-spacing="0">No statsmodels, arch or linearmodels</text>
+<text x="922" y="184" fill="#5b6675" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="11.5" font-weight="400" text-anchor="start" letter-spacing="0">object leaves a tool module.</text>
+<rect x="908" y="218" width="328" height="84" rx="8" fill="#fafafa" stroke="#e3e7ec"/>
+<rect x="908" y="218" width="3" height="84" rx="1.5" fill="#1baf7a" stroke="none"/>
+<text x="922" y="242" fill="#14181d" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="13" font-weight="600" text-anchor="start" letter-spacing="0">llm.types</text>
+<text x="922" y="264" fill="#5b6675" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="11.5" font-weight="400" text-anchor="start" letter-spacing="0">No vendor SDK type leaves a provider</text>
+<text x="922" y="280" fill="#5b6675" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="11.5" font-weight="400" text-anchor="start" letter-spacing="0">adapter.</text>
+<rect x="908" y="314" width="328" height="84" rx="8" fill="#fafafa" stroke="#e3e7ec"/>
+<rect x="908" y="314" width="3" height="84" rx="1.5" fill="#1baf7a" stroke="none"/>
+<text x="922" y="338" fill="#14181d" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="13" font-weight="600" text-anchor="start" letter-spacing="0">data.PriceSource</text>
+<text x="922" y="360" fill="#5b6675" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="11.5" font-weight="400" text-anchor="start" letter-spacing="0">Yahoo, FRED, an upload and the generator</text>
+<text x="922" y="376" fill="#5b6675" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="11.5" font-weight="400" text-anchor="start" letter-spacing="0">are the same protocol.</text>
+<rect x="908" y="410" width="328" height="84" rx="8" fill="#fafafa" stroke="#e3e7ec"/>
+<rect x="908" y="410" width="3" height="84" rx="1.5" fill="#1baf7a" stroke="none"/>
+<text x="922" y="434" fill="#14181d" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="13" font-weight="600" text-anchor="start" letter-spacing="0">tools.Retriever</text>
+<text x="922" y="456" fill="#5b6675" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="11.5" font-weight="400" text-anchor="start" letter-spacing="0">Retrieval is a protocol so agents/ stays</text>
+<text x="922" y="472" fill="#5b6675" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="11.5" font-weight="400" text-anchor="start" letter-spacing="0">off db.models.</text>
+<rect x="908" y="506" width="328" height="84" rx="8" fill="#fafafa" stroke="#e3e7ec"/>
+<rect x="908" y="506" width="3" height="84" rx="1.5" fill="#1baf7a" stroke="none"/>
+<text x="922" y="530" fill="#14181d" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="13" font-weight="600" text-anchor="start" letter-spacing="0">mcp.Connector</text>
+<text x="922" y="552" fill="#5b6675" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="11.5" font-weight="400" text-anchor="start" letter-spacing="0">The transport is behind an interface the</text>
+<text x="922" y="568" fill="#5b6675" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="11.5" font-weight="400" text-anchor="start" letter-spacing="0">research loop cannot see.</text>
+<line x1="44" y1="644" x2="1236" y2="644" stroke="#e3e7ec" stroke-width="1" stroke-linecap="round"/>
+<text x="44" y="664" fill="#8d97a5" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="400" text-anchor="start" letter-spacing="0">A seam is not a folder. It is a type that a test asserts nothing above it depends on, which is why swapping Yahoo for an uploaded file changed no code above data/.</text>
+</svg>

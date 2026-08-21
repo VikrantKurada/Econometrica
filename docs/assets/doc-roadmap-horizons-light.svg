@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 560" width="1280" height="560" role="img" aria-label="Three roadmap horizons: what is shipped, the medium term, and the long term">
+<title>Econometrica roadmap horizons</title>
+<rect x="0" y="0" width="1280" height="560" rx="0" fill="#ffffff" stroke="none"/>
+<text x="44" y="54" fill="#14181d" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="27" font-weight="700" text-anchor="start" letter-spacing="0">Where this goes</text>
+<text x="44" y="80" fill="#5b6675" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="14" font-weight="400" text-anchor="start" letter-spacing="0">Three horizons. Each one is only worth building because the one before it holds.</text>
+<rect x="44.0" y="126" width="382.6666666666667" height="340" rx="10" fill="#fafafa" stroke="#e3e7ec"/>
+<rect x="44.0" y="126" width="3" height="340" rx="1.5" fill="#1baf7a" stroke="none"/>
+<text x="62.0" y="160" fill="#14181d" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="19" font-weight="700" text-anchor="start" letter-spacing="0">Now</text>
+<text x="408.6666666666667" y="160" fill="#1baf7a" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" font-weight="600" text-anchor="end" letter-spacing="0">shipped</text>
+<text x="62.0" y="184" fill="#5b6675" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="400" text-anchor="start" letter-spacing="0">One person, one machine, numbers that</text>
+<text x="62.0" y="201" fill="#5b6675" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="400" text-anchor="start" letter-spacing="0">reproduce.</text>
+<rect x="62.0" y="220" width="5" height="5" rx="2.5" fill="#1baf7a" stroke="none"/>
+<text x="76.0" y="228" fill="#14181d" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" font-weight="400" text-anchor="start" letter-spacing="0">37 tools across five families</text>
+<rect x="62.0" y="244" width="5" height="5" rx="2.5" fill="#1baf7a" stroke="none"/>
+<text x="76.0" y="252" fill="#14181d" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" font-weight="400" text-anchor="start" letter-spacing="0">Six agent roles, three validation tiers</text>
+<rect x="62.0" y="268" width="5" height="5" rx="2.5" fill="#1baf7a" stroke="none"/>
+<text x="76.0" y="276" fill="#14181d" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" font-weight="400" text-anchor="start" letter-spacing="0">Real prices, rates, factors, uploads</text>
+<rect x="62.0" y="292" width="5" height="5" rx="2.5" fill="#1baf7a" stroke="none"/>
+<text x="76.0" y="300" fill="#14181d" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" font-weight="400" text-anchor="start" letter-spacing="0">Web search, documents, MCP tools as</text>
+<text x="76.0" y="315" fill="#14181d" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" font-weight="400" text-anchor="start" letter-spacing="0">context</text>
+<rect x="62.0" y="331" width="5" height="5" rx="2.5" fill="#1baf7a" stroke="none"/>
+<text x="76.0" y="339" fill="#14181d" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" font-weight="400" text-anchor="start" letter-spacing="0">Manifests, re-run, exports, telemetry</text>
+<rect x="62.0" y="355" width="5" height="5" rx="2.5" fill="#1baf7a" stroke="none"/>
+<text x="76.0" y="363" fill="#14181d" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" font-weight="400" text-anchor="start" letter-spacing="0">A sandbox for when no tool fits</text>
+<path d="M430.6666666666667 296.0 h14 m-6 -4.5 l6 4.5 l-6 4.5" fill="none" stroke="#8d97a5" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="448.6666666666667" y="126" width="382.6666666666667" height="340" rx="10" fill="#fafafa" stroke="#e3e7ec"/>
+<rect x="448.6666666666667" y="126" width="3" height="340" rx="1.5" fill="#2a78d6" stroke="none"/>
+<text x="466.6666666666667" y="160" fill="#14181d" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="19" font-weight="700" text-anchor="start" letter-spacing="0">Medium term</text>
+<text x="813.3333333333334" y="160" fill="#2a78d6" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" font-weight="600" text-anchor="end" letter-spacing="0">the next two to four phases</text>
+<text x="466.6666666666667" y="184" fill="#5b6675" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="400" text-anchor="start" letter-spacing="0">Make the workbench something a team can rely</text>
+<text x="466.6666666666667" y="201" fill="#5b6675" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="400" text-anchor="start" letter-spacing="0">on.</text>
+<rect x="466.6666666666667" y="220" width="5" height="5" rx="2.5" fill="#2a78d6" stroke="none"/>
+<text x="480.6666666666667" y="228" fill="#14181d" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" font-weight="400" text-anchor="start" letter-spacing="0">Panel data and cross-sectional asset</text>
+<text x="480.6666666666667" y="243" fill="#14181d" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" font-weight="400" text-anchor="start" letter-spacing="0">pricing</text>
+<rect x="466.6666666666667" y="259" width="5" height="5" rx="2.5" fill="#2a78d6" stroke="none"/>
+<text x="480.6666666666667" y="267" fill="#14181d" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" font-weight="400" text-anchor="start" letter-spacing="0">A job queue, so a GARCH does not hold the</text>
+<text x="480.6666666666667" y="282" fill="#14181d" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" font-weight="400" text-anchor="start" letter-spacing="0">request</text>
+<rect x="466.6666666666667" y="298" width="5" height="5" rx="2.5" fill="#2a78d6" stroke="none"/>
+<text x="480.6666666666667" y="306" fill="#14181d" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" font-weight="400" text-anchor="start" letter-spacing="0">Notebook and Python export of a run</text>
+<rect x="466.6666666666667" y="322" width="5" height="5" rx="2.5" fill="#2a78d6" stroke="none"/>
+<text x="480.6666666666667" y="330" fill="#14181d" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" font-weight="400" text-anchor="start" letter-spacing="0">Multi-user, projects with owners</text>
+<rect x="466.6666666666667" y="346" width="5" height="5" rx="2.5" fill="#2a78d6" stroke="none"/>
+<text x="480.6666666666667" y="354" fill="#14181d" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" font-weight="400" text-anchor="start" letter-spacing="0">A tool authoring kit, so the registry is</text>
+<text x="480.6666666666667" y="369" fill="#14181d" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" font-weight="400" text-anchor="start" letter-spacing="0">extensible</text>
+<rect x="466.6666666666667" y="385" width="5" height="5" rx="2.5" fill="#2a78d6" stroke="none"/>
+<text x="480.6666666666667" y="393" fill="#14181d" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" font-weight="400" text-anchor="start" letter-spacing="0">Backtesting and portfolio construction</text>
+<rect x="466.6666666666667" y="409" width="5" height="5" rx="2.5" fill="#2a78d6" stroke="none"/>
+<text x="480.6666666666667" y="417" fill="#14181d" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" font-weight="400" text-anchor="start" letter-spacing="0">Scheduled runs and drift alerts</text>
+<path d="M835.3333333333334 296.0 h14 m-6 -4.5 l6 4.5 l-6 4.5" fill="none" stroke="#8d97a5" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="853.3333333333334" y="126" width="382.6666666666667" height="340" rx="10" fill="#fafafa" stroke="#e3e7ec"/>
+<rect x="853.3333333333334" y="126" width="3" height="340" rx="1.5" fill="#4a3aa7" stroke="none"/>
+<text x="871.3333333333334" y="160" fill="#14181d" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="19" font-weight="700" text-anchor="start" letter-spacing="0">Long term</text>
+<text x="1218.0" y="160" fill="#4a3aa7" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" font-weight="600" text-anchor="end" letter-spacing="0">the shape it is aiming at</text>
+<text x="871.3333333333334" y="184" fill="#5b6675" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="400" text-anchor="start" letter-spacing="0">Make reproducibility the unit of exchange, not</text>
+<text x="871.3333333333334" y="201" fill="#5b6675" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="400" text-anchor="start" letter-spacing="0">the report.</text>
+<rect x="871.3333333333334" y="220" width="5" height="5" rx="2.5" fill="#4a3aa7" stroke="none"/>
+<text x="885.3333333333334" y="228" fill="#14181d" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" font-weight="400" text-anchor="start" letter-spacing="0">A shareable, verifiable result format</text>
+<rect x="871.3333333333334" y="244" width="5" height="5" rx="2.5" fill="#4a3aa7" stroke="none"/>
+<text x="885.3333333333334" y="252" fill="#14181d" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" font-weight="400" text-anchor="start" letter-spacing="0">A registry others can publish tools into</text>
+<rect x="871.3333333333334" y="268" width="5" height="5" rx="2.5" fill="#4a3aa7" stroke="none"/>
+<text x="885.3333333333334" y="276" fill="#14181d" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" font-weight="400" text-anchor="start" letter-spacing="0">Cross-study memory: what this desk already</text>
+<text x="885.3333333333334" y="291" fill="#14181d" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" font-weight="400" text-anchor="start" letter-spacing="0">knows</text>
+<rect x="871.3333333333334" y="307" width="5" height="5" rx="2.5" fill="#4a3aa7" stroke="none"/>
+<text x="885.3333333333334" y="315" fill="#14181d" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" font-weight="400" text-anchor="start" letter-spacing="0">Continuous market efficiency monitoring</text>
+<rect x="871.3333333333334" y="331" width="5" height="5" rx="2.5" fill="#4a3aa7" stroke="none"/>
+<text x="885.3333333333334" y="339" fill="#14181d" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" font-weight="400" text-anchor="start" letter-spacing="0">A grounding gate that reads charts and</text>
+<text x="885.3333333333334" y="354" fill="#14181d" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" font-weight="400" text-anchor="start" letter-spacing="0">tables too</text>
+<rect x="871.3333333333334" y="370" width="5" height="5" rx="2.5" fill="#4a3aa7" stroke="none"/>
+<text x="885.3333333333334" y="378" fill="#14181d" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" font-weight="400" text-anchor="start" letter-spacing="0">Regulatory-grade audit export</text>
+<line x1="44" y1="514" x2="1236" y2="514" stroke="#e3e7ec" stroke-width="1" stroke-linecap="round"/>
+<text x="44" y="534" fill="#8d97a5" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="400" text-anchor="start" letter-spacing="0">Nothing here loosens the invariant. A roadmap item that would let a model compute a statistic is not a later version of this product, it is a different one.</text>
+</svg>
