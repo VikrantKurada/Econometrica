@@ -34,63 +34,21 @@ only ``node_modules`` is:
 
 from __future__ import annotations
 
-import html
-from dataclasses import dataclass, field
 from pathlib import Path
+
+from diagram_kit import (
+    Card,
+    Theme,
+    band_heading,
+    draw_card,
+    rect,
+    text_el,
+    write_pair,
+)
+from diagram_kit import columns as _columns
 
 W, H = 1440, 1020
 MARGIN = 40
-SANS = "ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif"
-MONO = "ui-monospace,SFMono-Regular,Menlo,Consolas,monospace"
-
-
-@dataclass(frozen=True)
-class Theme:
-    name: str
-    bg: str
-    card: str
-    border: str
-    text: str
-    muted: str
-    faint: str
-    series: tuple[str, ...]
-
-
-LIGHT = Theme(
-    name="light",
-    bg="#ffffff",
-    card="#fafafa",
-    border="#e3e7ec",
-    text="#14181d",
-    muted="#5b6675",
-    faint="#8d97a5",
-    series=(
-        "#2a78d6", "#eb6834", "#1baf7a", "#eda100",
-        "#e87ba4", "#008300", "#4a3aa7", "#e34948",
-    ),
-)
-
-DARK = Theme(
-    name="dark",
-    bg="#0f1319",
-    card="#171c24",
-    border="#272e39",
-    text="#e8ecf1",
-    muted="#93a0b1",
-    faint="#6f7c8d",
-    series=(
-        "#3987e5", "#d95926", "#199e70", "#c98500",
-        "#d55181", "#008300", "#9085e9", "#e66767",
-    ),
-)
-
-
-@dataclass
-class Card:
-    title: str
-    lines: list[str] = field(default_factory=list)
-    mono: list[str] = field(default_factory=list)
-    badge: str = ""
 
 
 # --- content ------------------------------------------------------------------
@@ -164,71 +122,21 @@ GUARDRAILS = [
     ("Generated data and generated code are marked", "in the manifest, the banner and the printout"),
 ]
 
-NOT_WIRED = (
-    "Built and tested, not yet reachable from a run: "
-    "document retrieval over pgvector · the MCP tool allowlist"
+#: Shown in the footer. Every context channel the design asked for is now
+#: reachable from a run, so this line says what is deliberately *not* there
+#: rather than what has not been wired yet.
+BOUNDARIES = (
+    "Single user, no authentication · one machine · nothing leaves it except "
+    "the model calls and data fetches you configure"
 )
 
 
 # --- drawing ------------------------------------------------------------------
 
 
-def esc(text: str) -> str:
-    return html.escape(text, quote=False)
-
-
-def text_el(
-    x: float, y: float, content: str, *, fill: str, size: float,
-    weight: str = "400", family: str = SANS, anchor: str = "start",
-    spacing: str = "0",
-) -> str:
-    return (
-        f'<text x="{x}" y="{y}" fill="{fill}" font-family="{family}"'
-        f' font-size="{size}" font-weight="{weight}" text-anchor="{anchor}"'
-        f' letter-spacing="{spacing}">{esc(content)}</text>'
-    )
-
-
-def rect(x: float, y: float, w: float, h: float, *, fill: str, stroke: str = "none", r: float = 10) -> str:
-    return (
-        f'<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="{r}"'
-        f' fill="{fill}" stroke="{stroke}"/>'
-    )
-
-
-def band_heading(t: Theme, x: float, y: float, label: str, accent: str) -> list[str]:
-    return [
-        rect(x, y - 9, 3, 12, fill=accent, r=1.5),
-        text_el(x + 12, y, label.upper(), fill=t.muted, size=12, weight="700", spacing="1.4"),
-    ]
-
-
-def draw_card(t: Theme, card: Card, x: float, y: float, w: float, h: float, accent: str) -> list[str]:
-    out = [rect(x, y, w, h, fill=t.card, stroke=t.border)]
-    # A hairline in the band's colour rather than a filled header: the card has
-    # to stay legible at README width, where a tinted block would swallow text.
-    out.append(rect(x, y, 3, h, fill=accent, r=1.5))
-    cursor = y + 26
-    out.append(text_el(x + 16, cursor, card.title, fill=t.text, size=15, weight="600"))
-    if card.badge:
-        out.append(
-            text_el(x + w - 16, cursor, card.badge, fill=accent, size=15, weight="700", anchor="end")
-        )
-    cursor += 20
-    for line in card.lines:
-        out.append(text_el(x + 16, cursor, line, fill=t.muted, size=12.5))
-        cursor += 17
-    if card.mono:
-        cursor += 2
-        for name in card.mono:
-            out.append(text_el(x + 16, cursor, name, fill=t.faint, size=11.5, family=MONO))
-            cursor += 15
-    return out
-
-
 def columns(count: int, gap: float = 16) -> tuple[float, list[float]]:
-    width = (W - 2 * MARGIN - gap * (count - 1)) / count
-    return width, [MARGIN + i * (width + gap) for i in range(count)]
+    """The page-wide column helper, bound to this drawing's width and margin."""
+    return _columns(W, MARGIN, count, gap)
 
 
 def build(t: Theme) -> str:
@@ -343,11 +251,11 @@ def build(t: Theme) -> str:
         p.append(text_el(x + 12, gy + 38, tail, fill=t.faint, size=10.5))
 
     # --- honest footer
-    p.append(text_el(MARGIN, 1000, NOT_WIRED, fill=t.faint, size=11.5))
+    p.append(text_el(MARGIN, 1000, BOUNDARIES, fill=t.faint, size=11.5))
     p.append(
         text_el(
             W - MARGIN, 1000,
-            "1431 backend tests · 320 frontend · 6 end-to-end · "
+            "1492 backend tests · 326 frontend · 6 end-to-end · "
             "Python + FastAPI · React + TypeScript · Postgres, TimescaleDB, pgvector",
             fill=t.faint, size=11.5, anchor="end",
         )
@@ -446,14 +354,10 @@ def build_social(t: Theme) -> str:
 
 def main() -> None:
     here = Path(__file__).resolve().parent
-    for theme in (LIGHT, DARK):
-        path = here / f"capability-map-{theme.name}.svg"
-        path.write_text(build(theme), encoding="utf-8")
+    written = write_pair(here, "capability-map", build)
+    written += write_pair(here, "social-preview", build_social)
+    for path in written:
         print(f"wrote {path.relative_to(here.parents[1])}")
-
-        card = here / f"social-preview-{theme.name}.svg"
-        card.write_text(build_social(theme), encoding="utf-8")
-        print(f"wrote {card.relative_to(here.parents[1])}")
 
 
 if __name__ == "__main__":
