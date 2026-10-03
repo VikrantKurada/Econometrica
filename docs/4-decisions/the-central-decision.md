@@ -222,8 +222,8 @@ security controls.**
 | Layer | Enforced by | Strength |
 |---|---|---|
 | Import allowlist | A gated `__import__` in the generated code's own builtins | **Bypassable**, via `().__class__.__base__.__subclasses__()` |
-| Forbidden operations | A PEP 578 audit hook | **This is the real boundary.** It fires from C and cannot be unregistered |
-| Resource caps | A Job Object on Windows, `setrlimit` on POSIX | The OS |
+| Forbidden operations | A PEP 578 audit hook | **This is what stops the operations.** It fires from C and cannot be unregistered |
+| Resource caps | A Job Object on Windows, `setrlimit` on POSIX | The OS. The process with its caps is **the real boundary** |
 
 **`SMUGGLE` in `tests/sandbox/test_escapes.py` defeats the allowlist
 deliberately.** Every test under it proves the audit hook still holds after

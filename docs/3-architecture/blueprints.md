@@ -627,7 +627,7 @@ security-sensitive toggle in the system, so it stays at project scope.
 
 ## B11. Streaming event vocabulary
 
-**Twelve events with dotted names, not a discriminated union.** A client
+**Dotted names, not a discriminated union.** A client
 renders a timeline, and a new phase must not break a client that has not been
 updated.
 

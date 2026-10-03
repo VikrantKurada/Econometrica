@@ -43,7 +43,7 @@ timeline
     title What has to be true before what
     section Shipped
         Numbers that reproduce : 37 tools, five families
-                               : Nine agent roles, three tiers
+                               : Ten agent roles, three tiers
                                : Manifests, re-run, exports
                                : Real prices, rates, factors, uploads
                                : Context from web, documents, MCP
@@ -55,6 +55,7 @@ timeline
                                 : Notebook and Python export
                                 : Backtesting and portfolios
                                 : Scheduled runs and drift alerts
+                                : Narrator context, done safely
     section Long term
         Reproducibility as the unit : A portable, verifiable result format
                                     : A published tool registry

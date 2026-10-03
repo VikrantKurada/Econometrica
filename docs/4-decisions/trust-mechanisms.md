@@ -404,8 +404,8 @@ grounding-gate problem, not a toggle that turns the channel on.
 **Nothing read from any of the three channels may become a number.**
 
 - `allowed_values` reads `ResultSet`s only.
-- There is a test per channel asserting that a figure quoted verbatim out of
-  its text is still blocked.
+- Web search and retrieval each have a test asserting that a figure quoted
+  verbatim out of their text is still blocked.
 
 A figure read on a web page is exactly as ungrounded as one a model invented.
 

@@ -10,7 +10,7 @@
 | Section | Count |
 |---|---|
 | [Tools](#the-37-tools) | 37, in five families |
-| [Diagnostics](#the-diagnostics-engine) | 7 groups of checks |
+| [Diagnostics](#the-diagnostics-engine) | 9 checks |
 | [Chart types](#the-14-chart-types) | 14 |
 | [Agent roles](#the-10-agent-roles) | 10 |
 | [LLM providers](#the-5-llm-providers) | 5 |
@@ -269,7 +269,7 @@ wrong in both directions.
 | Source | What it serves | Cached |
 |---|---|---|
 | `yahoo` | Dividend-adjusted daily closes through yfinance | yes |
-| `fred` | Seventeen treasury series as risk-free rates, and a cross-check on prices | yes |
+| `fred` | Seventeen rate series as risk-free rates, and a cross-check on prices | yes |
 | Ken French library | `ff3`, `ff5`, `carhart4` factor sets | via the same layer |
 | Uploads | CSV, XLSX, Parquet, ingested into a Timescale hypertable | n/a |
 | `synthetic` | Reproducible random walks, seeded by a hash of the ticker | no |

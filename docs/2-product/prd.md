@@ -252,8 +252,8 @@ all seven already exists in `run_steps` and `spans`.
 - [x] All six phases pass their gate tests
 - [x] `ruff` and `mypy --strict` clean on `src`
 - [x] `alembic check` reports no drift
-- [x] Six Playwright specs pass from a cold start, two of them against real
-      market data and a live local model
+- [x] Six Playwright tests pass from a cold start. Four run against a live
+      local model, and one of those four runs on real market data
 - [x] A run can be reproduced from its manifest through the UI, verified
       against a live model
 - [x] A run can be exported in all five formats and the manifest is present in

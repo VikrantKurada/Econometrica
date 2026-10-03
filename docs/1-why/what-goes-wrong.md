@@ -27,10 +27,12 @@ It is that the failures cluster.
 **A model asked to name a listed instrument, with nothing in front of it,
 makes one up.**
 
-| Question | Symbol the Planner named | Real symbol |
-|---|---|---|
-| "How has London's real estate moved over the last thirty years?" | `LON` | none |
-| A question about the National Stock Exchange of India | `NSEI` | `^NSEI`, with a caret |
+| Question | Symbol the Planner named |
+|---|---|
+| "How has London's real estate moved over the last thirty years?" | `LON` |
+| A question about the National Stock Exchange of India | `NSEI` |
+
+The real symbol for the Nifty 50 is `^NSEI`, with a caret.
 
 Both runs died in the Data Steward, which is the good outcome.
 

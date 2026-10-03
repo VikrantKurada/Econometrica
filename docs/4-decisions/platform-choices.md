@@ -218,10 +218,10 @@ the all-pairs cap.
 
 ### Two related caps, both measured
 
-| Cap | Applies to | Why |
-|---|---|---|
-| **Eight series** | Most charts | Eight palette slots clear the adjacent-pair colour-blindness floors on this project's own chart surfaces |
-| **Three series** | A scatter | A scatter compares every pair at once, and only the first three slots clear the all-pairs floors |
+| Cap | Why |
+|---|---|
+| **Eight series** | Eight palette slots clear the adjacent-pair colour-blindness floors on this project's own chart surfaces |
+| **Three series**, on a scatter | A scatter compares every pair at once, and only the first three slots clear the all-pairs floors |
 
 These are measured numbers, not chosen ones.
 

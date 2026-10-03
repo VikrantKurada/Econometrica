@@ -35,7 +35,7 @@ Before you change a module:
 
 ## 1. The result type, and why everything depends on it
 
-**`econ/types.py` is 100 lines and is the most important file in the
+**`econ/types.py` is under 100 lines and is the most important file in the
 backend.**
 
 ```python
@@ -242,7 +242,7 @@ direction:
 
 ### `AnalysisPlan` must form a DAG
 
-**Four checks, in order. Any one rejects the plan.**
+**The checks run in order. Any one rejects the plan.**
 
 Both step kinds share one id namespace. A narration cites `s3` whether `s3`
 ran a tool or ran code, so a collision would make a citation ambiguous.
@@ -328,8 +328,8 @@ generator.**
 
 ### Construction
 
-**The optional parameters are optional for a reason. Absent means something
-specific each time.**
+**Thirteen parameters. The optional ones are optional for a reason. Absent
+means something specific each time.**
 
 ```python
 Orchestrator(
@@ -349,12 +349,13 @@ Orchestrator(
 )
 ```
 
-**Two parameters for search, not one.**
+**Three parameters for search, not one.**
 
 | Parameter | Absent or false means |
 |---|---|
 | `searcher=None` | No provider is configured on this deployment |
 | `web_search=False` | Search is off for this project |
+| `query_writer=None` | The verbatim question is searched |
 
 Those are different facts. The same reasoning gives `coder` and
 `code_sandbox` as a pair.
@@ -765,8 +766,8 @@ may become a number.**
 That is enforced by the grounding gate, not by good intentions:
 
 - `allowed_values` reads `ResultSet`s only.
-- There is a test per channel asserting a figure quoted verbatim from its text
-  is still blocked.
+- Web search and retrieval each have a test asserting a figure quoted
+  verbatim from their text is still blocked.
 
 ```mermaid
 flowchart LR

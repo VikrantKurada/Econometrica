@@ -336,7 +336,7 @@ kind of bug survives.
 
 ## R8. Things that were built and tested but not reachable
 
-**A shape of gap worth naming, because we found it three times.**
+**A shape of gap worth naming, because we found it four times.**
 
 `UploadedPriceSource`:
 
