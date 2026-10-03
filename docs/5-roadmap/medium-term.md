@@ -2,7 +2,7 @@
 
 - **The point:** eight themes over the next two to four phases. Each has a
   done condition that can fail.
-- **Read time:** about 12 minutes end to end. Each theme stands alone: read
+- **Read time:** about 13 minutes end to end. Each theme stands alone: read
   the one you care about.
 - **Do first:** pick one theme from the Contents table and jump to it. M5 is
   the smallest. M1 can start today.
@@ -144,7 +144,7 @@ stateDiagram-v2
 | Epic | Notes |
 |---|---|
 | **E2.1 A `jobs` table** | Status, attempts, heartbeat, payload, result reference |
-| **E2.2 Worker loop** | In-process to start. Redis stays out until there is a reason, per [D18](../4-decisions/platform-choices.md#d18) |
+| **E2.2 Worker loop** | In-process to start. It has to take the fit off the event loop, which is what the designed process pool was for, or other requests still wait. Redis stays out until there is a reason, per [D18](../4-decisions/platform-choices.md#d18) |
 | **E2.3 Reconnectable SSE** | The stream becomes a view onto a job rather than the job itself. Closing the tab stops watching, not running |
 | **E2.4 Cancellation** | Cooperative, and it has to reach the sandbox child, which already has a wall clock |
 | **E2.5 Queue depth in `/api/metrics`** | The design asked for it. It is measurable only once there is a queue |
@@ -160,6 +160,7 @@ contract.
   or explicitly failed, never in `running` forever
 - Closing the browser tab does not stop the analysis
 - A user can cancel a run and the sandbox child dies with it
+- Another request is answered while a fit is still running
 - `GET /api/metrics` reports queue depth
 
 ### The thing to be careful about
