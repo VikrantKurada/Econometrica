@@ -64,7 +64,7 @@ change our minds now.
 | D15 | **Plotly**, as a trimmed partial bundle | Moderate. Fourteen renderers | [Platform](platform-choices.md#d15) |
 | D16 | **No chart type can express a second y-axis** | Cheap, and we would be wrong to | [Platform](platform-choices.md#d16) |
 | D17 | **Runs and chat messages are separate routes**, not a mode flag | Moderate | [Platform](platform-choices.md#d17) |
-| D18 | **asyncio and a process pool**, not Redis or Celery | Easy, and the roadmap revisits it | [Platform](platform-choices.md#d18) |
+| D18 | **asyncio in one process**, not Redis or Celery. The designed process pool was not built | Easy, and the roadmap revisits it | [Platform](platform-choices.md#d18) |
 | D19 | **Port 8001, not 8000** | Trivial, and it cost a day to learn | [Platform](platform-choices.md#d19) |
 | D20 | **PDF from a print stylesheet**, not a rendering dependency | Easy | [Platform](platform-choices.md#d20) |
 | D21 | **Telemetry and the run trace are separate**, and no number is summed from both | Structural | [Platform](platform-choices.md#d21) |

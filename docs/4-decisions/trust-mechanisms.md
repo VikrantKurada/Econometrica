@@ -319,9 +319,13 @@ consequence of shared training data.
 ### Decision
 
 - Per-role model assignment is a first-class feature.
-- The Validator is meant to sit on a different vendor from the Econometrician.
+- The Validator is meant to sit on a different vendor from the Planner.
 - `independence_warning` exists, and the orchestrator surfaces it when they
   match.
+
+The design named the Econometrician here. That role turned out to need no
+model ([D8](#d8)), so the plan under review is the Planner's, and the
+Planner's provider is the one the warning compares.
 
 ### Why it warns rather than refuses
 

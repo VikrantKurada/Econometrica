@@ -28,7 +28,7 @@ A user asks a question in prose. A multi-agent pipeline then:
 2. resolves the data
 3. runs typed econometric tools
 4. checks the assumptions
-5. validates the work with a second model on a different vendor
+5. validates the work with a second model, meant to sit on a different vendor
 6. writes an interpretation whose every number is verified against the
    computed results
 
@@ -158,7 +158,7 @@ criterion that was actually used.**
 | FR-3.5 | A rejection buys exactly one revision | Unbounded, a Validator and a Planner trade drafts until the budget is gone, and the second rejection usually means the question is unanswerable on this data |
 | FR-3.6 | A revision that changes the dataset spec re-resolves the data | Otherwise the recorded plan describes a window the results did not come from |
 | FR-3.7 | The Validator is fed deterministic diagnostics as numbers, not asked to infer them | The diagnostics engine runs first |
-| FR-3.8 | The Validator should run on a different vendor from the Econometrician; when it does not, the run warns | `independence_warning` |
+| FR-3.8 | The Validator should run on a different vendor from the Planner; when it does not, the run warns | `independence_warning` |
 | FR-3.9 | A run that fails mid-pipeline returns readable, saying how far it got and why it stopped | Never half-written |
 | FR-3.10 | The whole run, its steps and its outcome persist | `runs`, `run_steps`, and the serialised `RunOutcome` in `runs.outcome` |
 
@@ -229,7 +229,7 @@ tools. None of them may become a number.**
 | NFR-4 | `mypy --strict` and `ruff` clean on `src` | Part of the gate |
 | NFR-5 | The trimmed Plotly bundle is roughly 1 MB gzipped | Acceptable for a locally served application. It is `lib/core` plus four traces, not the whole ~3 MB |
 | NFR-6 | Light and dark themes throughout, including chart palettes | Series colours validated for colour-blindness separation against the exact card surfaces they render on |
-| NFR-7 | A CPU-bound fit must not make the application unusable | Currently acceptable for single-user local work. A job queue is an open medium-term item |
+| NFR-7 | A CPU-bound fit must not make the application unusable | Open. A fit runs on the event loop, so other requests wait until it returns. Accepted for single-user local work. The medium-term job queue item revisits it |
 
 ## 7. Success metrics
 
@@ -270,7 +270,7 @@ host privileges.**
 
 | Risk | Severity | Position |
 |---|---|---|
-| A CPU-bound fit blocks the request | Medium | Acceptable at single-user scale. A job queue is the fix, scheduled in the [medium term](../5-roadmap/medium-term.md) |
+| A CPU-bound fit blocks the event loop, so other requests wait | Medium | Acceptable at single-user scale. The designed process pool would have taken the fit off the loop, and it was not built. The [medium term](../5-roadmap/medium-term.md) job queue item revisits it |
 | The Narrator has no access to context channels, so interpretations are less informed than they could be | Medium | Deliberate and unresolved. Fixing it needs a design that answers the grounding-gate problem first, not a toggle |
 | A stdio MCP server is an arbitrary local command with host privileges | High, and disclosed | It is not sandboxed like the quant coder. The allowlist gates which tools run, not what the process can do. HTTP is the choice for a server you do not fully trust |
 | Vendors revise adjusted-close history, so old manifests stop reproducing | Low, by design | This is a finding, and the re-run report names it |

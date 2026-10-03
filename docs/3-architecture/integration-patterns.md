@@ -132,7 +132,7 @@ flowchart LR
     MA --> RS["researcher → ollama/qwen3"]
 ```
 
-**A Validator sharing a vendor with the Econometrician shares its blind
+**A Validator sharing a vendor with the Planner shares its blind
 spots.** So `independence_warning` exists, and the orchestrator surfaces it as
 a run warning. It does not silently allow it.
 

@@ -2,7 +2,7 @@
 
 - **The point:** ten decisions about the stack. Several look boring and are
   not. Two cost a working day each to learn.
-- **Read time:** about 12 minutes
+- **Read time:** about 13 minutes
 - **Do first:** read [D19](#d19), the port. It cost a day, and the failure
   mode is indistinguishable from "the fix did not work".
 
@@ -14,7 +14,7 @@
 | D15 | Plotly, as a trimmed partial bundle | About 1 MB gzipped |
 | D16 | No chart type can express a second y-axis | Two measures need a panel chart |
 | D17 | Runs and chat messages are separate routes | Users conflate the two panes |
-| D18 | asyncio and a process pool, not Redis or Celery | No durable job queue |
+| D18 | asyncio in one process, not Redis or Celery | A fit blocks the event loop, and no durable job queue |
 | D19 | Port 8001, not 8000 | A day, already paid |
 | D20 | PDF from a print stylesheet | Force-mounted canvas panels |
 | D21 | Telemetry and the run trace are separate | Two records to read |
@@ -279,25 +279,45 @@ they are separate at the top of the file, so nobody merges them by accident.
 
 <a id="d18"></a>
 
-## D18. asyncio and a process pool, not Redis or Celery
+## D18. asyncio in one process, not Redis or Celery
 
 ### Decision
 
-**`asyncio` plus a `ProcessPoolExecutor`, with progress streamed over SSE.**
+**Run the work inside the API process on `asyncio`, with progress streamed
+over SSE. No Redis, no Celery.**
+
+The design asked for more than was built:
+
+| Piece | In the design | In the code |
+|---|---|---|
+| `asyncio`, with progress over SSE | yes | yes |
+| A `ProcessPoolExecutor` for CPU-bound fits | yes | no |
+| A `jobs` table | yes | no |
+
+A registry tool runs inline. `Econometrician.run` is a coroutine, and it calls
+the tool function synchronously, with no executor in between. So the fit runs
+on the event loop.
+
+Generated code takes a different path. The sandbox runs it in a child process
+and waits for it on a thread, so it does not block the loop.
 
 ### Why
 
-- GARCH and VECM fits are CPU-bound and would block the event loop. Something
-  has to move them off it.
 - Redis and Celery are unjustified complexity for a single-user local
   application: two more processes to install, run and debug.
 - They would solve a queueing problem that does not exist at one user.
 
+**Neither reason covers the process pool.** GARCH and VECM fits are CPU-bound
+and block the event loop. The design moved them to a process pool for that
+reason. The pool was not built.
+
 ### The cost
 
-**There is no durable job queue.**
+**A fit blocks the event loop while it runs, and there is no durable job
+queue.**
 
 - A long fit occupies a request for its duration.
+- The API runs as one process, so other requests wait until the fit returns.
 - A restart mid-fit loses it.
 
 ### When it changes
