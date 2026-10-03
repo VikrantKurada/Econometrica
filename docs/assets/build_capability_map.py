@@ -55,7 +55,7 @@ MARGIN = 40
 
 SOURCES = [
     Card("Market prices", ["yfinance, dividend-adjusted", "daily closes, cached on disk"]),
-    Card("Risk-free rates", ["FRED, 17 treasury series,", "de-annualised by compounding"]),
+    Card("Risk-free rates", ["FRED, 17 rate series,", "de-annualised by compounding"]),
     # One mono line, not three: at this card height a third overflowed the
     # bottom edge and `carhart4` was clipped out of the picture entirely.
     Card("Factor sets", ["Ken French library"], mono=["ff3 · ff5 · carhart4"]),
@@ -65,12 +65,18 @@ SOURCES = [
 
 #: Shown under the pipeline: what a run may read that is not a number.
 CONTEXT_LINE = (
-    "Context, never numbers: with web search on, a run searches the question"
-    " before planning and the attributed results reach the Planner. The"
-    " grounding gate still admits only what a tool computed."
+    "Context, never numbers: before planning, a run can search the web, retrieve"
+    " the project's documents and call allowlisted MCP tools. All three reach the"
+    " Planner, and the grounding gate takes no number from them."
 )
 
-AGENTS = ["Planner", "Data Steward", "Econometrician", "Validator", "Narrator", "Visualizer"]
+#: The chain a run walks. The other roles are named on the line below the chips
+#: rather than drawn into it. Researcher and Query Writer run before the Planner
+#: when enabled, the Quant Coder runs after the Econometrician when a plan has
+#: code steps, the Column Mapper runs at upload, and nothing in the application
+#: constructs the Visualizer.
+AGENTS = ["Planner", "Data Steward", "Econometrician", "Validator", "Narrator"]
+OTHER_ROLES = ["Visualizer", "Quant Coder", "Query Writer", "Researcher", "Column Mapper"]
 
 FAMILIES = [
     Card(
@@ -83,7 +89,7 @@ FAMILIES = [
         badge="10",
         mono=[
             "adf", "kpss", "phillips_perron", "variance_ratio", "acf",
-            "ljung_box", "runs_test", "bds", "hurst", "weak_form_score",
+            "ljung_box", "runs_test", "bds", "hurst", "weak_form_efficiency_score",
         ],
     ),
     Card(
@@ -127,7 +133,7 @@ GUARDRAILS = [
 #: rather than what has not been wired yet.
 BOUNDARIES = (
     "Single user, no authentication · one machine · nothing leaves it except "
-    "the model calls and data fetches you configure"
+    "the model, data, search, MCP and telemetry calls you configure"
 )
 
 
@@ -143,7 +149,7 @@ def build(t: Theme) -> str:
     p: list[str] = [
         f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}"'
         f' height="{H}" role="img" aria-label="Econometrica capability and feature map">',
-        f"<title>Econometrica — capability and feature map</title>",
+        f"<title>Econometrica: capability and feature map</title>",
         rect(0, 0, W, H, fill=t.bg, r=0),
     ]
 
@@ -161,7 +167,7 @@ def build(t: Theme) -> str:
     p.append(
         text_el(
             MARGIN + 16, 105,
-            "The one invariant — LLMs never compute statistics. They select from a registry of "
+            "The one invariant: LLMs never compute statistics. They select from a registry of "
             "37 typed, versioned tools; the tools compute.",
             fill=t.text, size=13.5,
         )
@@ -179,7 +185,7 @@ def build(t: Theme) -> str:
     p += band_heading(t, MARGIN, y, "Multi-agent pipeline", t.series[6])
     chip_y = y + 18
     chip_h = 38
-    chip_w = (W - 2 * MARGIN - 5 * 34) / 6
+    chip_w = (W - 2 * MARGIN - (len(AGENTS) - 1) * 34) / len(AGENTS)
     for i, role in enumerate(AGENTS):
         x = MARGIN + i * (chip_w + 34)
         p.append(rect(x, chip_y, chip_w, chip_h, fill=t.card, stroke=t.border, r=8))
@@ -195,13 +201,17 @@ def build(t: Theme) -> str:
                 f' fill="none" stroke="{t.faint}" stroke-width="1.4"'
                 f' stroke-linecap="round" stroke-linejoin="round"/>'
             )
+    # SVG collapses runs of spaces, so the groups on the first line are split
+    # by a drawn bar: without it "Column Mapper Validation tiers" reads as one
+    # phrase.
     # Two lines. SVG text does not wrap, so a single line of this length ran
     # off the right edge and lost its last clause -- which was the clause about
     # generated results being marked, the one that must not go missing.
     p.append(
         text_el(
             MARGIN, chip_y + chip_h + 24,
-            "Validation tiers: single · critic · consensus      "
+            f"Other roles: {' · '.join(OTHER_ROLES)}   |   "
+            "Validation tiers: single · critic · consensus   |   "
             "Providers: Ollama · Anthropic · OpenAI · Gemini · NVIDIA NIM",
             fill=t.muted, size=12.5,
         )
@@ -209,8 +219,8 @@ def build(t: Theme) -> str:
     p.append(
         text_el(
             MARGIN, chip_y + chip_h + 42,
-            "Plus a Quant Coder that writes code in an OS-sandboxed process when no tool fits — "
-            "off by default, and its results are marked unvalidated everywhere they surface.",
+            "The Quant Coder writes code in an OS-sandboxed process when no tool fits: "
+            "off by default, and its results are marked unvalidated in the manifest, the banner and the printout.",
             fill=t.muted, size=12.5,
         )
     )
@@ -218,7 +228,7 @@ def build(t: Theme) -> str:
 
     # --- core
     y = 452
-    p += band_heading(t, MARGIN, y, "Econometrics core — 37 typed tools, five families", t.series[2])
+    p += band_heading(t, MARGIN, y, "Econometrics core: 37 typed tools, five families", t.series[2])
     w, xs = columns(5)
     for card, x in zip(FAMILIES, xs, strict=True):
         p += draw_card(t, card, x, y + 16, w, 218, t.series[2])
@@ -275,7 +285,7 @@ SMARGIN = 56
 STATS = [
     ("37", "typed tools"),
     ("5", "tool families"),
-    ("6", "agent roles"),
+    ("10", "agent roles"),
     ("14", "chart types"),
     ("5", "LLM providers"),
 ]
@@ -284,7 +294,7 @@ STATS = [
 def build_social(t: Theme) -> str:
     p: list[str] = [
         f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {SW} {SH}" width="{SW}"'
-        f' height="{SH}" role="img" aria-label="Econometrica — a local econometrics workbench">',
+        f' height="{SH}" role="img" aria-label="Econometrica: a local econometrics workbench">',
         "<title>Econometrica</title>",
         rect(0, 0, SW, SH, fill=t.bg, r=0),
     ]
@@ -306,7 +316,7 @@ def build_social(t: Theme) -> str:
     p.append(
         text_el(
             SMARGIN + 28, 298,
-            "They select from a registry of typed, versioned tools — the tools compute.",
+            "They select from a registry of typed, versioned tools. The tools compute.",
             fill=t.muted, size=26,
         )
     )

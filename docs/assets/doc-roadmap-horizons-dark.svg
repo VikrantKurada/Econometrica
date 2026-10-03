@@ -12,7 +12,7 @@
 <rect x="62.0" y="220" width="5" height="5" rx="2.5" fill="#199e70" stroke="none"/>
 <text x="76.0" y="228" fill="#e8ecf1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" font-weight="400" text-anchor="start" letter-spacing="0">37 tools across five families</text>
 <rect x="62.0" y="244" width="5" height="5" rx="2.5" fill="#199e70" stroke="none"/>
-<text x="76.0" y="252" fill="#e8ecf1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" font-weight="400" text-anchor="start" letter-spacing="0">Six agent roles, three validation tiers</text>
+<text x="76.0" y="252" fill="#e8ecf1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" font-weight="400" text-anchor="start" letter-spacing="0">Ten agent roles, three validation tiers</text>
 <rect x="62.0" y="268" width="5" height="5" rx="2.5" fill="#199e70" stroke="none"/>
 <text x="76.0" y="276" fill="#e8ecf1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" font-weight="400" text-anchor="start" letter-spacing="0">Real prices, rates, factors, uploads</text>
 <rect x="62.0" y="292" width="5" height="5" rx="2.5" fill="#199e70" stroke="none"/>
@@ -46,6 +46,8 @@
 <text x="480.6666666666667" y="393" fill="#e8ecf1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" font-weight="400" text-anchor="start" letter-spacing="0">Backtesting and portfolio construction</text>
 <rect x="466.6666666666667" y="409" width="5" height="5" rx="2.5" fill="#3987e5" stroke="none"/>
 <text x="480.6666666666667" y="417" fill="#e8ecf1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" font-weight="400" text-anchor="start" letter-spacing="0">Scheduled runs and drift alerts</text>
+<rect x="466.6666666666667" y="433" width="5" height="5" rx="2.5" fill="#3987e5" stroke="none"/>
+<text x="480.6666666666667" y="441" fill="#e8ecf1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" font-weight="400" text-anchor="start" letter-spacing="0">Narrator context, done safely</text>
 <path d="M835.3333333333334 296.0 h14 m-6 -4.5 l6 4.5 l-6 4.5" fill="none" stroke="#6f7c8d" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
 <rect x="853.3333333333334" y="126" width="382.6666666666667" height="340" rx="10" fill="#171c24" stroke="#272e39"/>
 <rect x="853.3333333333334" y="126" width="3" height="340" rx="1.5" fill="#9085e9" stroke="none"/>

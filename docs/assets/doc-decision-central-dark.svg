@@ -28,12 +28,13 @@
 <text x="870.0" y="184" fill="#93a0b1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="400" text-anchor="start" letter-spacing="0">The registry answers the canonical majority. When</text>
 <text x="870.0" y="201" fill="#93a0b1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="400" text-anchor="start" letter-spacing="0">nothing fits, a Quant Coder writes code that runs</text>
 <text x="870.0" y="218" fill="#93a0b1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="400" text-anchor="start" letter-spacing="0">in a locked-down process, and the result is marked</text>
-<text x="870.0" y="235" fill="#93a0b1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="400" text-anchor="start" letter-spacing="0">unvalidated everywhere it surfaces.</text>
+<text x="870.0" y="235" fill="#93a0b1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="400" text-anchor="start" letter-spacing="0">unvalidated in the manifest, the banner and the</text>
+<text x="870.0" y="252" fill="#93a0b1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="400" text-anchor="start" letter-spacing="0">printout.</text>
 <text x="870.0" y="318" fill="#199e70" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="700" text-anchor="start" letter-spacing="0">Chosen</text>
 <path d="M1044.0 336 L1044.0 358 L640.0 358 L640.0 380" fill="none" stroke="#199e70" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
 <path d="M640.0 372 v10 m-4.5 -6 l4.5 6 l4.5 -6" fill="none" stroke="#199e70" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
 <rect x="44" y="405" width="3" height="12" rx="1.5" fill="#199e70" stroke="none"/>
-<text x="56" y="414" fill="#93a0b1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" font-weight="700" text-anchor="start" letter-spacing="1.4">AND THE ESCAPE HATCH IS GATED FOUR WAYS</text>
+<text x="56" y="414" fill="#93a0b1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" font-weight="700" text-anchor="start" letter-spacing="1.4">AND THE ESCAPE HATCH IS GATED THREE WAYS, THEN MARKED</text>
 <rect x="44.0" y="432" width="287.5" height="92" rx="8" fill="#171c24" stroke="#272e39"/>
 <rect x="44.0" y="432" width="3" height="92" rx="1.5" fill="#199e70" stroke="none"/>
 <text x="58.0" y="456" fill="#e8ecf1" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="13" font-weight="600" text-anchor="start" letter-spacing="0">The project enables it</text>

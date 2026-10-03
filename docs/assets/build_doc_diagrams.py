@@ -274,8 +274,8 @@ def build_workbench(t: Theme) -> str:
 
     p += footer(
         t, height - 24,
-        "Every one of them carries the manifest that reproduces it: the data fingerprint, the tool"
-        " versions, and the source the prices came from.",
+        "Every result carries the manifest that reproduces it: the data fingerprint and the tool"
+        " version. A data export adds the source the prices came from.",
     )
     p.append("</svg>")
     return "\n".join(p) + "\n"
@@ -441,8 +441,8 @@ OPTIONS = (
     Option(
         "C", "Registry first, with a gated escape hatch",
         "The registry answers the canonical majority. When nothing fits, a Quant Coder writes code"
-        " that runs in a locked-down process, and the result is marked unvalidated everywhere it"
-        " surfaces.",
+        " that runs in a locked-down process, and the result is marked unvalidated in the manifest,"
+        " the banner and the printout.",
         "Chosen", True,
     ),
 )
@@ -511,7 +511,7 @@ def build_central_decision(t: Theme) -> str:
     )
 
     gate_y = top + card_h + 78
-    p += band_heading(t, MARGIN, gate_y, "and the escape hatch is gated four ways", t.series[2])
+    p += band_heading(t, MARGIN, gate_y, "and the escape hatch is gated three ways, then marked", t.series[2])
     gate_w, gxs = columns(W, MARGIN, 4, gap=14)
     for (title, note), gx in zip(GATES, gxs, strict=True):
         p.append(rect(gx, gate_y + 18, gate_w, 92, fill=t.card, stroke=t.border, r=8))
@@ -548,7 +548,7 @@ HORIZONS = (
         "One person, one machine, numbers that reproduce.",
         (
             "37 tools across five families",
-            "Six agent roles, three validation tiers",
+            "Ten agent roles, three validation tiers",
             "Real prices, rates, factors, uploads",
             "Web search, documents, MCP tools as context",
             "Manifests, re-run, exports, telemetry",
@@ -567,6 +567,7 @@ HORIZONS = (
             "A tool authoring kit, so the registry is extensible",
             "Backtesting and portfolio construction",
             "Scheduled runs and drift alerts",
+            "Narrator context, done safely",
         ),
         0,
     ),
