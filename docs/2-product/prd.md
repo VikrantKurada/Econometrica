@@ -1,7 +1,8 @@
 # Product Requirements Document
 
-- **The point:** every requirement here is shipped, and each is listed with
-  the acceptance criterion that was actually used.
+- **The point:** the product is shipped. This page is written against what
+  exists, with the open items marked as open. The functional requirements are
+  listed with the acceptance criterion that was actually used.
 - **Read time:** about 17 minutes end to end. It is a reference: jump by
   section number.
 - **Do first:** read [3.1 Goals](#31-goals). Seven rows, each with how it is

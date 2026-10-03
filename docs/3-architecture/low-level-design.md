@@ -1,7 +1,7 @@
 # Low-level design
 
 - **The point:** module by module, the types, the contracts, the algorithms,
-  and the constraints you cannot see by reading the code.
+  and the constraints that are not obvious from reading the code.
 - **Read time:** about 21 minutes end to end. Read one section at a time, the
   one for the module you are about to change.
 - **Do first:** find your module in the Contents below and jump to it.

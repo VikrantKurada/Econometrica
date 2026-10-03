@@ -9,9 +9,8 @@
 - **The point:** one sentence, "LLMs never compute statistics", forces seven
   layers and five typed seams. Nothing here is layering for its own sake.
 - **Read time:** about 5 minutes
-- **Do first:** open `backend/src/econometrica/econ/registry.py`. About 110
-  lines: `Gate`, `RegisteredTool`, and the registry the 37 tools register
-  into.
+- **Do first:** open `backend/src/econometrica/agents/orchestrator.py`. It
+  composes the roles, and it comes first in the reading order below.
 
 | Page | What it covers |
 |---|---|

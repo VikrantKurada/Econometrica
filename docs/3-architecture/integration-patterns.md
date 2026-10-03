@@ -442,7 +442,7 @@ that cannot be traced back is what this project exists not to produce.
 
 ## Adding a sixth integration: the checklist
 
-**Eight questions. Answer all eight before writing the adapter.**
+**Eight questions to answer when you add an integration.**
 
 - [ ] Is there a protocol for it in the **lower** layer, so the caller never
       imports the adapter?

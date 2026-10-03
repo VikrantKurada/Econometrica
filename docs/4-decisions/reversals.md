@@ -268,10 +268,9 @@ series produced it.
 
 ### Ken French
 
-| We assumed | It is |
-|---|---|
-| Values are decimals | Values are **percent**. `Mkt-RF` of `-0.70` means -0.70%. Forgetting the conversion rescales every loading by 100 |
-| The index is a datetime | The index is a `period[D]` |
+- **Values are percent.** `Mkt-RF` of `-0.70` means -0.70%. Forgetting the
+  conversion rescales every loading by 100.
+- **The index is a `period[D]`**, not a datetime.
 
 Both are silently wrong if missed. So `data/famafrench.py` converts at the
 boundary, and both conversions have their own test.

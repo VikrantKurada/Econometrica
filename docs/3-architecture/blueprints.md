@@ -1,6 +1,6 @@
 # Technical blueprints
 
-- **The point:** twelve reference drawings, B1 to B12. Nothing here argues for
+- **The point:** reference drawings, B1 to B12. Nothing here argues for
   anything.
 - **Read time:** about 7 minutes end to end. Do not read it end to end. Keep
   it open on a second monitor.

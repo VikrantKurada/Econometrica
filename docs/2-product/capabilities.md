@@ -254,9 +254,9 @@ wrong in both directions.
 
 **Keys are encrypted at rest.**
 
-**Per-role assignment is a first-class feature.** A typical split:
+**Per-role assignment is a first-class feature.** For example:
 
-| Role | Assign it | What that buys |
+| For | Assign it | What that buys |
 |---|---|---|
 | Planner | A frontier model | |
 | Validator | A different vendor | Genuine independence |
@@ -280,10 +280,11 @@ market source with the project's uploads.
 
 1. A symbol any of the project's datasets carries is served from the upload.
 2. Everything else falls through to the market source.
-3. A project with no uploads gets the market source back unwrapped, not a
-   wrapper that always delegates.
 
 That ordering exists so one run can mix a file with fetched tickers.
+
+A project with no uploads gets the market source back unwrapped, not a wrapper
+that always delegates.
 
 **Stooq was dropped from the project.**
 

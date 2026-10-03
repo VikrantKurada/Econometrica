@@ -3,8 +3,8 @@
 - **The point:** ten decisions about the stack. Several look boring and are
   not. Two cost a working day each to learn.
 - **Read time:** about 12 minutes
-- **Do first:** read [D19](#d19), the port. It is the one most likely to cost
-  you a day too.
+- **Do first:** read [D19](#d19), the port. It cost a day, and the failure
+  mode is indistinguishable from "the fix did not work".
 
 | # | Decision | What it costs |
 |---|---|---|

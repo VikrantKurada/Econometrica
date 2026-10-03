@@ -112,8 +112,7 @@ it.**
 | Zero, on a schedule ([M7](#m7-scheduled-runs-and-drift-alerts)) | A blocker |
 
 The original design anticipated this: `asyncio` plus a `ProcessPoolExecutor`
-plus a `jobs` table, with progress streamed over SSE. Two of the three exist.
-The `jobs` table does not.
+plus a `jobs` table, with progress streamed over SSE. Not all of that exists.
 
 ### What ships
 
