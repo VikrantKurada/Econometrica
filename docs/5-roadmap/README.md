@@ -6,6 +6,12 @@
 
 # 5. The roadmap
 
+- **The point:** eight medium-term themes, six long-term bets, and one rule:
+  nothing on this roadmap lets a model compute a statistic.
+- **Read time:** about 3 minutes
+- **Do first:** read [the rule](#the-rule). Three short paragraphs, and it
+  governs every item.
+
 | Page | Covers |
 |---|---|
 | **This page** | The three horizons, the one rule that governs all of them, and how the sequencing works |
@@ -19,14 +25,18 @@
 **Nothing on this roadmap loosens the invariant.**
 
 A roadmap item that would let a model compute a statistic is not a later
-version of this product. It is a different product, and it is the product this
-one exists as an alternative to.
+version of this product. It is a different product, and it is the product
+this one exists as an alternative to.
 
-That rule is not a constraint on ambition. It is what makes the ambitious
-items possible: every one of them in the long term depends on results being
-reproducible, and results are reproducible because models do not compute them.
+The rule is not a constraint on ambition. It is what makes the ambitious
+items possible:
+
+1. Every long-term item depends on results being reproducible.
+2. Results are reproducible because models do not compute them.
 
 ## Three horizons
+
+**Shipped, medium term, long term. Each is what the next one needs.**
 
 ```mermaid
 timeline
@@ -56,8 +66,8 @@ timeline
 
 ## How the sequencing works
 
-Every medium-term theme is a prerequisite for at least one long-term bet.
-This is the dependency graph, and it is the actual reason for the ordering:
+**Every medium-term theme is a prerequisite for at least one long-term bet.**
+The dependency graph below is the actual reason for the ordering.
 
 ```mermaid
 flowchart LR
@@ -94,14 +104,20 @@ flowchart LR
     M1 --> L6
 ```
 
-Read it the other way round and it is more useful: **you cannot have
-institutional memory without knowing who ran what, and you cannot have
-continuous monitoring without a queue that survives a restart.** The medium
-term is not a list of nice things. It is the set of things the long term needs.
+**Read it right to left and it is more useful:**
+
+| You cannot have | Without |
+|---|---|
+| Institutional memory | Knowing who ran what |
+| Continuous monitoring | A queue that survives a restart |
+
+The medium term is not a list of nice things. It is the set of things the
+long term needs.
 
 ## What is deliberately absent
 
-Worth stating, because their absence is a decision rather than an oversight.
+**Five things are not on the roadmap. Their absence is a decision, not an
+oversight.**
 
 | Not on the roadmap | Why |
 |---|---|
@@ -113,7 +129,7 @@ Worth stating, because their absence is a decision rather than an oversight.
 
 ## How to read the two roadmap pages
 
-Each theme is written as:
+**Each theme is written as four beats:**
 
 ```mermaid
 flowchart LR
@@ -122,8 +138,11 @@ flowchart LR
     D --> A["<b>Done when</b><br/>the acceptance criterion,<br/>stated so it can fail"]
 ```
 
-The last one matters most. A roadmap item without a falsifiable done condition
-is a wish, and wishes accumulate.
+**"Done when" matters most.** A roadmap item without a falsifiable done
+condition is a wish, and wishes accumulate.
+
+**Next, 2 minutes:** open [Medium term](medium-term.md) and read M5, notebook
+export. It is the smallest theme.
 
 ---
 

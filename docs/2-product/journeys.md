@@ -1,11 +1,22 @@
 # User journeys
 
-Four people, four sessions. Each one is a real path through the application,
-and each one ends somewhere different: one gets an answer, one gets a
-refusal, one gets an audit trail, and one gets an education.
+- **The point:** four people, four sessions, four different endings. The
+  refusal is the most important of the four.
+- **Read time:** about 8 minutes
+- **Do first:** read [Journey 2](#journey-2-the-researcher-gets-a-refusal-and-it-is-the-useful-answer).
+  It is the one that shows what this product is for.
 
-The refusal is the most important of the four, which is a strange thing to say
-about a product and is the whole point of this one.
+Each journey is a real path through the application.
+
+| # | Who | Ends with |
+|---|---|---|
+| 1 | Priya, quantitative analyst | an answer |
+| 2 | Marcus, researcher | a refusal |
+| 3 | Dev, risk officer | an audit trail |
+| 4 | Sam, learner | an education |
+
+Calling a refusal the most important outcome is a strange thing to say about
+a product. It is the whole point of this one.
 
 ---
 
@@ -30,31 +41,40 @@ journey
       Paste the chart into the deck: 5: Priya
 ```
 
-She types: *"Run a Fama-French three-factor regression on AAPL against the
-2018 to 2023 monthly window, and tell me whether the alpha is real."*
+What she does:
 
-She picks a planning model in the canvas composer and presses Run analysis.
-About forty seconds of watchable progress follows: the plan arrives as typed
-JSON, the data resolves (72 monthly rows, source named as
-"Yahoo Finance, dividend-adjusted"), then four steps run.
+1. Types: *"Run a Fama-French three-factor regression on AAPL against the 2018
+   to 2023 monthly window, and tell me whether the alpha is real."*
+2. Picks a planning model in the canvas composer.
+3. Presses Run analysis.
 
-The result: a market loading of 1.30, negative size and value loadings, which
-is exactly what a large-cap growth stock should look like. The alpha is not
-significant. The narrative says so, in prose, and every number in it is one
-the regression produced.
+What she watches, for about forty seconds:
 
-One step was refused. She asked for a GARCH on the residuals too, and the
-series has no ARCH effects to model. The refusal sits beside the charts with
-its reason. She does not have to wonder what happened to it.
+1. The plan arrives as typed JSON.
+2. The data resolves: 72 monthly rows, source named as "Yahoo Finance,
+   dividend-adjusted".
+3. Four steps run. One is refused.
 
-She exports the ZIP. It carries the manifest: the data fingerprint, the tool
-version, the parameters hash, and the source label including the adjustment
-policy. She exports the coefficient forest plot as an SVG and drops it into
-her deck.
+What she gets:
+
+- **A market loading of 1.30**, with negative size and value loadings. That is
+  what a large-cap growth stock should look like.
+- **The alpha is not significant.** The narrative says so in prose, and every
+  number in it is one the regression produced.
+- **One refusal.** She also asked for a GARCH on the residuals, and the series
+  has no ARCH effects to model. The refusal sits beside the charts with its
+  reason. She does not have to wonder what happened to it.
+
+What she takes away:
+
+- The ZIP export. It carries the manifest: the data fingerprint, the tool
+  version, the parameters hash, and the source label including the adjustment
+  policy.
+- The coefficient forest plot as an SVG, dropped into her deck.
 
 **What made this fast:** she never wrote code, never checked a number, and
-never wondered whether the model had made something up. The forty seconds were
-mostly the model thinking.
+never wondered whether the model had made something up. The forty seconds
+were mostly the model thinking.
 
 ---
 
@@ -63,7 +83,7 @@ mostly the model thinking.
 **Marcus is testing whether an emerging market index is weak-form efficient.
 He uploads his own price history because his source is not on Yahoo.**
 
-He selects the project with no chat open, and the centre pane shows the Data
+He selects the project with no chat open. The centre pane shows the Data
 screen. He drags in a CSV.
 
 ```mermaid
@@ -84,32 +104,43 @@ sequenceDiagram
     DB-->>UI: 1,506 observations stored
 ```
 
-The profiler scored every column for every role it could plausibly play. The
-model may only reorder candidates the profiler already found admissible.
-Marcus is not so constrained: he can pick a role the profiler never suggested,
-because he knows what is in his own file and the profiler does not.
+**Who may choose what:**
 
-Nothing is ingested until he presses Confirm. `confirm_mapping` is the only
-thing in the codebase that produces a mapping the ingest will act on, so a
-model's suggestion cannot be acted on by construction.
+| Who | May choose |
+|---|---|
+| The profiler | Scores every column for every role it could plausibly play |
+| A model | Only reorders candidates the profiler already found admissible |
+| Marcus | Any role, including one the profiler never suggested. He knows what is in his own file and the profiler does not |
 
-Then he asks the question. The plan comes back with a variance ratio test, a
-runs test, a Ljung-Box, a Hurst exponent and the composite weak-form
-efficiency score.
+**Nothing is ingested until he presses Confirm.** `confirm_mapping` is the
+only thing in the codebase that produces a mapping the ingest will act on. So
+a model's suggestion cannot be acted on, by construction.
 
-Three of the five run. Two are refused, because his window has 1,506
-observations and two of the tests need more to say anything at the requested
-lag. The refusals name the reason and the requirement.
+Then he asks the question. The plan comes back with five steps:
 
-**This is the good outcome.** The alternative product would have run all five,
-returned a number for each, and let Marcus put an underpowered Hurst exponent
-into a paper. Instead he knows precisely which two claims his data cannot
-support, and he can go and get more data or narrow the claim.
+1. a variance ratio test
+2. a runs test
+3. a Ljung-Box
+4. a Hurst exponent
+5. the composite weak-form efficiency score
 
-He notes that the run raised a `mixed_sources` info flag: his uploaded index
-was served from the hypertable and the comparison ticker came from Yahoo. The
-flag names every ticker under the source that served it. That distinction
-matters to a referee, and it is in the export.
+**Three of the five run. Two are refused.** His window has 1,506 observations,
+and two of the tests need more to say anything at the requested lag. The
+refusals name the reason and the requirement.
+
+**This is the good outcome.**
+
+| Product | What Marcus gets |
+|---|---|
+| The alternative | All five run, a number for each, and an underpowered Hurst exponent in his paper |
+| This one | Exactly which two claims his data cannot support. He can get more data or narrow the claim |
+
+One more thing he notes: the run raised a `mixed_sources` info flag.
+
+- His uploaded index was served from the hypertable.
+- The comparison ticker came from Yahoo.
+- The flag names every ticker under the source that served it.
+- That distinction matters to a referee, and it is in the export.
 
 ---
 
@@ -118,7 +149,7 @@ matters to a referee, and it is in the export.
 **Dev has been handed a memo with a beta in it and one job: find out where the
 number came from.**
 
-He opens the run. Not the chat, the run: it has an id, and the id is enough.
+He opens the run. Not the chat, the run. It has an id, and the id is enough.
 
 ```mermaid
 flowchart TD
@@ -139,22 +170,25 @@ flowchart TD
     end
 ```
 
-Every node names the agent, the provider, the model, the tokens, the cost and
-the latency. **The rejected first attempt is a node in its own right, because
-it was billed.** A trace that hides failed attempts is a trace that
-understates what a run cost and hides why it took as long as it did.
+**What the trace shows him:**
 
-Retries nest under their parent, so a second attempt reads as a second attempt
-rather than as new work. A step whose parent is missing shows at the root,
-because `parent_id` is `ON DELETE SET NULL` and a trace with a hole in it is
-better than a trace that refuses to render.
+- Every node names the agent, the provider, the model, the tokens, the cost
+  and the latency.
+- **The rejected first attempt is a node in its own right, because it was
+  billed.** A trace that hides failed attempts understates what a run cost and
+  hides why it took as long as it did.
+- Retries nest under their parent. A second attempt reads as a second attempt,
+  not as new work.
+- A step whose parent is missing shows at the root. `parent_id` is
+  `ON DELETE SET NULL`, and a trace with a hole in it is better than a trace
+  that refuses to render.
 
-Dev clicks through to the step's prompt and response. Both are there, both
-truncated at a limit, because §8 of the design asked for them from the start
-and nothing captured them until phase 6, which meant a trace could name the
-model but not the decision.
+He clicks through to the step's prompt and response. Both are there, both
+truncated at a limit. §8 of the design asked for them from the start, and
+nothing captured them until phase 6. Until then a trace could name the model
+but not the decision.
 
-Then he does the thing he actually came to do. He presses **Re-run**.
+**Then he does what he came to do. He presses Re-run.**
 
 The recorded plan re-executes against freshly resolved data. No model is
 consulted. The report comes back per step:
@@ -164,14 +198,21 @@ consulted. The report comes back per step:
 | s1 | `capm` | yes | |
 | s2 | `garch` | yes | refused before, refused now |
 
-If it had not reproduced, the report would name why: the data fingerprint
-changed, so the source is not serving the same history; the tool moved
-version; the parameters hash differently; or the numbers simply differ. Each
-of those is a different finding and Dev needs to be able to tell them apart.
+Had it not reproduced, the report would name why:
 
-He prints the run to PDF. The print stylesheet forces light surfaces whatever
-theme he was reading in, keeps each chart card whole across the page breaks,
-and prints the provenance block, which is print-only and always present.
+1. The data fingerprint changed, so the source is not serving the same
+   history.
+2. The tool moved version.
+3. The parameters hash differently.
+4. The numbers differ.
+
+Each is a different finding, and Dev needs to tell them apart.
+
+Last, he prints the run to PDF. The print stylesheet:
+
+- forces light surfaces, whatever theme he was reading in
+- keeps each chart card whole across page breaks
+- prints the provenance block, which is print-only and always present
 
 **What made this possible:** none of it required the original analyst. The
 run is a row in a database with structured artifacts, not a conversation
@@ -191,24 +232,31 @@ The plan runs. The GARCH step is refused:
 > null of no ARCH effects is not rejected. Fitting a GARCH here would return a
 > persistence figure with nothing behind it.
 
-Sam clicks the Diagnostics tab. The deterministic checks are all there, and
-three of them are marked **not judged** rather than failed, because no tool
-made a call on them. That distinction is enforced from the type through to the
-UI. A learner told a check "failed" when nobody ran it learns something false.
+Sam clicks the Diagnostics tab.
+
+- The deterministic checks are all there.
+- Three are marked **not judged**, not failed, because no tool made a call on
+  them.
+- That distinction is enforced from the type through to the UI.
+- A learner told a check "failed" when nobody ran it learns something false.
 
 The narrative interprets what did run, in prose, citing the step ids. Sam can
 follow each citation back to the number.
 
-**This is the education loop.** A refusal that names its reason teaches more
-than a result that does not. A product that silently ran the GARCH would have
-taught Sam that you can always fit a GARCH, which is exactly the wrong lesson
-and one that would surface years later in a risk report.
+**This is the education loop.**
+
+| Product | What Sam learns |
+|---|---|
+| One that silently ran the GARCH | That you can always fit a GARCH. The wrong lesson, and one that surfaces years later in a risk report |
+| This one | Why this series does not need one |
+
+A refusal that names its reason teaches more than a result that does not.
 
 ---
 
 ## What the four have in common
 
-Each of them got something they could not have got from a chat interface:
+**Each of them got something they could not have got from a chat interface.**
 
 | | What they needed | What made it possible |
 |---|---|---|
@@ -218,7 +266,11 @@ Each of them got something they could not have got from a chat interface:
 | Sam | To understand why | Refusals that carry reasons, and tri-state diagnostics |
 
 None of those is a feature you could add later to a system that let a model
-compute the numbers. They all follow from the one decision.
+compute the numbers. All four follow from the one decision.
+
+**Next, 2 minutes:** open [The central decision](../4-decisions/the-central-decision.md#d1)
+and read the Decision paragraph under D1. It is the one decision all four
+journeys follow from.
 
 ---
 

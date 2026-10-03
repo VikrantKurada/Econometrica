@@ -1,29 +1,44 @@
 # What goes wrong, in detail
 
-Everything in this page happened. The probe output, the model names and the
-numbers are from this project's own history, and most of them are recorded in
+- **The point:** the failures cluster into four groups, and once you see the
+  groups you can build against them.
+- **Read time:** about 8 minutes
+- **Do first:** skip to [the three rules](#what-all-of-this-adds-up-to) at the
+  bottom, then come back for the evidence behind whichever one surprises you.
+
+Everything on this page happened. The probe output, the model names and the
+numbers come from this project's own history. Most are recorded in
 [`CLAUDE.md`](../../CLAUDE.md) with the commit that closed them.
 
 The point of collecting them here is not to be grim about language models.
-It is that the failures cluster, and once you see the clusters you can build
-against them.
+It is that the failures cluster.
+
+| Cluster | In one line |
+|---|---|
+| 1 | The model does not know what it does not know |
+| 2 | The guardrail was real and the answer was still wrong |
+| 3 | The thing nobody was looking at |
+| 4 | The world is not what the docs say |
 
 ## Cluster 1: the model does not know what it does not know
 
 ### It invents a ticker
 
-A Planner asked "how has London's real estate moved over the last thirty
-years?" produced a plan naming the symbol `LON`. Another asked about the
-National Stock Exchange of India named `NSEI`. The real symbol for the Nifty
-50 is `^NSEI`, with a caret.
+**A model asked to name a listed instrument, with nothing in front of it,
+makes one up.**
 
-Both runs died in the Data Steward, which is the good outcome. But neither was
-a reasoning failure. The model reasoned fine. It was asked to name a listed
-instrument with nothing in front of it, which is a recall task, and recall is
-where models are weakest and most confident.
+| Question | Symbol the Planner named | Real symbol |
+|---|---|---|
+| "How has London's real estate moved over the last thirty years?" | `LON` | none |
+| A question about the National Stock Exchange of India | `NSEI` | `^NSEI`, with a caret |
 
-The fix was not a better prompt. It was to give the model something to look
-at. A small `QueryWriter` model turns the question into up to three
+Both runs died in the Data Steward, which is the good outcome.
+
+Neither was a reasoning failure. The model reasoned fine. Naming a ticker is a
+recall task, and recall is where models are weakest and most confident.
+
+**The fix was not a better prompt. It was giving the model something to look
+at.** A small `QueryWriter` model turns the question into up to three
 symbol-shaped lookups before planning:
 
 ```mermaid
@@ -49,31 +64,34 @@ This was measured, not assumed. Probed against live DuckDuckGo on 2026-07-30:
 | "Nifty 50 Yahoo Finance ticker symbol" | **`^NSEI`**, top hit |
 | "How has London's real estate moved over the last 30 years?" | none |
 
-The verbatim question is simply a bad search query. Turning an analytical
-question into a symbol-shaped one is not something a string transform can do,
-because it requires pulling "Nifty 50" out of "National Stock Exchange of
-India". A model can do it. That is a good division of labour: the model does
-the part that needs world knowledge, and the search engine does the part that
-needs to be current.
+The verbatim question is a bad search query.
+
+- A string transform cannot fix it. It has to pull "Nifty 50" out of "National
+  Stock Exchange of India".
+- A model can.
+- So the model does the part that needs world knowledge, and the search engine
+  does the part that needs to be current.
 
 ### It reaches for a field it was never told about
 
-The Planner has an escape hatch available (`code_steps`) when the project
-enables the code sandbox. Early on, the field existed in the schema all the
-time and the Planner was told about it all the time.
+**A capability a model cannot use is a capability it should not be able to
+see.**
 
-The result: on any sufficiently hard question, the model reached for it, and
-every such plan was then refused, **after the model call had already been
-paid for**.
+What happened, in order:
 
-The fix is that the Planner is only told the field exists when the capability
-is actually on. A capability a model cannot use is a capability it should not
-be able to see.
+1. The Planner has an escape hatch, `code_steps`, for projects that enable the
+   code sandbox.
+2. Early on, the field was in the schema all the time, and the Planner was told
+   about it all the time.
+3. On any sufficiently hard question, the model reached for it.
+4. Every such plan was refused, **after the model call had already been paid
+   for**.
+
+The fix: the Planner is told the field exists only when the capability is on.
 
 ## Cluster 2: the guardrail was real and the answer was still wrong
 
-This is the Gini probe, and it deserves its own section because it is the one
-that shaped the whole design.
+**This is the Gini probe. It shaped the whole design.**
 
 `ministral-3:8b`, temperature 0, asked for a Gini coefficient over a data
 frame. Five runs.
@@ -88,77 +106,94 @@ frame. Five runs.
 
 A Gini coefficient lives in [0, 1].
 
-Every security control held. Numpy only, the frame only, milliseconds, no
-network, no filesystem, contract satisfied. And the answer was garbage.
+Every security control held: numpy only, the frame only, milliseconds, no
+network, no filesystem, contract satisfied. The answer was garbage.
 
-The conclusion we drew is the one worth carrying: **a sandbox is a security
-control, not a correctness control, and confusing the two is how you build
-something that feels safe and is not.**
+> A sandbox is a security control, not a correctness control. Confusing the
+> two is how you build something that feels safe and is not.
 
-So when the escape hatch produces a result, the result is marked, in every
-place anything reads it:
+So a result from the escape hatch is marked in every place anything reads it:
 
-- `ResultSet.tool` is `sandbox:<method>`, and a colon cannot appear in a
-  registry tool name, so nothing in `econ/` can collide with it by accident
-- the manifest's version is the literal string `unvalidated`, not a number,
-  because there is nothing to compare a number against
-- the run banner alerts on it exactly as it does on generated data
-- the print-only provenance block says it in words
+| Where | The mark |
+|---|---|
+| `ResultSet.tool` | `sandbox:<method>`. A colon cannot appear in a registry tool name, so nothing in `econ/` can collide with it |
+| The manifest's version | The literal string `unvalidated`. Not a number, because there is nothing to compare a number against |
+| The run banner | Alerts on it exactly as it does on generated data |
+| The print-only provenance block | Says it in words |
 
-All of that is derived from the result itself. A marker that travels
-separately from the thing it marks is a marker that can be lost.
+All four are derived from the result itself. A marker that travels separately
+from the thing it marks can be lost.
 
 The live test for this feature asserts that the code **runs and is marked**.
-It does not assert the arithmetic is right. Asserting that would claim a
-property the feature does not have, and it would fail one run in five.
+It does not assert the arithmetic is right. That would claim a property the
+feature does not have, and the test would fail one run in five.
 
 ## Cluster 3: the thing nobody was looking at
 
-Two of the three most interesting defects in this project's history were found
-by opening the application and looking at it, not by a test.
+**Two of the three most interesting defects in this project's history were
+found by opening the application and looking at it. No test found them.**
 
 ### Confirming an upload never committed anything
 
-`get_session` does not commit, and the upload confirmation route did not
-either. So the entire ingest was discarded at the end of the request, while
-the response cheerfully reported what it would have stored.
+**The route reported what it stored and stored nothing.**
 
-The API test suite could not see this, and the reason is worth internalising:
-the test `client` fixture shares **one session across every request in a
-test**. So the flush stayed visible to the next call inside the test. The test
-read back exactly what it had written, through the same session that had
-written it, and passed.
+- `get_session` does not commit.
+- The upload confirmation route did not commit either.
+- So the whole ingest was discarded at the end of the request, while the
+  response reported what it would have stored.
 
-**A test that reads back through the same fixture cannot tell a flush from a
-write.**
+Why the API test suite could not see it:
+
+1. The test `client` fixture shares **one session across every request in a
+   test**.
+2. So the flush stayed visible to the next call inside the test.
+3. The test read back what it had written, through the session that wrote it,
+   and passed.
+
+> A test that reads back through the same fixture cannot tell a flush from a
+> write.
 
 ### Canvas panels stacked on top of each other
 
-The canvas tab panels are force-mounted, so that printing gets all of them.
-Radix sets `hidden` on a panel it unmounts and does not set it on a
-force-mounted one. The CSS keyed on `[hidden]`.
+**Narrative, Diagnostics and Trace all rendered, stacked, under whichever
+chart was open. Every unit test passed.**
 
-Result: Narrative, Diagnostics and Trace all rendered, stacked, underneath
-whichever chart was open. Every unit test passed. The rule now keys on
-`[data-state="inactive"]`, and inactive panels are parked off-screen rather
-than hidden, because a Plotly chart inside a `display: none` container renders
-blank and would print empty.
+The cause, in order:
+
+1. The canvas tab panels are force-mounted, so printing gets all of them.
+2. Radix sets `hidden` on a panel it unmounts. It does not set it on a
+   force-mounted one.
+3. The CSS keyed on `[hidden]`, so nothing was hidden.
+
+The fix:
+
+- The rule now keys on `[data-state="inactive"]`.
+- Inactive panels are parked off-screen, not hidden. A Plotly chart inside a
+  `display: none` container renders blank and would print empty.
 
 ### An info-severity flag reached nobody
 
-When a run draws on both an uploaded file and a market source, it raises a
-`mixed_sources` flag at **info** severity, naming every ticker under the
-source that served it. The canvas banner rendered `risk` and `warning` only.
+**The flag was raised, stored, exported, and invisible. Nothing failed.**
 
-So the flag was raised, stored, exported, and invisible. Nothing failed. The
-partition is explicit now: `riskFlags` drives the red alert, `infoFlags`
-drives a neutral note block. A third severity added later needs a home in one
-of them, or it disappears the same way.
+- A run that draws on both an uploaded file and a market source raises a
+  `mixed_sources` flag at **info** severity. It names every ticker under the
+  source that served it.
+- The canvas banner rendered `risk` and `warning` only.
+
+The partition is explicit now:
+
+| List | Drives |
+|---|---|
+| `riskFlags` | The red alert |
+| `infoFlags` | A neutral note block |
+
+A third severity added later needs a home in one of them, or it disappears
+the same way.
 
 ## Cluster 4: the world is not what the docs say
 
-Half of a day's work on this project has gone into things that were simply not
-true.
+**Half of a day's work on this project has gone into things that were not
+true.**
 
 | Belief | Reality |
 |---|---|
@@ -168,20 +203,28 @@ true.
 | Ollama reports its own capabilities in `/api/tags` | It does not. Context length and tool support come from `/api/show`, and guessing from the model name was wrong in both directions: 6 of 13 chat models on this machine cannot call tools, and real context windows run from 512 to 262144. |
 | A vendor's adjusted close is a stable series | AAPL on 2020-08-25 closes at `124.82` split-adjusted and `121.08` dividend-adjusted. Same day, same source, 3.1% apart. Nothing in a result distinguishes them unless the source's label says which policy it used. |
 
-That last row is the one that changed the design. It is why
-`PriceSource.label` names its adjustment policy and why the label travels into
-every data quality report. Reproducing a number means knowing which of two
-equally real series produced it.
+**The last row changed the design.**
+
+- `PriceSource.label` names its adjustment policy.
+- The label travels into every data quality report.
+- Reproducing a number means knowing which of two equally real series produced
+  it.
 
 ## What all of this adds up to
 
-Three rules, each of which is a direct consequence of something on this page.
+**Three rules. Each follows from something on this page.**
 
 1. **Do not ask a model for a fact you can look up.** Give it the lookup.
+   (Cluster 1.)
 2. **Do not confuse a control that stops harm with a control that ensures
-   correctness.** Mark the difference where the reader will see it.
+   correctness.** Mark the difference where the reader will see it. (Cluster
+   2.)
 3. **Do not trust a test that shares a fixture with the thing it is testing,
-   and open the application sometimes.**
+   and open the application sometimes.** (Cluster 3.)
+
+**Next, 2 minutes:** open [What is in the box](../2-product/) and read the
+"what it will not do" table. The sandbox row there is Cluster 2 on this page,
+turned into a refusal.
 
 ---
 

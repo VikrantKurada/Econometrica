@@ -1,53 +1,64 @@
 # Product Requirements Document
 
-**Product:** Econometrica
-**Version:** 1.0, covering phases 0 through 6
-**Status:** Shipped. This document is written against what exists, with the
-open items marked as open.
-**Last reviewed:** 2026-08-21
+- **The point:** every requirement here is shipped, and each is listed with
+  the acceptance criterion that was actually used.
+- **Read time:** about 17 minutes end to end. It is a reference: jump by
+  section number.
+- **Do first:** read [3.1 Goals](#31-goals). Seven rows, each with how it is
+  met.
+
+| | |
+|---|---|
+| **Product** | Econometrica |
+| **Version** | 1.0, covering phases 0 through 6 |
+| **Status** | Shipped. Written against what exists, with the open items marked as open |
+| **Last reviewed** | 2026-08-21 |
 
 ---
 
 ## 1. Summary
 
-Econometrica is a locally-run econometrics workbench for financial asset
-pricing and market efficiency analysis. A user asks a question in prose. A
-multi-agent pipeline plans an analysis, resolves the data, runs typed
-econometric tools, checks the assumptions, validates the work with a second
-model on a different vendor, and writes an interpretation whose every number
-is verified against the computed results.
+**Econometrica is a locally-run econometrics workbench for financial asset
+pricing and market efficiency analysis.**
 
-The distinguishing constraint is that **language models never compute
-statistics**. They select from a registry of tested functions. This is not a
-performance optimisation. It is the product.
+A user asks a question in prose. A multi-agent pipeline then:
+
+1. plans an analysis
+2. resolves the data
+3. runs typed econometric tools
+4. checks the assumptions
+5. validates the work with a second model on a different vendor
+6. writes an interpretation whose every number is verified against the
+   computed results
+
+The distinguishing constraint: **language models never compute statistics**.
+They select from a registry of tested functions. This is not a performance
+optimisation. It is the product.
 
 ## 2. The problem
 
-Financial analysts and researchers currently have two options, and both are
-bad.
+**Financial analysts and researchers have two options today, and both are
+bad.**
 
-**Do it by hand.** Write the pandas, fit the model, make the chart, check the
-diagnostics, write it up. This is correct and slow. It also does not scale
-across questions: each new question is a new notebook, and six months later
-nobody can reproduce the third one.
+| Option | Speed | Trust | What goes wrong |
+|---|---|---|---|
+| **Do it by hand**: write the pandas, fit the model, make the chart, check the diagnostics, write it up | slow | correct | It does not scale across questions. Each new question is a new notebook, and six months later nobody can reproduce the third one |
+| **Ask a language model** | fast | untrustworthy | The number is sometimes right, and nothing in the output separates the right ones from the wrong ones |
 
-**Ask a language model.** This is fast and untrustworthy. The number that
-comes back is sometimes right, and nothing in the output distinguishes the
-right ones from the wrong ones. Worse, a model that writes and runs code can
-produce a cleanly-executing, well-formatted, badly wrong answer. We measured
-this: one run in five, at temperature zero, on a simple statistic.
+Letting the model write and run code does not rescue the second option. It
+can produce a cleanly-executing, well-formatted, badly wrong answer. We
+measured this: one run in five, at temperature zero, on a simple statistic.
 
-There is no third option that is both fast and trustworthy, and that is the
-gap.
+There is no third option that is both fast and trustworthy. That is the gap.
 
 ### 2.1 What makes this hard
 
-- Correct econometrics needs assumption checks that most practitioners skip
-  and no chat interface performs.
-- A result is only useful later if you can reproduce it, and reproducing it
-  means pinning the data, the tool version and the parameters, none of which a
-  conversational interface records.
-- Market data is not stable. The same vendor's split-adjusted and
+- **Assumption checks get skipped.** Correct econometrics needs them, most
+  practitioners skip them, and no chat interface performs them.
+- **Reproduction needs three things pinned:** the data, the tool version and
+  the parameters. A result is only useful later if you can reproduce it, and a
+  conversational interface records none of the three.
+- **Market data is not stable.** The same vendor's split-adjusted and
   dividend-adjusted close for AAPL on 2020-08-25 differ by 3.1%. A number
   without its adjustment policy is not reproducible even in principle.
 
@@ -78,8 +89,8 @@ gap.
 
 ## 4. Users
 
-Four, in descending order of how much the product is shaped around them. Full
-sessions for each are in [user journeys](journeys.md).
+**Four personas, in descending order of how much the product is shaped around
+them.** A full session for each is in [user journeys](journeys.md).
 
 | Persona | Who | Primary job | What they need most |
 |---|---|---|---|
@@ -90,8 +101,18 @@ sessions for each are in [user journeys](journeys.md).
 
 ## 5. Functional requirements
 
-Requirements are grouped by area. Each has an ID, a statement, and the
-acceptance criterion that was actually used.
+**Seven areas. Each requirement has an ID, a statement, and the acceptance
+criterion that was actually used.**
+
+| Area | Covers | Requirements |
+|---|---|---|
+| 5.1 | Projects, chats and capabilities | FR-1.1 to FR-1.6 |
+| 5.2 | Data | FR-2.1 to FR-2.16 |
+| 5.3 | The analysis run | FR-3.1 to FR-3.10 |
+| 5.4 | Context channels | FR-4.1 to FR-4.12 |
+| 5.5 | The code escape hatch | FR-5.1 to FR-5.5 |
+| 5.6 | Output | FR-6.1 to FR-6.10 |
+| 5.7 | Telemetry | FR-7.1 to FR-7.7 |
 
 ### 5.1 Projects, chats and capabilities
 
@@ -142,7 +163,8 @@ acceptance criterion that was actually used.
 
 ### 5.4 Context channels
 
-Three channels feed the Planner. None of them may become a number.
+**Three channels feed the Planner: web search, document retrieval and MCP
+tools. None of them may become a number.**
 
 | ID | Requirement | Acceptance |
 |---|---|---|
@@ -210,8 +232,8 @@ Three channels feed the Planner. None of them may become a number.
 
 ## 7. Success metrics
 
-What we would measure if this were serving a team. The instrumentation for all
-of these already exists in `run_steps` and `spans`.
+**What we would measure if this were serving a team.** The instrumentation for
+all seven already exists in `run_steps` and `spans`.
 
 | Metric | Why it matters | Where it comes from |
 |---|---|---|
@@ -225,7 +247,7 @@ of these already exists in `run_steps` and `spans`.
 
 ## 8. Release criteria
 
-Met, as of the close of phase 6:
+**All seven are met, as of the close of phase 6.**
 
 - [x] All six phases pass their gate tests
 - [x] `ruff` and `mypy --strict` clean on `src`
@@ -242,6 +264,9 @@ Met, as of the close of phase 6:
 
 ## 9. Risks and open items
 
+**Six risks. One is high, and it is disclosed: a stdio MCP server runs with
+host privileges.**
+
 | Risk | Severity | Position |
 |---|---|---|
 | A CPU-bound fit blocks the request | Medium | Acceptable at single-user scale. A job queue is the fix, scheduled in the [medium term](../5-roadmap/medium-term.md) |
@@ -250,6 +275,9 @@ Met, as of the close of phase 6:
 | Vendors revise adjusted-close history, so old manifests stop reproducing | Low, by design | This is a finding, and the re-run report names it |
 | The keyless DuckDuckGo provider scrapes HTML with no API contract | Low | It degrades to no search rather than failing a run, and it has a live test for exactly this reason |
 | The single-user assumption is baked into the absence of an auth layer | Medium | Deliberate for v1. See [N1](#32-non-goals) |
+
+**Next, 2 minutes:** open the [capability inventory](capabilities.md) and
+search it for one tool you use, such as `garch` or `capm`.
 
 ---
 

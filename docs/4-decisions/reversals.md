@@ -1,10 +1,24 @@
 # What we reversed
 
-The things we were wrong about, the things we designed and deliberately did
-not build, and the things the world changed underneath us.
+- **The point:** eight things we got wrong, designed and did not build, or had
+  changed underneath us. The tempting fix was almost always the wrong one.
+- **Read time:** about 9 minutes
+- **Do first:** read [R5](#r5). It is the clearest case of the tempting fix
+  and the right fix side by side.
 
-This page exists because a decision log with no reversals in it is a decision
-log nobody is being honest in.
+A decision log with no reversals in it is a decision log nobody is being
+honest in.
+
+| # | Reversal | The lesson |
+|---|---|---|
+| R1 | Stooq, dropped | An adapter that must defeat a bot check is a liability |
+| R2 | kaleido, ruled out | Render where the rendering logic lives |
+| R3 | `shadowed_symbol`, not built | A diagnostic that costs a network call is not free |
+| R4 | `read_csv(sep=None)`, abandoned | Know the delimiter. Do not sniff it |
+| R5 | The e2e gate was model-dependent | A flaky test is often a modelling gap |
+| R6 | Four of five market data assumptions were wrong | Verify against the real service |
+| R7 | Asserting constraint names was not enough | Assert the values too |
+| R8 | Built and tested but not reachable | Look for a module imported only by its own tests |
 
 ---
 
@@ -14,36 +28,46 @@ log nobody is being honest in.
 
 ### What we planned
 
-The original design named four data sources: yfinance, Stooq, FRED and the Ken
-French library. Stooq was the independent cross-check, the second opinion on
-whether a price series was right.
+**Stooq was to be the independent cross-check**, the second opinion on whether
+a price series was right.
+
+The original design named four data sources: yfinance, Stooq, FRED and the
+Ken French library.
 
 ### What we found
 
-Two separate problems, either of which would have been enough.
+**Two separate problems. Either would have been enough.**
 
-**`pandas-datareader` resolved to 0.11.1**, which implements exactly six
-sources: `bankofcanada`, `econdb`, `eurostat`, `famafrench`, `fred`, `oecd`.
-`DataReader(..., "stooq")` raises `NotImplementedError`. This is not a wiring
-problem.
-
-**The CSV endpoint it used to call now answers with a JavaScript
-proof-of-work browser-verification challenge.**
+1. **`pandas-datareader` resolved to 0.11.1**, which implements exactly six
+   sources: `bankofcanada`, `econdb`, `eurostat`, `famafrench`, `fred`,
+   `oecd`. `DataReader(..., "stooq")` raises `NotImplementedError`. This is
+   not a wiring problem.
+2. **The CSV endpoint it used to call now answers with a JavaScript
+   proof-of-work browser-verification challenge.**
 
 ### The decision
 
-Dropped, not worked around.
+**Dropped, not worked around.**
 
-**An adapter whose job includes defeating a bot check is not an adapter, it is
-a liability.** It would break silently, it would break at the worst moment,
-and maintaining it would mean tracking someone else's anti-automation
-measures forever.
+> An adapter whose job includes defeating a bot check is not an adapter, it is
+> a liability.
+
+Such an adapter would:
+
+- break silently
+- break at the worst moment
+- mean tracking someone else's anti-automation measures forever
 
 ### What replaced it
 
-FRED. No API key, a genuinely separate pipeline, and it agreed with yfinance
-**to the cent** on `SP500` against `^GSPC`. That is a better cross-check than
-Stooq would have been, because the independence is real rather than nominal.
+**FRED.**
+
+- No API key.
+- A genuinely separate pipeline.
+- It agreed with yfinance **to the cent** on `SP500` against `^GSPC`.
+
+That is a better cross-check than Stooq would have been. The independence is
+real, not nominal.
 
 ---
 
@@ -57,24 +81,26 @@ PDF export of charts, server-side, using kaleido to rasterise Plotly figures.
 
 ### Why it does not work here
 
-**The backend holds no Plotly JSON.** The fourteen renderers are TypeScript,
-and they are where the chart actually gets decided: which trace type, which
-palette slot, which axis treatment, which annotations.
+**The backend holds no Plotly JSON.**
 
-Server-side rendering would mean reimplementing all fourteen in Python. And
-the thing you would get for that work is an export of a picture **nobody had
-looked at**, which is different from the one on screen in ways nobody would
-notice until it mattered.
+- The fourteen renderers are TypeScript.
+- They are where the chart actually gets decided: which trace type, which
+  palette slot, which axis treatment, which annotations.
+- Server-side rendering would mean reimplementing all fourteen in Python.
+- The result would be an export of a picture **nobody had looked at**. It
+  would differ from the one on screen in ways nobody would notice until it
+  mattered.
 
 ### The decision
 
-Ruled out, not deferred. Deferring implies it is a matter of time, and it is
-not: it is a matter of where the rendering logic lives, and it lives in the
-right place already.
+**Ruled out, not deferred.** Deferring implies it is a matter of time. It is
+a matter of where the rendering logic lives, and it lives in the right place
+already.
 
-PDF comes from the browser's own print pipeline, driven by `styles/print.css`.
-No new dependency in either stack. Chart images (PNG, SVG) come from the live
-Plotly graph, so the image **is** the one you looked at.
+| Output | Comes from |
+|---|---|
+| PDF | The browser's own print pipeline, driven by `styles/print.css`. No new dependency in either stack |
+| PNG, SVG | The live Plotly graph. The image **is** the one you looked at |
 
 ---
 
@@ -84,33 +110,38 @@ Plotly graph, so the image **is** the one you looked at.
 
 ### The idea
 
-When a run draws on both an uploaded file and a market source, the upload
-wins for any symbol it carries. It would be useful to know when the market
-source **also** carries that symbol, because then the user is making a choice
-they might not realise they are making.
+**Warn the user when an upload shadows a symbol the market source also
+carries.**
 
-We designed a `shadowed_symbol` warning for exactly this.
+- When a run draws on both an uploaded file and a market source, the upload
+  wins for any symbol it carries.
+- If the market source **also** carries that symbol, the user is making a
+  choice they might not realise they are making.
+- We designed a `shadowed_symbol` warning for exactly this.
 
 ### Why it was not built
 
-Knowing the market source also carries the symbol requires **fetching it**. A
-counterfactual fetch, whose only product is a warning.
+**Knowing the market source also carries the symbol requires fetching it.**
 
-Worse: it would make an upload-only run require the network it was
-specifically meant to avoid. Someone working offline with their own data would
-find that the application reached for Yahoo anyway, to tell them something
-they already knew.
+- That is a counterfactual fetch whose only product is a warning.
+- Worse, it would make an upload-only run require the network it was meant to
+  avoid.
+- Someone working offline with their own data would find the application
+  reached for Yahoo anyway, to tell them something they already knew.
 
 ### What we have instead
 
-`mixed_sources`, an **info**-severity flag naming every ticker under the
-source that served it. It is the authoritative record of what was actually
-used, it costs nothing, and it needs no extra fetch.
+**`mixed_sources`**, an **info**-severity flag naming every ticker under the
+source that served it.
+
+- It is the authoritative record of what was actually used.
+- It costs nothing.
+- It needs no extra fetch.
 
 ### The general lesson
 
-A diagnostic that costs a network call is not free, and "it would be nice to
-warn about X" is not sufficient reason to make a system reach outside itself.
+A diagnostic that costs a network call is not free. "It would be nice to warn
+about X" is not sufficient reason to make a system reach outside itself.
 
 ---
 
@@ -120,31 +151,36 @@ warn about X" is not sufficient reason to make a system reach outside itself.
 
 ### What we did
 
-Let pandas sniff the delimiter of an uploaded file. It seemed obviously right:
-users upload files with tabs, semicolons, pipes, and you cannot make them tell
-you which.
+**We let pandas sniff the delimiter of an uploaded file.** It seemed obviously
+right: users upload files with tabs, semicolons, pipes, and you cannot make
+them tell you which.
 
 ### What happened
 
-`sep=None` delegates to `csv.Sniffer`, which picks from the **whole
-alphabet**.
+**`sep=None` delegates to `csv.Sniffer`, which picks from the whole
+alphabet.**
 
 On a one-column file holding the header `price`, it split on the `r` and
 returned two columns: `p` and `ice`.
 
 ### The fix
 
-The delimiter comes from a closed set now.
+**The delimiter comes from a closed set now.**
 
 ### The bonus
 
-That also settled a question we had been going round on. `1,200` is ambiguous
-in isolation: is it one thousand two hundred, or is it 1.2?
+**It also settled the comma question.** `1,200` is ambiguous in isolation: one
+thousand two hundred, or 1.2?
 
-But a file using commas for decimals **cannot also use them as separators**.
-So a comma-delimited file means thousands, and any other delimiter admits
-decimals. The ambiguity dissolves once you know the delimiter, which is
-another argument for knowing it rather than sniffing it.
+A file using commas for decimals **cannot also use them as separators**. So:
+
+| Delimiter | A comma inside a number means |
+|---|---|
+| Comma | Thousands |
+| Anything else | Decimals are admitted |
+
+The ambiguity dissolves once you know the delimiter. That is another argument
+for knowing it, not sniffing it.
 
 ---
 
@@ -154,10 +190,11 @@ another argument for knowing it rather than sniffing it.
 
 ### The problem
 
+**The gate passed on some models and failed on others, so a red build told
+you nothing about whether the code was broken.**
+
 `analysis.spec.ts` asserted that when a narration is withheld, the canvas
-explains it as ungrounded. It passed on some models and failed on others,
-which made the gate useless: a red build told you nothing about whether the
-code was broken.
+explains it as ungrounded.
 
 ### The wrong fix, which we nearly made
 
@@ -167,23 +204,32 @@ Loosen the assertion. Accept either message. Move on.
 
 **Model the third path.**
 
-A narration is withheld for two reasons and the spec asserted only one.
-`check` rejects an invented citation or an unparseable reply **before**
-`check_grounding` runs, so in that case the grounding report is empty.
+A narration is withheld for two reasons, and the spec asserted only one.
 
-The canvas was therefore telling users their model "cited numbers no result
-supports" when it had in fact returned prose where JSON was asked for. Two
-genuinely different failures, one message, and one of them was a lie.
+The other one went like this:
 
-`Narration.withheld_reason` is now a closed set: `""`, `ungrounded`,
-`unusable_draft`. The spec asserts the reason and annotates which happened,
-and the canvas tells the truth.
+1. `check` rejects an invented citation or an unparseable reply **before**
+   `check_grounding` runs.
+2. So in that case the grounding report is empty.
+3. The canvas told users their model "cited numbers no result supports".
+4. The model had in fact returned prose where JSON was asked for.
+
+Two different failures, one message, and one of them was a lie.
+
+What changed:
+
+- `Narration.withheld_reason` is now a closed set: `""`, `ungrounded`,
+  `unusable_draft`.
+- The spec asserts the reason and annotates which happened.
+- The canvas tells the truth.
 
 ### The lesson
 
-**A flaky test is often a modelling gap wearing a costume.** When a test
-passes on some inputs and fails on others, ask whether the system has two
-behaviours you had collapsed into one, before you loosen the assertion.
+> A flaky test is often a modelling gap wearing a costume.
+
+When a test passes on some inputs and fails on others, ask whether the system
+has two behaviours you had collapsed into one. Ask that before you loosen the
+assertion.
 
 ---
 
@@ -191,8 +237,8 @@ behaviours you had collapsed into one, before you loosen the assertion.
 
 ## R6. Four of five assumptions about market data were wrong
 
-The original design's version floors were two years stale by the time we got
-to phase 6. Everything below was verified against the real services.
+**The original design's version floors were two years stale by the time we
+got to phase 6.** Everything below was verified against the real services.
 
 ### yfinance
 
@@ -206,11 +252,15 @@ to phase 6. Everything below was verified against the real services.
 
 ### The one that moves numbers
 
-Not the vendor. **The adjustment policy.**
+**Not the vendor. The adjustment policy.**
 
-AAPL on 2020-08-25 closes at `124.82` split-adjusted and `121.08`
-dividend-adjusted. Same day, same source, **3.1% apart**, and nothing in a
-`ResultSet` distinguishes them.
+| AAPL, 2020-08-25 | Close |
+|---|---|
+| Split-adjusted | `124.82` |
+| Dividend-adjusted | `121.08` |
+
+Same day, same source, **3.1% apart**. Nothing in a `ResultSet` distinguishes
+them.
 
 So `PriceSource.label` names its policy, and `DataQualityReport.source`
 carries it. Reproducing a number means knowing which of two equally real
@@ -218,27 +268,29 @@ series produced it.
 
 ### Ken French
 
-Values are **percent**. `Mkt-RF` of `-0.70` means -0.70%. Forgetting the
-conversion rescales every loading by 100.
+| We assumed | It is |
+|---|---|
+| Values are decimals | Values are **percent**. `Mkt-RF` of `-0.70` means -0.70%. Forgetting the conversion rescales every loading by 100 |
+| The index is a datetime | The index is a `period[D]` |
 
-The index is a `period[D]`, not a datetime.
-
-Both are silently wrong if missed, so `data/famafrench.py` converts at the
-boundary and both have their own test.
+Both are silently wrong if missed. So `data/famafrench.py` converts at the
+boundary, and both conversions have their own test.
 
 ### Ollama
 
-Capabilities come from `/api/show`, **not** `/api/tags`. Tags reports neither
+**Capabilities come from `/api/show`, not `/api/tags`.** Tags reports neither
 context length nor tool support.
 
-Guessing from the model name was wrong in both directions: on this machine 6
-of 13 chat models cannot call tools, and real context windows run from 512 to
-262144, not the 8192 the adapter used to claim for everything.
+Guessing from the model name was wrong in both directions:
 
-And the context key is architecture-prefixed, so you have to read
-`general.architecture` to name it. Matching `*.context_length` alone also
-catches `mistral3.rope.scaling.original_context_length`, which is a **smaller**
-number and would silently truncate prompts.
+- On this machine, 6 of 13 chat models cannot call tools.
+- Real context windows run from 512 to 262144, not the 8192 the adapter used
+  to claim for everything.
+
+**The context key is architecture-prefixed.** Read `general.architecture` to
+name it. Matching `*.context_length` alone also catches
+`mistral3.rope.scaling.original_context_length`, which is a **smaller** number
+and would silently truncate prompts.
 
 ---
 
@@ -253,27 +305,29 @@ models reached some migration. It passed.
 
 ### What broke
 
-`ck_run_steps_agent_known` has been in the initial revision since phase 4. Its
-name never changed. But its **contents** did: adding `quant_coder` to
-`STEP_AGENTS` in Python left the test green while **a fresh database rejected
-every sandbox step**.
+**The constraint's name never changed. Its contents did.**
+
+1. `ck_run_steps_agent_known` has been in the initial revision since phase 4.
+2. `quant_coder` was added to `STEP_AGENTS` in Python.
+3. The test stayed green.
+4. **A fresh database rejected every sandbox step.**
 
 The developer machine's database already had the column and the old
-constraint, and the old constraint happened to be permissive enough for
+constraint. The old constraint happened to be permissive enough for
 everything being tested at the time.
 
 ### The fix
 
-The test now asserts every **value** of each vocabulary reaches a migration
-too, not just every constraint name.
+**The test now asserts every value of each vocabulary reaches a migration
+too**, not only every constraint name.
 
 ### The compounding factor
 
 **The test database is built by `Base.metadata.create_all`, not from the
-migrations.** So a constraint test passing against Postgres says nothing about
-whether a revision exists for it.
+migrations.** So a constraint test passing against Postgres says nothing
+about whether a revision exists for it.
 
-Two independent blind spots that happened to line up. That is usually how this
+Two independent blind spots happened to line up. That is usually how this
 kind of bug survives.
 
 ---
@@ -282,12 +336,16 @@ kind of bug survives.
 
 ## R8. Things that were built and tested but not reachable
 
-A shape of gap worth naming, because we found it three times.
+**A shape of gap worth naming, because we found it three times.**
 
-`UploadedPriceSource` satisfied the `PriceSource` protocol from phase 6, was
-fully tested, and **nothing ever constructed one**. The claim "uploads are
-servable through the same protocol as Yahoo" was true of the class and false
-of the application.
+`UploadedPriceSource`:
+
+- satisfied the `PriceSource` protocol from phase 6
+- was fully tested
+- was **never constructed by anything**
+
+The claim "uploads are servable through the same protocol as Yahoo" was true
+of the class and false of the application.
 
 The same shape turned up in:
 
@@ -302,15 +360,16 @@ The same shape turned up in:
 
 **Look for a module imported only by its own tests.**
 
-Nothing in this tree is now in that state. But it is the check to run after
-any phase that builds capability ahead of the feature that uses it, which is
-most phases.
+Nothing in this tree is now in that state.
+
+It is the check to run after any phase that builds capability ahead of the
+feature that uses it. That is most phases.
 
 ---
 
 ## The pattern
 
-Six of these eight reversals share a shape:
+**Six of these eight reversals share a shape:**
 
 ```mermaid
 flowchart LR
@@ -324,9 +383,13 @@ flowchart LR
     style F fill:#d4edda,stroke:#1baf7a,color:#14181d
 ```
 
-The tempting fix is almost always available and almost always wrong. When a
-test disagrees with reality, one of them is describing a system that does not
-exist, and it is worth finding out which before changing either.
+**The tempting fix is almost always available and almost always wrong.**
+
+When a test disagrees with reality, one of them is describing a system that
+does not exist. Find out which before changing either.
+
+**Next, 2 minutes:** open [The roadmap](../5-roadmap/) and read the rule that
+governs every item on it.
 
 ---
 

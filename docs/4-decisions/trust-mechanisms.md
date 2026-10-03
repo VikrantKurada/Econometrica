@@ -1,8 +1,23 @@
 # Trust mechanisms
 
-Eight decisions about how the system avoids lying to you. Each is a mechanism
-rather than an instruction, which is the whole point: an instruction degrades
-silently and a mechanism has a test.
+- **The point:** eight decisions about how the system avoids lying to you.
+  Each is a mechanism with a test, not an instruction.
+- **Read time:** about 11 minutes
+- **Do first:** read [D4](#d4), the grounding gate. It is the one a reader of
+  a report actually feels.
+
+An instruction degrades silently. A mechanism has a test.
+
+| # | Decision | In one line |
+|---|---|---|
+| D4 | The grounding gate withholds a whole narration | One unmatched number, no interpretation |
+| D5 | Preconditions are executable gates | The tool refuses data it cannot model |
+| D6 | `Diagnostic.passed` is tri-state | `None` means "not judged", never "failed" |
+| D7 | Every result carries a manifest | Re-run consults no model |
+| D8 | The Data Steward and Econometrician have no model | One right answer each |
+| D9 | The Validator runs on a different vendor | And is fed numbers, not asked |
+| D10 | Context channels never reach the Narrator | Open item |
+| D11 | A person confirms every column mapping | By construction |
 
 ---
 
@@ -12,19 +27,20 @@ silently and a mechanism has a test.
 
 ### Context
 
-You can compute everything correctly and still ship a paragraph containing a
-figure that appears nowhere in the results. This is the failure people forget,
-and it is the one that reaches the reader.
+**You can compute everything correctly and still ship a paragraph containing a
+figure that appears nowhere in the results.** This is the failure people
+forget, and it is the one that reaches the reader.
 
 ### Decision
 
-Extract every number from the Narrator's prose. Match each against
-`ResultSet.all_numeric_values()`. If any fails, **withhold the entire
-narration** and return the results without it.
+1. Extract every number from the Narrator's prose.
+2. Match each against `ResultSet.all_numeric_values()`.
+3. If any fails, **withhold the entire narration** and return the results
+   without it.
 
 ### The obvious alternative, and why it is worse
 
-Strip the offending number and publish the rest.
+**The alternative: strip the offending number and publish the rest.**
 
 That would ship a paragraph whose argument has had a hole cut in it, and the
 reader would have no way to tell. Silence is honest. A quietly repaired
@@ -32,7 +48,7 @@ sentence is not.
 
 ### Precision comes from the citation
 
-Not from a global epsilon.
+**Precision comes from the citation, not from a global epsilon.**
 
 | The prose says | It matches |
 |---|---|
@@ -44,10 +60,14 @@ and more permissive than a fixed tolerance, in the right directions.
 
 ### The exemptions are the dangerous part
 
-A gate that blocks "significant at the 5% level" or "shown in figure 2" gets
-switched off within a day, and a gate that is off protects nothing. So there
-are exemptions, and each is narrow, each has a test, and each has a second
-test that it does **not** apply outside its context.
+**A gate that blocks "significant at the 5% level" or "shown in figure 2"
+gets switched off within a day. A gate that is off protects nothing.**
+
+So there are exemptions. Each one:
+
+- is narrow
+- has a test
+- has a second test that it does **not** apply outside its context
 
 | Exemption | Scope |
 |---|---|
@@ -64,14 +84,17 @@ seeing it.
 
 ### Two reasons to withhold, and they are different
 
-`Narration.withheld_reason` is a closed set: `""`, `ungrounded`,
-`unusable_draft`.
+**`Narration.withheld_reason` is a closed set: `""`, `ungrounded`,
+`unusable_draft`.**
 
-The end to end spec used to assert only the first, and it was model-dependent
-as a result. `check` rejects an invented citation or an unparseable reply
-**before** `check_grounding` runs, so in that case the grounding report is
-empty. The canvas was telling users their model "cited numbers no result
-supports" when it had in fact returned prose where JSON was asked for.
+The end to end spec used to assert only one reason, and it was
+model-dependent as a result. What that hid:
+
+1. `check` rejects an invented citation or an unparseable reply **before**
+   `check_grounding` runs.
+2. So in that case the grounding report is empty.
+3. The canvas told users their model "cited numbers no result supports".
+4. The model had in fact returned prose where JSON was asked for.
 
 The fix was to model the third path, not to loosen the assertion. See
 [R5](reversals.md#r5).
@@ -84,13 +107,15 @@ The fix was to model the third path, not to loosen the assertion. See
 
 ### Context
 
-Telling a model in its prompt that GARCH needs ARCH effects is a suggestion.
-Suggestions are honoured most of the time, which is the worst possible failure
+**Telling a model in its prompt that GARCH needs ARCH effects is a
+suggestion.**
+
+Suggestions are honoured most of the time. That is the worst possible failure
 rate: often enough to seem to work, rarely enough to matter.
 
 ### Decision
 
-A `RegisteredTool` carries both:
+**A `RegisteredTool` carries both guidance and enforcement:**
 
 ```python
 preconditions: tuple[str, ...]   # prose, for the model to read while it plans
@@ -106,9 +131,10 @@ of them can be argued with**.
 GateCheck = Literal["arch_effects", "stationarity"]
 ```
 
-Every entry needs an implementation in `econ/gates.py`. A vocabulary nobody
-can enumerate is one nobody can enforce, and it grows into a set of strings
-half of which do nothing.
+**Two checks. Every entry needs an implementation in `econ/gates.py`.**
+
+A vocabulary nobody can enumerate is one nobody can enforce. It grows into a
+set of strings half of which do nothing.
 
 ### `expect` carries real weight
 
@@ -120,14 +146,18 @@ class Gate:
     because: str = ""
 ```
 
-A VAR needs stationarity **present**. A VECM needs it **absent**. They are the
-same gate with opposite expectations, which is a much better design than two
-checks that could drift apart.
+| Tool | Stationarity must be |
+|---|---|
+| A VAR | **present** |
+| A VECM | **absent** |
+
+They are the same gate with opposite expectations. That is a much better
+design than two checks that could drift apart.
 
 ### `because` is not decoration
 
-It is shown to the user when the gate refuses, so **a refusal teaches
-something**. That is the difference between "GARCH was declined" and:
+**It is shown to the user when the gate refuses, so a refusal teaches
+something.** That is the difference between "GARCH was declined" and:
 
 > `garch` requires ARCH effects. The ARCH-LM test gives a statistic of 4.21
 > with a p-value of 0.52, so the null of no ARCH effects is not rejected.
@@ -155,15 +185,15 @@ passed: bool | None = None    # None means "not judged", NEVER "failed"
 
 ### Why this needed to be a decision
 
-Because two-state is the default everywhere, and every layer would have
-collapsed `None` into `False` if it were not written down.
+**Two-state is the default everywhere.** Every layer would have collapsed
+`None` into `False` if this were not written down.
 
-A user told a check failed when nobody ran it learns something false, and
-learns it with the same confidence as everything else on the page.
+A user told a check failed when nobody ran it learns something false. They
+learn it with the same confidence as everything else on the page.
 
 ### It reaches one layer up
 
-`PreconditionVerdict` carries it as **two** booleans, not one:
+**`PreconditionVerdict` carries it as two booleans, not one:**
 
 ```python
 allowed: bool   # False only when the check ran and disagreed with the gate
@@ -174,9 +204,10 @@ def refused(self) -> bool:
     return self.judged and not self.allowed
 ```
 
-An unjudged check must not silently become a refusal, and must not silently
-become an approval either. It travels to the Validator as an unjudged verdict,
-and the Narrator has to disclose it.
+- An unjudged check must not silently become a refusal.
+- It must not silently become an approval either.
+- It travels to the Validator as an unjudged verdict, and the Narrator has to
+  disclose it.
 
 ---
 
@@ -196,22 +227,28 @@ class Manifest(BaseModel):
     seed: int | None
 ```
 
-And `POST /api/runs/{id}/rerun` re-executes the recorded plan against freshly
+`POST /api/runs/{id}/rerun` re-executes the recorded plan against freshly
 resolved data.
 
 ### Re-planning would test the wrong thing
 
-Re-planning would test whether a model repeats itself. A manifest makes no
-promise about that, and a test asserts the model call count is unchanged.
+**Re-planning would test whether a model repeats itself.** A manifest makes no
+promise about that. A test asserts the model call count is unchanged.
 
 ### The fingerprint is of the aligned matrix
 
-Not of the request. That is the difference between "we asked for the same
-thing" and "we got the same thing", and vendors revise history.
+**Of the aligned matrix, not of the request.**
+
+| Fingerprint of | Proves |
+|---|---|
+| The request | "We asked for the same thing" |
+| The aligned matrix | "We got the same thing" |
+
+That is the difference, and vendors revise history.
 
 ### Disagreement is a finding, not an error
 
-The report names the reason per step:
+**The report names the reason per step:**
 
 | Reason | What it means |
 |---|---|
@@ -225,9 +262,10 @@ being reproduced, so they are compared directly.
 
 ### Re-run is scoped to the project
 
-It used to take the global source and never look at a project, so an uploaded
-run reproduced from Yahoo. A dataset deleted since the run is now a **409**
-naming what is missing, not a 500.
+- It used to take the global source and never look at a project. So an
+  uploaded run reproduced from Yahoo.
+- A dataset deleted since the run is now a **409** naming what is missing, not
+  a 500.
 
 ---
 
@@ -242,25 +280,29 @@ model.
 
 ### Decision
 
-Two of them do not, and it is the most important thing about them.
+**Two of them do not, and it is the most important thing about them.**
 
 ### Why
 
-Aligning trading calendars, converting frequency and constructing returns each
-have **exactly one right answer**.
+**1. Each task has exactly one right answer.** Aligning trading calendars,
+converting frequency, constructing returns.
 
-And more to the point: **a reproducibility manifest means nothing if the data
+**2. More to the point: a reproducibility manifest means nothing if the data
 under it depended on what a model felt like that morning.** You could hash the
 matrix perfectly and still have an unreproducible result, because the matrix
 itself came out of a sampling process.
 
-The same reasoning applies to `charts/propose.py`, which is deterministic, and
-to `services/ingest.py`, which profiles and never decides.
+The same reasoning applies to two more modules:
+
+| Module | Behaviour |
+|---|---|
+| `charts/propose.py` | Deterministic |
+| `services/ingest.py` | Profiles and never decides |
 
 ### What is left for a model to do
 
-The genuinely model-shaped part of data handling is mapping the columns of an
-uploaded file to roles. That is a separate role, and see [D11](#d11).
+The one model-shaped part of data handling is mapping the columns of an
+uploaded file to roles. That is a separate role. See [D11](#d11).
 
 ---
 
@@ -270,30 +312,30 @@ uploaded file to roles. That is a separate role, and see [D11](#d11).
 
 ### Context
 
-A model reviewing reasoning from its own family shares its blind spots. That
-is not a hypothesis about model architecture; it is a straightforward
+**A model reviewing reasoning from its own family shares its blind spots.**
+That is not a hypothesis about model architecture. It is a straightforward
 consequence of shared training data.
 
 ### Decision
 
-Per-role model assignment is a first-class feature, and the Validator is meant
-to sit on a different vendor from the Econometrician.
-
-`independence_warning` exists and the orchestrator surfaces it when they
-match.
+- Per-role model assignment is a first-class feature.
+- The Validator is meant to sit on a different vendor from the Econometrician.
+- `independence_warning` exists, and the orchestrator surfaces it when they
+  match.
 
 ### Why it warns rather than refuses
 
-Because someone running entirely on local Ollama has no second vendor, and
-refusing them the Validator entirely would be worse than a warning. This is
-one of the few soft gates in the system, and it is soft on purpose.
+**Someone running entirely on local Ollama has no second vendor.** Refusing
+them the Validator entirely would be worse than a warning.
+
+This is one of the few soft gates in the system. It is soft on purpose.
 
 ### The Validator is fed, not asked
 
-The other half of this decision, and arguably the more important half.
+**The other half of this decision, and arguably the more important half.**
 
-A deterministic diagnostics engine runs **first**, and its statistics go into
-the prompt as numbers.
+A deterministic diagnostics engine runs **first**. Its statistics go into the
+prompt as numbers.
 
 > An LLM asked from prose whether residuals are heteroskedastic will produce a
 > confident answer either way. One handed an ARCH-LM statistic and its p-value
@@ -316,10 +358,12 @@ teaches the next attempt nothing.
 
 ### One revision, not N
 
-A rejection buys exactly one revision. Left unbounded, a Validator and a
-Planner will trade drafts until the budget runs out, and **the second
-rejection is far more likely to mean "this question cannot be answered with
-this data" than "try once more".**
+**A rejection buys exactly one revision.**
+
+- Left unbounded, a Validator and a Planner trade drafts until the budget runs
+  out.
+- The second rejection is far more likely to mean "this question cannot be
+  answered with this data" than "try once more".
 
 ---
 
@@ -332,34 +376,36 @@ this data" than "try once more".**
 A run can read the web, the project's documents, and its MCP tools. All three
 feed the Planner.
 
-The Narrator gets none of them, and people keep asking why not.
+**The Narrator gets none of them, and people keep asking why not.**
 
 ### Decision
 
-The Narrator's output is what the grounding gate judges. The gate withholds an
-**entire** narration over one number it cannot match. Web snippets and
-retrieved passages are dense with numbers.
+**Keep the three channels away from the Narrator.** The reasoning:
 
-Give the Narrator that context and the practical effect is that narrations get
-withheld far more often, for reasons that have nothing to do with the
-analysis.
+1. The Narrator's output is what the grounding gate judges.
+2. The gate withholds an **entire** narration over one number it cannot match.
+3. Web snippets and retrieved passages are dense with numbers.
+4. So giving the Narrator that context gets narrations withheld far more
+   often, for reasons that have nothing to do with the analysis.
 
 ### The trade-off, stated honestly
 
-**A reader left with no interpretation is worse off than one left with an
-uninformed interpretation.**
+> A reader left with no interpretation is worse off than one left with an
+> uninformed interpretation.
 
-That sentence is the whole argument, and it is uncomfortable, because it
-admits the current design produces less informed prose than it could.
+That sentence is the whole argument. It is uncomfortable, because it admits
+the current design produces less informed prose than it could.
 
-This is an **open item**. Fixing it needs a design that answers the
+**This is an open item.** Fixing it needs a design that answers the
 grounding-gate problem, not a toggle that turns the channel on.
 
 ### What is not negotiable
 
-Nothing read from any of the three channels may become a number.
-`allowed_values` reads `ResultSet`s only, and there is a test per channel
-asserting that a figure quoted verbatim out of its text is still blocked.
+**Nothing read from any of the three channels may become a number.**
+
+- `allowed_values` reads `ResultSet`s only.
+- There is a test per channel asserting that a figure quoted verbatim out of
+  its text is still blocked.
 
 A figure read on a web page is exactly as ungrounded as one a model invented.
 
@@ -375,9 +421,11 @@ A figure read on a web page is exactly as ungrounded as one a model invented.
 profile (deterministic)  →  suggest (a model may reorder)  →  CONFIRM (a person)  →  ingest
 ```
 
-`confirm_mapping` is **the only thing in the codebase that produces a mapping
-`apply_mapping` will act on**. So a model's suggestion cannot be acted on by
-construction, rather than by a check someone might forget.
+**`confirm_mapping` is the only thing in the codebase that produces a mapping
+`apply_mapping` will act on.**
+
+So a model's suggestion cannot be acted on, by construction. It does not
+depend on a check someone might forget.
 
 ### The user and the model are constrained differently, on purpose
 
@@ -387,25 +435,28 @@ construction, rather than by a check someone might forget.
 | A model | Only reorders candidates the profiler already found admissible |
 | A user | **Any** role, including one the profiler never suggested |
 
-The asymmetry is right. The user knows what is in their own file and the
+**The asymmetry is right.** The user knows what is in their own file and the
 profiler does not. The model knows neither.
 
 ### The label guard
 
-A user's filename can reach the `synthetic_data` substring check, so
-`services/datasets.source_label` **refuses** a filename containing "synthetic"
-at confirm time.
+**A filename containing "synthetic" is refused at confirm time.**
 
-Refused rather than rewritten. The label is provenance, and quietly editing
-where a number came from is invisible.
+- A user's filename can reach the `synthetic_data` substring check.
+- So `services/datasets.source_label` **refuses** one containing the word.
+- Refused, not rewritten. The label is provenance, and quietly editing where a
+  number came from is invisible.
 
-Note the guard lives in `datasets.py`, not `ingest.py`. `ingest.py` profiles
-and never builds a label, and putting a guard where the thing it guards does
-not happen is how guards rot.
+The guard lives in `datasets.py`, not `ingest.py`. `ingest.py` profiles and
+never builds a label. Putting a guard where the thing it guards does not
+happen is how guards rot.
 
 ---
 
 ## The pattern across all eight
+
+**Every one of the eight replaces something that degrades silently with
+something that fails loudly.**
 
 ```mermaid
 flowchart LR
@@ -426,9 +477,13 @@ flowchart LR
     style FIX fill:#d4edda,stroke:#1baf7a,color:#14181d
 ```
 
-The test is the mechanism, not the documentation of the mechanism. If you
-cannot write a test that fails when a property stops holding, you do not have
-the property. You have a hope.
+**The test is the mechanism, not the documentation of the mechanism.**
+
+If you cannot write a test that fails when a property stops holding, you do
+not have the property. You have a hope.
+
+**Next, 2 minutes:** open [What we reversed](reversals.md) and read R5, where
+loosening an assertion was the tempting fix and the wrong one.
 
 ---
 

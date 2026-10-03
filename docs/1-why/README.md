@@ -6,58 +6,81 @@
 
 # 1. Why Econometrica exists
 
+- **The point:** a model's number looks the same whether it is right or wrong,
+  so the model must not be the thing that computes it.
+- **Read time:** about 7 minutes
+- **Do first:** read the three-row table under
+  [The thing that is actually wrong](#the-thing-that-is-actually-wrong). It is
+  the whole problem in three lines.
+
 ## The thing that is actually wrong
 
+**A model's answer is right often enough to tempt you and wrong often enough
+to hurt you. Nothing in the output tells you which one you got.**
+
 Ask a good language model for the beta of Apple against the S&P 500 over the
-last five years. It will give you a number. It will be formatted like a beta,
-it will be in a plausible range, and it will be delivered in the same tone as
-a correct answer.
+last five years. You get a number that is:
 
-Sometimes it will even be right.
+- formatted like a beta
+- in a plausible range
+- delivered in the same tone as a correct answer
+- sometimes even right
 
-That is the problem, and it is worth being precise about why. If the model
-were wrong all the time, nobody would use it, and there would be nothing to
-solve. If it were right all the time, there would also be nothing to solve.
-What makes it a real problem is that it is right often enough to be tempting
-and wrong often enough to be dangerous, and there is nothing in the output
-that tells you which kind of answer you got.
+"Sometimes" is the problem.
 
-So you check it. And once you are checking every number by hand, the model has
-not saved you anything. It has just moved your work from computing to
-auditing, which is worse, because auditing is harder to do well and much
-easier to do badly.
+| If the model were | Then |
+|---|---|
+| wrong all the time | nobody would use it, and there would be nothing to solve |
+| right all the time | there would also be nothing to solve |
+| right sometimes, with no signal | you check every number by hand |
+
+Checking every number by hand means the model saved you nothing. It moved your
+work from computing to auditing. That is worse: auditing is harder to do well
+and much easier to do badly.
 
 ## The trap most people fall into
 
-The obvious fix is to let the model write code. Give it pandas and
-statsmodels, run what it writes, show the output. Now the numbers come from an
-actual computation instead of from the model's guess about what the answer
-looks like.
+**The obvious fix is to let the model write code. It is better. It is not
+enough.**
 
-This is better. It is also not enough, and the reason is interesting.
+The fix goes: give the model pandas and statsmodels, run what it writes, show
+the output. Now the number comes from a real computation, not from the model's
+guess at what the answer looks like.
 
-We ran a live probe on this exact question. A local model was asked at
-temperature zero to compute a Gini coefficient. It wrote correct code four
-times out of five. On the fifth run the code was syntactically fine, ran
-without an error, used only the libraries it was allowed, finished in
-milliseconds, satisfied every contract we had put around it, and reported a
-Gini coefficient of **-42.49**.
+We ran a live probe on exactly this. A local model at temperature zero was
+asked five times to compute a Gini coefficient.
+
+| Runs | What happened |
+|---|---|
+| 4 of 5 | correct code, correct answer |
+| 1 of 5 | reported a Gini coefficient of **-42.49** |
 
 A Gini coefficient is bounded between 0 and 1.
 
-Every guardrail we had built held perfectly. The sandbox was not breached. The
-imports were legal. The runtime was fine. And the answer was nonsense, because
-none of those guardrails is about whether the arithmetic is correct. A sandbox
-tells you that code did not escape. It cannot tell you that code was right.
+On the failing run, every guardrail held:
 
-So code generation moves the failure from "the model made up a number" to "the
-model made up a method," and the second failure is harder to spot, because now
-there is a computation behind it and computations look authoritative.
+- the code was syntactically fine and ran without an error
+- it used only the libraries it was allowed
+- it finished in milliseconds
+- it satisfied every contract we had put around it
+- the sandbox was not breached
+
+None of those guardrails is about whether the arithmetic is correct. **A
+sandbox tells you that code did not escape. It cannot tell you that code was
+right.**
+
+So code generation moves the failure. It does not remove it.
+
+| Before | After |
+|---|---|
+| The model made up a number | The model made up a method |
+
+The second failure is harder to spot. There is a computation behind it, and
+computations look authoritative.
 
 ## The three failures, separately
 
-It helps to split the problem, because the three parts have genuinely
-different fixes.
+**There are three failures. Each has a different fix.**
 
 ```mermaid
 flowchart TD
@@ -80,94 +103,141 @@ flowchart TD
     F3 --> M3
 ```
 
-**Invented arithmetic** is closed by never asking the model to do arithmetic.
-It picks a tool by name from a registry of 37 typed, versioned functions, and
-the function computes. This costs you nothing in capability for the questions
-the registry covers, which is most of them.
+**1. Invented arithmetic is closed by never asking the model to do
+arithmetic.**
 
-**Invented methodology** is closed by making the preconditions executable
-rather than advisory. Telling a model in its prompt that GARCH needs ARCH
-effects is a suggestion. Checking the actual series for ARCH effects before
-the tool will run is a refusal. In a typical end to end run on this project, a
-model plans five steps, four run, and GARCH is declined because the data has
-no ARCH effects to model. Nobody had to notice.
+- The model picks a tool by name from a registry of 37 typed, versioned
+  functions.
+- The function computes.
+- For the questions the registry covers, which is most of them, this costs
+  nothing in capability.
 
-**Invented prose** is the one people forget, and it is the one that bites
-hardest. You can compute everything correctly and still ship a paragraph
-containing a figure that appears nowhere in the results. So every number in
-the narration is extracted and matched against what the tools actually
-computed. An unmatched number does not get edited out. The entire
-interpretation is withheld and the results are returned without it.
+**2. Invented methodology is closed by making the preconditions executable,
+not advisory.**
 
-That last choice is worth defending, because it looks harsh. The alternative
-is to strip the bad number and publish the rest, and the alternative is worse:
-you would be shipping a paragraph whose argument has had a hole cut in it, and
-the reader has no way to tell. Silence is honest. A quietly repaired sentence
-is not.
+| Approach | What it is |
+|---|---|
+| Tell the model in its prompt that GARCH needs ARCH effects | a suggestion |
+| Check the actual series for ARCH effects before the tool will run | a refusal |
+
+A typical end to end run on this project: the model plans five steps, four
+run, and GARCH is declined because the data has no ARCH effects to model.
+Nobody had to notice.
+
+**3. Invented prose is the one people forget, and the one that bites
+hardest.**
+
+You can compute everything correctly and still ship a paragraph containing a
+figure that appears nowhere in the results. So:
+
+1. Every number in the narration is extracted.
+2. Each is matched against what the tools actually computed.
+3. One unmatched number withholds the entire interpretation. The results are
+   returned without it.
+
+Withholding everything looks harsh. It is the right call.
+
+| Option | What the reader gets |
+|---|---|
+| Strip the bad number, publish the rest | A paragraph with a hole cut in its argument, and no way to tell |
+| Withhold the whole interpretation | The results, and silence |
+
+Silence is honest. A quietly repaired sentence is not.
 
 ## Why the answer is a product and not a prompt
 
-Everything above could be attempted with prompt engineering. "Do not invent
+**Prompts fail silently. Code with a test behind it fails loudly.**
+
+All three fixes could be attempted with prompt engineering: "Do not invent
 numbers." "Check your assumptions." "Only cite figures from the results."
 
-Prompts of this kind fail in a specific way: they work in testing and degrade
-in production, and they degrade silently. Nobody gets an alert when a model
-stops honouring an instruction. There is no test you can write that fails.
+Prompts of this kind fail in a specific way:
 
-Each of the three mechanisms here is code with a test behind it. The registry
-is a Python module. The gate is a function that returns a refusal. The
-grounding check is a regular expression and a set membership test, and when
-someone loosens it too far, a test that asserts `-15.066` still fails is the
-thing that tells them.
+- they work in testing
+- they degrade in production
+- they degrade silently: nobody gets an alert when a model stops honouring an
+  instruction
+- there is no test you can write that fails
 
-The difference is not rhetorical. It is the difference between a property you
-hope for and a property you have.
+Each of the three mechanisms here is code with a test behind it.
+
+| Mechanism | What it is in the code |
+|---|---|
+| The registry | A Python module |
+| The gate | A function that returns a refusal |
+| The grounding check | A regular expression and a set membership test |
+
+When someone loosens the grounding check too far, a test asserting that
+`-15.066` still fails is the thing that tells them.
+
+That is the difference between a property you hope for and a property you
+have.
 
 ## Why econometrics specifically
 
-Three reasons this domain is the right one to build this in.
+**Three reasons this is the right domain to build this in.**
 
-**The methods are settled.** Nobody needs a language model to invent a new way
-to estimate a CAPM beta. The reference implementations exist, they are in
-statsmodels and arch and linearmodels, and they have been correct for years.
-What people actually need help with is knowing which of the 37 to reach for,
-in what order, on what window, at what frequency. That is a selection problem,
-and selection is exactly what a language model is good at.
+**1. The methods are settled.**
 
-**The failure is expensive and invisible.** A wrong beta does not throw an
-exception. It gets put in a memo and someone allocates against it. There is no
-runtime that catches this and no compiler that objects. The only thing that
-catches it is a person who already knows the answer, which defeats the point.
+- Nobody needs a model to invent a new way to estimate a CAPM beta.
+- The reference implementations exist in statsmodels, arch and linearmodels,
+  and they have been correct for years.
+- What people need help with is which of the 37 to reach for, in what order,
+  on what window, at what frequency.
+- That is a selection problem. Selection is what a language model is good at.
 
-**The correctness is checkable.** Unlike, say, a summary of a document, an
-econometric result has a definite answer given the inputs. That means
-reproducibility is achievable, not aspirational. You can hash the input
-matrix, record the tool version, and check a year later whether you get the
-same number back. And if you do not, that is itself a finding: it means the
-data vendor quietly revised its history.
+**2. The failure is expensive and invisible.**
+
+- A wrong beta does not throw an exception.
+- It gets put in a memo, and someone allocates against it.
+- No runtime catches it. No compiler objects.
+- The only thing that catches it is a person who already knows the answer,
+  which defeats the point.
+
+**3. The correctness is checkable.**
+
+- A summary of a document has no definite answer. An econometric result does,
+  given the inputs.
+- So reproducibility is achievable: hash the input matrix, record the tool
+  version, check a year later whether the same number comes back.
+- If it does not come back, that is itself a finding. The data vendor quietly
+  revised its history.
 
 ## What this buys you
 
-The claim is narrow and it is testable: **every number this application shows
-you traces to a tested function, and you can get it back.**
+**The claim is narrow and testable: every number this application shows you
+traces to a tested function, and you can get it back.**
 
-Not "the analysis is correct." A tool can be correctly applied to a badly
-chosen window. Not "the interpretation is right." A validator can approve
-something a human would question. The claim is about provenance, and
-provenance is the thing that makes the other questions answerable at all.
+What the claim is not:
 
-If you want the argument in one sentence: **you cannot audit an analysis you
-cannot reproduce, and you cannot reproduce one whose numbers came from a model
-that has already forgotten how it got them.**
+| Not claimed | Why not |
+|---|---|
+| "The analysis is correct" | A tool can be correctly applied to a badly chosen window |
+| "The interpretation is right" | A validator can approve something a human would question |
+
+The claim is about provenance. Provenance is what makes the other two
+questions answerable at all.
+
+The argument in one sentence:
+
+> You cannot audit an analysis you cannot reproduce, and you cannot reproduce
+> one whose numbers came from a model that has already forgotten how it got
+> them.
 
 ## Read next
 
-- **[What goes wrong, in detail](what-goes-wrong.md)** goes through the
-  failure modes with the actual evidence from this project's own history,
-  including the ones we only found by looking at the running application.
-- **[What is in the box](../2-product/)** is what got built as a result.
-- **[The central decision](../4-decisions/the-central-decision.md)** is the
-  three-way choice this section has been circling, written up properly.
+**Next, 2 minutes:** open [What goes wrong, in detail](what-goes-wrong.md) and
+read Cluster 2, the Gini probe that shaped the design.
+
+That page goes through the failure modes with the actual evidence from this
+project's own history, including the ones we only found by looking at the
+running application.
+
+After that:
+
+- **[What is in the box](../2-product/)**: what got built as a result.
+- **[The central decision](../4-decisions/the-central-decision.md)**: the
+  three-way choice this page argues for, written up as a decision record.
 
 ---
 

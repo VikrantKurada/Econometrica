@@ -1,16 +1,27 @@
 # Long term
 
-Six bets. These are further out than the [medium term](medium-term.md) and
-less certain, so they are written as bets rather than as plans: each one says
-what it requires, what it would change, and what would tell us it was wrong.
+- **The point:** six bets, and five of them are the same object, the
+  manifest, used five different ways.
+- **Read time:** about 9 minutes end to end. Each bet stands alone.
+- **Do first:** read the Confidence column in the Contents table below. Three
+  are high, three are medium.
+
+These are further out than the [medium term](medium-term.md) and less
+certain. So they are written as bets, not plans. Each one says:
+
+1. what it requires
+2. what it would change
+3. what would tell us it was wrong
 
 The thesis running through all six:
 
 > **Make reproducibility the unit of exchange, not the report.**
 
-Today, when an analyst finishes a piece of work, what leaves the building is a
-PDF or a slide. The evidence stays behind. That is backwards, and it is
-backwards for a technical reason rather than a cultural one: until recently
+| Today | The problem |
+|---|---|
+| An analyst finishes a piece of work, and what leaves the building is a PDF or a slide | The evidence stays behind |
+
+That is backwards, for a technical reason, not a cultural one. Until recently
 there was no compact, verifiable way to send the evidence.
 
 There is now, and this project already produces one. It is called a manifest.
@@ -34,12 +45,12 @@ There is now, and this project already produces one. It is called a manifest.
 
 ### The bet
 
-A result should be able to leave this application and still be checkable by
-someone who does not have it.
+**A result should be able to leave this application and still be checkable by
+someone who does not have it.**
 
 ### What that means concretely
 
-A single file that carries:
+**A single file that carries six things, plus a verifier anyone can run:**
 
 ```mermaid
 flowchart TB
@@ -56,29 +67,35 @@ flowchart TB
     V --> V2["without the data:<br/>check internal consistency<br/>and the signature"]
 ```
 
-The second verification mode is the interesting one. Without the underlying
-data you cannot re-derive the numbers, but you **can** check that the file has
-not been edited, that the tool version exists, that the parameters are ones
-that tool accepts, and that the estimates are internally consistent with the
-diagnostics.
+**The second verification mode, without the data, is the interesting one.**
 
-That is a much weaker check than re-execution and it is far stronger than
+You cannot re-derive the numbers. You **can** check that:
+
+- the file has not been edited
+- the tool version exists
+- the parameters are ones that tool accepts
+- the estimates are internally consistent with the diagnostics
+
+That is a much weaker check than re-execution. It is far stronger than
 nothing, which is what a PDF offers.
 
 ### Why this is the highest-confidence bet
 
-Because most of it exists. `Manifest` is already the thing. What is missing is
-a serialisation someone outside the project can read, and a verifier that runs
-without the application.
+**Most of it exists.** `Manifest` is already the thing. Two pieces are
+missing:
+
+1. a serialisation someone outside the project can read
+2. a verifier that runs without the application
 
 ### What would tell us we are wrong
 
-If nobody ever asks to check a result they were sent. That is possible: it may
-be that in practice trust flows through institutions rather than through
-artifacts, and a verifiable file solves a problem nobody has.
+**Nobody ever asking to check a result they were sent.**
+
+That is possible. Trust may flow through institutions, not artifacts, and a
+verifiable file would then solve a problem nobody has.
 
 The counter-evidence would be any regulated context where "show your working"
-is already a requirement, and there are several.
+is already a requirement. There are several.
 
 ---
 
@@ -86,8 +103,8 @@ is already a requirement, and there are several.
 
 ### The bet
 
-The registry should be something people outside this project publish into, and
-cite.
+**The registry should be something people outside this project publish into,
+and cite.**
 
 ### What that looks like
 
@@ -100,20 +117,24 @@ flowchart LR
     MAN --> CITE["The tool is <b>citable</b><br/>the way a paper is"]
 ```
 
-The key property is that a manifest already names `tool` and `tool_version`.
-If those become globally meaningful rather than locally meaningful, a
-manifest becomes a citation.
+**The key property: a manifest already names `tool` and `tool_version`.** If
+those become globally meaningful, not only locally meaningful, a manifest
+becomes a citation.
 
 ### Why this matters more than it sounds
 
-Right now, the way a new econometric method reaches practitioners is: it
-appears in a paper, someone implements it in a notebook, the notebook is
-shared, and three people copy it with slight differences. Nobody can tell
-which version anybody used.
+**How a new econometric method reaches practitioners today:**
 
-A versioned, tested, citable function fixes that, and it fixes it in a way
-that a package on PyPI does not, because a package has no notion of "the
-result was produced by version 2.1.0 of this specific function".
+1. It appears in a paper.
+2. Someone implements it in a notebook.
+3. The notebook is shared.
+4. Three people copy it with slight differences.
+
+Nobody can tell which version anybody used.
+
+A versioned, tested, citable function fixes that. A package on PyPI does not,
+because a package has no notion of "the result was produced by version 2.1.0
+of this specific function".
 
 ### What it requires beyond M4
 
@@ -125,9 +146,14 @@ result was produced by version 2.1.0 of this specific function".
 
 ### What would tell us we are wrong
 
-If the contract tests turn out to be either too weak (bad tools pass) or too
-strong (good tools cannot). Both are discoverable early, in
-[M4](medium-term.md#m4-an-extensible-tool-registry), which is why M4 comes
+**The contract tests turning out wrong in either direction:**
+
+| Too weak | Too strong |
+|---|---|
+| Bad tools pass | Good tools cannot |
+
+Both are discoverable early, in
+[M4](medium-term.md#m4-an-extensible-tool-registry). That is why M4 comes
 first.
 
 ---
@@ -140,13 +166,18 @@ first.
 
 ### Why this is different from a wiki
 
-A wiki holds what someone wrote down. This holds what actually happened.
+**A wiki holds what someone wrote down. This holds what actually happened.**
 
-A run is a row with structured artifacts: the question in prose, the typed
-plan, the resolved data with its fingerprint, the results, the diagnostics,
-the trace of who and what decided, the verdict, the narration. All of that is
-already persisted and none of it depends on anyone remembering to document
-anything.
+A run is a row with structured artifacts:
+
+- the question in prose, and the typed plan
+- the resolved data with its fingerprint
+- the results and the diagnostics
+- the trace of who and what decided
+- the verdict and the narration
+
+All of that is already persisted. None of it depends on anyone remembering to
+document anything.
 
 ```mermaid
 flowchart TB
@@ -160,13 +191,15 @@ flowchart TB
     R1 & R2 & R3 --> A["<b>The answer includes<br/>what did not work,<br/>and why</b>"]
 ```
 
-That last box is the point. The most valuable thing an institution knows is
-usually what it has already tried and abandoned, and that is exactly the
+**The last box is the point.** The most valuable thing an institution knows
+is usually what it has already tried and abandoned. That is exactly the
 information that never gets written down.
 
-Econometrica records refusals as first-class results. A refused GARCH is a
-persisted step with a reason. So "we tried that and the data could not support
-it" becomes searchable, which it never is otherwise.
+**Econometrica records refusals as first-class results.**
+
+- A refused GARCH is a persisted step with a reason.
+- So "we tried that and the data could not support it" becomes searchable. It
+  never is otherwise.
 
 ### What it requires
 
@@ -178,9 +211,11 @@ it" becomes searchable, which it never is otherwise.
 
 ### What would tell us we are wrong
 
-If the search returns mostly noise because most runs are exploratory and
-half-finished. That is a real risk, and the mitigation is probably to let
-people mark a run as a conclusion rather than to try to infer it.
+**The search returning mostly noise**, because most runs are exploratory and
+half-finished.
+
+That is a real risk. The mitigation is probably to let people mark a run as a
+conclusion, not to try to infer it.
 
 ---
 
@@ -188,8 +223,8 @@ people mark a run as a conclusion rather than to try to infer it.
 
 ### The bet
 
-Efficiency is not a property you measure once. It moves, and the movement is
-the finding.
+**Efficiency is not a property you measure once. It moves, and the movement
+is the finding.**
 
 ### What that looks like
 
@@ -210,33 +245,42 @@ flowchart LR
 
 ### Why this is nearly free
 
-Every component exists.
+**Every component exists.**
 
-The efficiency battery is ten registered tools. The scheduling is
-[M7](medium-term.md#m7-scheduled-runs-and-drift-alerts). The regime detection
-is `markov_switching`, already in the registry. The re-run already executes
-without a model.
+| Component | Where it comes from |
+|---|---|
+| The efficiency battery | Ten registered tools |
+| The scheduling | [M7](medium-term.md#m7-scheduled-runs-and-drift-alerts) |
+| The regime detection | `markov_switching`, already in the registry |
+| Execution without a model | The re-run, already built |
 
-**What is missing is a view**: a chart of a composite score over time, per
+**What is missing is a view:** a chart of a composite score over time, per
 market, with regimes shaded. That is a frontend feature over data the backend
 would already have.
 
 ### The genuinely novel part
 
-An efficiency score with a **manifest** is different from one in a paper,
-because you can check it. Published efficiency studies are notoriously hard to
-replicate: different windows, different adjustments, different handling of
-non-trading days, and none of it recorded.
+**An efficiency score with a manifest is different from one in a paper,
+because you can check it.**
+
+Published efficiency studies are notoriously hard to replicate:
+
+- different windows
+- different adjustments
+- different handling of non-trading days
+- none of it recorded
 
 A monitored score whose every point carries a data fingerprint and a tool
 version is a different kind of object.
 
 ### What would tell us we are wrong
 
-If the scores turn out to be dominated by data-handling choices rather than by
-market behaviour. That would be a genuinely interesting finding in itself, and
-this system is unusually well set up to detect it, because you could hold the
-data fixed and vary the handling.
+**The scores turning out to be dominated by data-handling choices, not by
+market behaviour.**
+
+That would be an interesting finding in itself. This system is unusually well
+set up to detect it, because you could hold the data fixed and vary the
+handling.
 
 ---
 
@@ -244,8 +288,8 @@ data fixed and vary the handling.
 
 ### The bet
 
-The grounding gate checks prose. Numbers reach readers through charts and
-tables too, and those are currently unchecked.
+**The grounding gate checks prose. Numbers reach readers through charts and
+tables too, and those are currently unchecked.**
 
 ### The gap, stated precisely
 
@@ -258,7 +302,7 @@ tables too, and those are currently unchecked.
 | A number in a chart title | **No** |
 
 So a model that writes a chart titled "Beta of 1.4 over the period" when beta
-is 1.27 is not caught. The chart's *data* is bound; its *text* is not.
+is 1.27 is not caught. The chart's *data* is bound. Its *text* is not.
 
 ### What ships
 
@@ -272,24 +316,28 @@ flowchart TB
     style STRIP fill:#fff3cd,stroke:#eda100,color:#14181d
 ```
 
-Note the asymmetry with prose: here you withhold the **annotation**, not the
-chart, because the chart's data is independently verified and the chart
-without its title is still true.
+**The asymmetry with prose:**
 
-That asymmetry is defensible precisely because the data binding already
-exists. In prose there is nothing left once you remove the number.
+| Where the bad number is | What is withheld | Why |
+|---|---|---|
+| Prose | The whole narration | Nothing is left once you remove the number |
+| A chart's text | The **annotation**, not the chart | The chart's data is independently verified, and the chart without its title is still true |
+
+The asymmetry is defensible because the data binding already exists.
 
 ### What it requires
 
-[M8](medium-term.md#m8-giving-the-narrator-context-safely), because the design
-work there is about exactly this question: when is a number allowed to come
-from somewhere other than a tool, and how is it marked?
+[M8](medium-term.md#m8-giving-the-narrator-context-safely). The design work
+there is about exactly this question: when is a number allowed to come from
+somewhere other than a tool, and how is it marked?
 
 ### What would tell us we are wrong
 
-If in practice models never put numbers in chart titles, making this a gate
-that never fires. Measurable cheaply: log the would-be violations before
-enforcing anything.
+**Models never putting numbers in chart titles in practice.** That would make
+this a gate that never fires.
+
+It is measurable cheaply: log the would-be violations before enforcing
+anything.
 
 ---
 
@@ -297,9 +345,9 @@ enforcing anything.
 
 ### The bet
 
-There is a category of user for whom "I can show you exactly how this number
-was produced" is not a nice-to-have but a requirement, and this system is
-already most of the way there.
+**For one category of user, "I can show you exactly how this number was
+produced" is a requirement, not a nice-to-have.** This system is already most
+of the way there.
 
 ### What exists already
 
@@ -316,8 +364,8 @@ already most of the way there.
 | **When, immutably** | **No** |
 | **Retention and legal hold** | **No** |
 
-The first seven are the hard ones and they are done. The last three are
-ordinary engineering.
+**The first seven are the hard ones, and they are done. The last three are
+ordinary engineering.**
 
 ### What ships
 
@@ -341,20 +389,24 @@ flowchart TB
 
 ### The honest caveat
 
-**This is a compliance-adjacent claim and it needs a compliance-literate
-reviewer before it is made.** Nothing in this documentation should be read as
-saying the product satisfies any particular regulation. What it says is that
-the technical substrate a regulation would demand is unusually complete.
+**This is a compliance-adjacent claim, and it needs a compliance-literate
+reviewer before it is made.**
 
-The right next step is not to build it. It is to take the existing trace to
-someone whose job is reviewing these things and ask what is missing.
+- Nothing in this documentation should be read as saying the product
+  satisfies any particular regulation.
+- What it says: the technical substrate a regulation would demand is unusually
+  complete.
+
+**The right next step is not to build it.** It is to take the existing trace
+to someone whose job is reviewing these things and ask what is missing.
 
 ### What would tell us we are wrong
 
-If the gap between "technically complete" and "acceptable to a regulator"
-turns out to be dominated by process and attestation rather than by evidence.
-That is quite possible, and it would mean this is a smaller opportunity than
-it looks.
+**The gap between "technically complete" and "acceptable to a regulator"
+being dominated by process and attestation, not by evidence.**
+
+That is quite possible. It would mean this is a smaller opportunity than it
+looks.
 
 ---
 
@@ -373,12 +425,15 @@ flowchart TB
     GATE --> L5["<b>L5</b> and so are<br/>charts and tables"]
 ```
 
-Five of the six bets are the same object used five different ways. That is
-usually a sign that the object is the right one.
+**Five of the six bets are the same object used five different ways.** That
+is usually a sign that the object is the right one.
 
-It is also why the invariant is not negotiable. Every one of these depends on
-a number being traceable to a tested function, and the moment a model computes
-one, all five stop being true at once.
+**It is also why the invariant is not negotiable.** Every one of these
+depends on a number being traceable to a tested function. The moment a model
+computes one, all five stop being true at once.
+
+**Next, 2 minutes:** open [The art of the possible](../6-art-of-the-possible/)
+and read the rule that page holds itself to.
 
 ---
 

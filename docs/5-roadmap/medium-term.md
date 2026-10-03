@@ -1,12 +1,17 @@
 # Medium term
 
-The next two to four phases. Eight themes.
+- **The point:** eight themes over the next two to four phases. Each has a
+  done condition that can fail.
+- **Read time:** about 12 minutes end to end. Each theme stands alone: read
+  the one you care about.
+- **Do first:** pick one theme from the Contents table and jump to it. M5 is
+  the smallest. M1 can start today.
 
-The organising question for all of them: **what stops this being something a
+The organising question for all eight: **what stops this being something a
 team relies on rather than something one person uses?**
 
-Almost every answer is about durability, ownership or reach. None of them is
-about adding another model.
+Almost every answer is about durability, ownership or reach. None is about
+adding another model.
 
 ---
 
@@ -29,15 +34,16 @@ about adding another model.
 
 ### Why now
 
-This is the largest single gap between what the product is and what it claims
-to be about.
+**This is the largest single gap between what the product is and what it
+claims to be about.**
 
-The whole argument for Econometrica is auditability: you can reconstruct a
-decision you were not present for. But right now there is no concept of "who
-ran this", because there is no concept of "who". A risk officer can open a run
-and see which *model* decided what. They cannot see which *person* asked.
+- The whole argument for Econometrica is auditability: you can reconstruct a
+  decision you were not present for.
+- There is no concept of "who ran this", because there is no concept of "who".
+- A risk officer can open a run and see which *model* decided what. They
+  cannot see which *person* asked.
 
-That is a strange hole in an audit product, and it exists purely because
+That is a strange hole in an audit product. It exists purely because
 [D12](../4-decisions/platform-choices.md#d12) traded it away for scope.
 
 ### What ships
@@ -71,7 +77,7 @@ flowchart TB
 
 ### Depends on
 
-Nothing. It is the one theme that could start today.
+**Nothing.** It is the one theme that could start today.
 
 ### Done when
 
@@ -83,10 +89,12 @@ Nothing. It is the one theme that could start today.
 
 ### The thing to be careful about
 
-**Do not let authorization leak upward into `agents/`.** The whole reason
-`agents/` knows nothing about projects is that it would otherwise be
-untestable without a database. Authorization belongs in the routers, which is
-already the composition root.
+**Do not let authorization leak upward into `agents/`.**
+
+- `agents/` knows nothing about projects, because it would otherwise be
+  untestable without a database.
+- Authorization belongs in the routers, which is already the composition
+  root.
 
 ---
 
@@ -94,13 +102,18 @@ already the composition root.
 
 ### Why now
 
-A GARCH fit occupies a request for its duration, and a restart mid-fit loses
-it. At one user that is an annoyance. At five it is the reason people stop
-using it, and at zero users on a schedule ([M7](#m7-scheduled-runs-and-drift-alerts))
-it is a blocker.
+**A GARCH fit occupies a request for its duration, and a restart mid-fit loses
+it.**
+
+| Users | What that is |
+|---|---|
+| One | An annoyance |
+| Five | The reason people stop using it |
+| Zero, on a schedule ([M7](#m7-scheduled-runs-and-drift-alerts)) | A blocker |
 
 The original design anticipated this: `asyncio` plus a `ProcessPoolExecutor`
 plus a `jobs` table, with progress streamed over SSE. Two of the three exist.
+The `jobs` table does not.
 
 ### What ships
 
@@ -138,7 +151,7 @@ stateDiagram-v2
 
 ### Depends on
 
-Nothing hard. It touches the run router and the orchestrator's streaming
+**Nothing hard.** It touches the run router and the orchestrator's streaming
 contract.
 
 ### Done when
@@ -151,10 +164,12 @@ contract.
 
 ### The thing to be careful about
 
-**The streaming contract is the interesting part, not the queue.** Today
-`run.finished` always fires, even after `run.failed`, and that is what makes a
-partial run readable. A reconnecting client has to get the same guarantee, and
-that means the event log has to be replayable, not just live.
+**The streaming contract is the interesting part, not the queue.**
+
+- Today `run.finished` always fires, even after `run.failed`. That is what
+  makes a partial run readable.
+- A reconnecting client has to get the same guarantee.
+- So the event log has to be replayable, not only live.
 
 ---
 
@@ -162,12 +177,14 @@ that means the event log has to be replayable, not just live.
 
 ### Why now
 
-The registry covers 37 tools and there is a shape of question it cannot
-express at all: **many assets, many periods, at once.**
+**The registry covers 37 tools, and there is a shape of question it cannot
+express at all: many assets, many periods, at once.**
 
-`fama_macbeth` and `grs_test` gesture at it, but the `DatasetSpec` is a list
-of tickers over a window, and a genuine panel is a different object. Anyone
-doing serious cross-sectional asset pricing hits this in the first hour.
+- `fama_macbeth` and `grs_test` gesture at it.
+- But the `DatasetSpec` is a list of tickers over a window. A genuine panel is
+  a different object.
+- Anyone doing serious cross-sectional asset pricing hits this in the first
+  hour.
 
 ### What ships
 
@@ -195,9 +212,13 @@ flowchart LR
 
 ### Depends on
 
-Nothing structurally, but it is the largest theme here. The `DatasetSpec`
-change ripples through the Data Steward, the fingerprint, the manifest and the
-Planner's catalogue.
+**Nothing structurally, but it is the largest theme here.** The `DatasetSpec`
+change ripples through four places:
+
+- the Data Steward
+- the fingerprint
+- the manifest
+- the Planner's catalogue
 
 ### Done when
 
@@ -209,9 +230,11 @@ Planner's catalogue.
 
 ### The thing to be careful about
 
-**Portfolio formation must be deterministic**, for exactly the reason the Data
-Steward is. A sort with a tie-breaking rule that depends on row order is not
-reproducible, and it will look reproducible until the data source changes its
+**Portfolio formation must be deterministic**, for the same reason the Data
+Steward is.
+
+A sort with a tie-breaking rule that depends on row order is not
+reproducible. It will look reproducible until the data source changes its
 ordering.
 
 ---
@@ -220,9 +243,11 @@ ordering.
 
 ### Why now
 
-The registry is the product's moat and its ceiling. 37 tools is a lot and it
-is also finite, and every question outside it either falls to the sandbox
-(marked `unvalidated`) or is refused.
+**The registry is the product's moat and its ceiling.**
+
+- 37 tools is a lot. It is also finite.
+- Every question outside it either falls to the sandbox, marked
+  `unvalidated`, or is refused.
 
 There should be a supported way to add tool 38 that does not require
 understanding the whole codebase.
@@ -249,8 +274,9 @@ flowchart TB
 
 ### Depends on
 
-Nothing, but it is much more valuable after [M3](#m3-panel-data-and-cross-sectional-pricing),
-because panel tools are the obvious first thing someone would want to add.
+**Nothing.** But it is much more valuable after
+[M3](#m3-panel-data-and-cross-sectional-pricing), because panel tools are the
+obvious first thing someone would want to add.
 
 ### Done when
 
@@ -262,11 +288,14 @@ because panel tools are the obvious first thing someone would want to add.
 
 ### The thing to be careful about
 
-**A third-party tool is trusted code in-process.** That is a genuinely
-different security posture from the sandbox, and it needs to be said out loud
-in the documentation rather than discovered. The honest framing is that
-installing a tool package is like installing any dependency, and the
-`unvalidated` marking does not apply because a registry tool is not sandboxed.
+**A third-party tool is trusted code in-process.**
+
+- That is a different security posture from the sandbox.
+- It needs to be said out loud in the documentation, not discovered.
+- The honest framing: installing a tool package is like installing any
+  dependency.
+- The `unvalidated` marking does not apply, because a registry tool is not
+  sandboxed.
 
 ---
 
@@ -274,12 +303,13 @@ installing a tool package is like installing any dependency, and the
 
 ### Why now
 
-The smallest theme here and possibly the highest ratio of value to effort.
+**The smallest theme here, and possibly the highest ratio of value to
+effort.**
 
-Every export today is a **record** of an analysis. None of them is a
-**runnable** version of it. An analyst who wants to take a result and poke at
-it has to reconstruct the pandas by hand, which is the exact work the product
-was meant to remove.
+- Every export today is a **record** of an analysis.
+- None is a **runnable** version of it.
+- An analyst who wants to poke at a result has to reconstruct the pandas by
+  hand. That is the exact work the product was meant to remove.
 
 ### What ships
 
@@ -299,7 +329,7 @@ flowchart LR
 
 ### Depends on
 
-Nothing. It reads `runs.outcome`, which already holds everything.
+**Nothing.** It reads `runs.outcome`, which already holds everything.
 
 ### Done when
 
@@ -309,9 +339,10 @@ Nothing. It reads `runs.outcome`, which already holds everything.
 
 ### The thing to be careful about
 
-**The exported script must call the registry, not inline the statistics.** An
-export that reimplements the CAPM in pandas would break the invariant at the
-one moment it matters most: when the number leaves the building.
+**The exported script must call the registry, not inline the statistics.**
+
+An export that reimplements the CAPM in pandas would break the invariant at
+the one moment it matters most: when the number leaves the building.
 
 ---
 
@@ -319,12 +350,11 @@ one moment it matters most: when the number leaves the building.
 
 ### Why now
 
-The natural next question after "is this factor loading real" is "what would
-it have been worth", and there is currently no honest way to answer it.
+**The natural next question after "is this factor loading real" is "what
+would it have been worth". There is currently no honest way to answer it.**
 
 It is also the theme with the largest gap between how easy it looks and how
-easy it is, which is a reason to do it carefully rather than a reason to skip
-it.
+easy it is. That is a reason to do it carefully, not a reason to skip it.
 
 ### What ships
 
@@ -351,15 +381,19 @@ construction over a universe needs a panel.
 
 ### The thing to be careful about
 
-**This is the theme where the product could most easily start lying.** A
-backtest is the single most over-claimed artifact in finance, and the reasons
-are all things a gate can catch: survivorship in the universe, look-ahead in
-the signal, costs assumed away, and a rebalancing rule chosen after seeing the
-result.
+**This is the theme where the product could most easily start lying.**
+
+A backtest is the single most over-claimed artifact in finance. The reasons
+are all things a gate can catch:
+
+- survivorship in the universe
+- look-ahead in the signal
+- costs assumed away
+- a rebalancing rule chosen after seeing the result
 
 If those cannot be gated, the honest move is to ship the backtest with
-mandatory disclosures in the same place the `synthetic_data` flag sits, rather
-than not to ship it. But gates first.
+mandatory disclosures, in the same place the `synthetic_data` flag sits. That
+beats not shipping it. But gates first.
 
 ---
 
@@ -367,9 +401,9 @@ than not to ship it. But gates first.
 
 ### Why now
 
-A run is already re-runnable without a model in the loop. That is an unusual
-property and it makes something available almost for free: **run it again next
-month and tell me what moved.**
+**A run is already re-runnable without a model in the loop.** That is an
+unusual property, and it makes something available almost for free: run it
+again next month and tell me what moved.
 
 The barrier is not the analysis. It is the queue.
 
@@ -411,10 +445,17 @@ flowchart LR
 
 ### The thing to be careful about
 
-That last bullet. "Your beta changed" and "your data vendor changed your data"
-look identical in the numbers and are opposite findings. The re-run report
-already distinguishes them by fingerprint, and the alerting must not flatten
-that.
+**The last "done when" bullet: drift and non-reproduction must never share a
+message.**
+
+| Message | Finding |
+|---|---|
+| "Your beta changed" | The estimate moved |
+| "Your data vendor changed your data" | The source revised history |
+
+They look identical in the numbers and are opposite findings. The re-run
+report already distinguishes them by fingerprint. The alerting must not
+flatten that.
 
 ---
 
@@ -422,20 +463,20 @@ that.
 
 ### Why now
 
-This is the one acknowledged design compromise in the shipped product.
+**This is the one acknowledged design compromise in the shipped product.**
 
-The Narrator sees no web results, no retrieved documents and no MCP output,
-because the grounding gate withholds an entire narration over one unmatched
-number, and those channels are dense with numbers. The result is
-interpretations that are less informed than they could be.
+- The Narrator sees no web results, no retrieved documents and no MCP output.
+- The reason: the grounding gate withholds an entire narration over one
+  unmatched number, and those channels are dense with numbers.
+- The result: interpretations less informed than they could be.
 
 See [D10](../4-decisions/trust-mechanisms.md#d10). It is an open item, and it
-needs a design rather than a toggle.
+needs a design, not a toggle.
 
 ### What ships
 
-The design work is the deliverable. Three candidate mechanisms, in the order
-we would try them:
+**The design work is the deliverable.** Three candidate mechanisms, in the
+order we would try them:
 
 ```mermaid
 flowchart TB
@@ -458,7 +499,7 @@ flowchart TB
 
 ### Depends on
 
-Nothing technically. It depends on someone thinking hard for a day.
+**Nothing technically.** It depends on someone thinking hard for a day.
 
 ### Done when
 
@@ -468,14 +509,14 @@ Nothing technically. It depends on someone thinking hard for a day.
   distinguishable** from a computed one, in the canvas and in the printout
 - The `-15.066` test still fails
 
-That third criterion is the real one. Any solution that loosens the gate for
-computed numbers has solved a different problem.
+**The third criterion is the real one.** Any solution that loosens the gate
+for computed numbers has solved a different problem.
 
 ---
 
 ## Sequencing
 
-If you had to pick an order, this one:
+**If you had to pick an order, this one:**
 
 ```mermaid
 flowchart LR
@@ -498,10 +539,15 @@ flowchart LR
     P1 --> P2 --> P3 --> P4
 ```
 
-The reasoning: phase 7 is small and unblocks the most. Phase 8 is the
-credibility phase, since an audit tool with no users is odd and an
-acknowledged compromise should not stay acknowledged for ever. Phase 9 is the
-big one. Phase 10 is what the first three make safe.
+| Phase | Themes | Why here |
+|---|---|---|
+| 7 | M2, M5 | Small, and it unblocks the most |
+| 8 | M1, M8 | The credibility phase. An audit tool with no users is odd, and an acknowledged compromise should not stay acknowledged for ever |
+| 9 | M3, M4 | The big one |
+| 10 | M6, M7 | What the first three make safe |
+
+**Next, 2 minutes:** open [Long term](long-term.md) and read the Confidence
+column of its Contents table, one row for each of the six bets.
 
 ---
 

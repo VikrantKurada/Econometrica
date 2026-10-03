@@ -6,6 +6,13 @@
 
 # 3. The architect's view
 
+- **The point:** one sentence, "LLMs never compute statistics", forces seven
+  layers and five typed seams. Nothing here is layering for its own sake.
+- **Read time:** about 5 minutes
+- **Do first:** open `backend/src/econometrica/econ/registry.py`. About 110
+  lines: `Gate`, `RegisteredTool`, and the registry the 37 tools register
+  into.
+
 | Page | What it covers |
 |---|---|
 | **This page** | The orientation: layers, seams, and the rule that generates all of them |
@@ -18,27 +25,27 @@
 
 ## The rule that generates the architecture
 
-Every structural decision in this codebase comes from one sentence:
+**Every structural decision in this codebase comes from one sentence:**
 
 > **LLMs never compute statistics. They select from a registry of typed,
 > versioned tools; the tools compute.**
 
-That sounds like a policy. It is actually a type constraint, and once you take
-it seriously it forces a specific shape on everything above it.
+That sounds like a policy. It is a type constraint. Take it seriously and it
+forces a specific shape on everything above it:
 
-If a number must trace to a tested function, then the thing that carries a
-number needs an identity and a provenance, so there is `ResultSet` with a
-`Manifest`. If nothing above the tool boundary may see a statsmodels object,
-then statsmodels cannot appear in an agent's imports, so `agents/` speaks
-`econ.types` only. If a model's output must be checkable against the results,
-then the model's output must be a schema rather than prose, so there is
-`AnalysisPlan`. If a vendor SDK type leaked upward, swapping providers would
-be a rewrite, so `llm/` has its own types.
+| If | Then | So there is |
+|---|---|---|
+| A number must trace to a tested function | The thing that carries a number needs an identity and a provenance | `ResultSet` with a `Manifest` |
+| Nothing above the tool boundary may see a statsmodels object | statsmodels cannot appear in an agent's imports | `agents/` speaking `econ.types` only |
+| A model's output must be checkable against the results | The output must be a schema, not prose | `AnalysisPlan` |
+| A leaked vendor SDK type would make swapping providers a rewrite | Vendor types must stop at the adapter | `llm/` with its own types |
 
-You get a layered architecture not because layering is good practice but
-because that sentence leaves you no other option.
+The architecture is layered because that sentence leaves no other option. It
+is not layered because layering is good practice.
 
 ## Seven layers
+
+**Browser, transport, API, services, agents, core, stores, top to bottom.**
 
 ```mermaid
 flowchart TB
@@ -77,15 +84,17 @@ flowchart TB
     SVC --> ST
 ```
 
-The dotted line matters. The API layer reaches straight into the core when it
-is composing a run, because **the API layer is the composition root**. It is
-the only place that knows a project has settings, so it is the only place that
-can decide which of the optional agents to build.
+**The dotted line matters.**
+
+- The API layer reaches straight into the core when it composes a run.
+- That is because **the API layer is the composition root**.
+- It is the only place that knows a project has settings.
+- So it is the only place that can decide which optional agents to build.
 
 ## Five seams
 
-A seam is not a folder. It is a type that a test asserts nothing above it
-depends on.
+**A seam is not a folder. It is a type, and a test asserts nothing above it
+depends on what sits behind it.**
 
 | Seam | The rule | What it bought |
 |---|---|---|
@@ -95,15 +104,22 @@ depends on.
 | `tools.retrieval.Retriever` | Retrieval is a protocol, so `agents/` stays off `db.models` | The concrete retriever holds a session and a project; the agent holds neither |
 | `mcp.connect.Connector` | The transport is behind an interface the research loop cannot see | stdio and streamable-HTTP are the same thing to the agent |
 
-`tests/data/test_layering.py` enforces the third one, including a subprocess
-check of **both import orders**. In-process, both modules are already in
-`sys.modules` by collection time, so an in-process test proves nothing about a
-cycle.
+`tests/data/test_layering.py` enforces the third seam, `PriceSource`.
+
+- It includes a subprocess check of **both import orders**.
+- In-process, both modules are already in `sys.modules` by collection time. So
+  an in-process test proves nothing about a cycle.
 
 ## Where the interesting complexity is
 
-Not evenly distributed. If you are new to the codebase, these are the five
-places worth reading first, in this order:
+**It is not evenly distributed. New to the codebase? Read these five files
+first, in this order:**
+
+1. `agents/orchestrator.py`
+2. `agents/schemas.py`
+3. `agents/grounding.py`
+4. `api/routers/runs.py`
+5. `econ/registry.py`
 
 ```mermaid
 mindmap
@@ -129,32 +145,28 @@ mindmap
 
 ## What the architecture refuses
 
-Worth stating, because these are the places where a reasonable engineer would
-otherwise add something and quietly break the invariant.
+**Four refusals. Each is a place where a reasonable engineer would add
+something and quietly break the invariant.**
 
-- **Nothing under `tools/` may become a source of numbers.** `tools/` is
-  context: web search, retrieval. `econ/` is computation. The grounding gate
-  admits only what a registry tool computed, and both channels have a test
-  proving a figure quoted verbatim out of their text is still blocked.
-- **`spans` has no token or cost column at all.** Telemetry and the run trace
-  measure different things, and a cost summed from both would look entirely
-  plausible and be entirely wrong. The separation is structural, and a test
-  asserts the columns do not exist.
-- **`data/` may not import from `agents/`.** It is the lower layer, and
-  importing upward is a cycle the moment the steward needs to call down. The
-  protocol lives in `data/base.py`; `agents/data_steward` only re-exports it.
-- **The tracer provider is deliberately not registered globally.** That can
-  only happen once per process, which would make a batch exporter impossible
-  to shut down.
+| The architecture refuses | Because | How it is held |
+|---|---|---|
+| **Anything under `tools/` becoming a source of numbers** | `tools/` is context: web search, retrieval. `econ/` is computation. The grounding gate admits only what a registry tool computed | Both channels have a test proving a figure quoted verbatim out of their text is still blocked |
+| **A token or cost column on `spans`** | Telemetry and the run trace measure different things. A cost summed from both would look entirely plausible and be entirely wrong | The separation is structural, and a test asserts the columns do not exist |
+| **`data/` importing from `agents/`** | `data/` is the lower layer. Importing upward is a cycle the moment the steward needs to call down | The protocol lives in `data/base.py`. `agents/data_steward` only re-exports it |
+| **Registering the tracer provider globally** | That can only happen once per process, which would make a batch exporter impossible to shut down | The provider is deliberately never registered |
 
 ## Read next
 
-Start with **[the high-level design](high-level-design.md)** if you want to
-understand the system. Go to **[the low-level design](low-level-design.md)** if
-you are about to change something. Use
-**[the blueprints](blueprints.md)** as reference drawings, and
-**[integration patterns](integration-patterns.md)** if you are connecting this
-to something else.
+**Next, 2 minutes:** open [the high-level design](high-level-design.md) and
+look at the pipeline diagram in section 3.
+
+After that, pick by what you are doing:
+
+| You are | Read |
+|---|---|
+| About to change something | **[The low-level design](low-level-design.md)** |
+| Looking for a reference drawing | **[The blueprints](blueprints.md)** |
+| Connecting this to something else | **[Integration patterns](integration-patterns.md)** |
 
 ---
 

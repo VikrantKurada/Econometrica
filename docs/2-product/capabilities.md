@@ -1,22 +1,50 @@
 # Capability inventory
 
-Everything that exists, enumerated. This page is a reference, not an argument.
-If you want to know whether something is in the product, look here.
+- **The point:** everything that exists, enumerated. A reference, not an
+  argument.
+- **Read time:** about 11 minutes end to end. Do not read it end to end.
+  Search it.
+- **Do first:** press Ctrl+F and type the name of the thing you are looking
+  for.
 
-These lists are read off the code, not maintained by hand. The catalogue a
-model sees is rendered straight from `get_registry()` for the same reason: a
-hand-kept list drifts the first time a tool is added. A phase-gate test asserts
-that all five families are registered, so the shape of this page cannot go
-stale silently even though the individual counts are not themselves asserted.
+| Section | Count |
+|---|---|
+| [Tools](#the-37-tools) | 37, in five families |
+| [Diagnostics](#the-diagnostics-engine) | 7 groups of checks |
+| [Chart types](#the-14-chart-types) | 14 |
+| [Agent roles](#the-10-agent-roles) | 10 |
+| [LLM providers](#the-5-llm-providers) | 5 |
+| [Data sources](#data-sources) | 6 |
+| [API endpoints](#the-api) | 32, across 11 routers |
+| [Export formats](#exports) | 5 data formats, plus PNG, SVG and PDF |
+
+**Where these lists come from:**
+
+- They are read off the code, not maintained by hand.
+- The catalogue a model sees is rendered straight from `get_registry()`, for
+  the same reason. A hand-kept list drifts the first time a tool is added.
+- A phase-gate test asserts that all five families are registered, so the
+  shape of this page cannot go stale silently.
+- The individual counts are not themselves asserted by a test.
 
 ---
 
 ## The 37 tools
 
-Five families. Every one is typed, versioned, unit-tested against known-answer
-fixtures, and registered as an import side-effect of its family package. The
-catalogue a model reads is rendered directly from the registry, so it cannot
-drift from what actually exists.
+**Five families. Every tool is:**
+
+- typed
+- versioned
+- unit-tested against known-answer fixtures
+- registered as an import side-effect of its family package
+
+| Family | Tools |
+|---|---|
+| Asset pricing | 7 |
+| Market efficiency | 10 |
+| Volatility and risk | 11 |
+| Multivariate | 8 |
+| Event study | 1 |
 
 ### Asset pricing (7)
 
@@ -79,8 +107,12 @@ The three GARCH variants take normal, Student-t and skew-t innovations.
 | `granger_causality` | Pairwise predictive causality at every lag up to the requested maximum |
 | `markov_switching` | Markov regime-switching model with per-regime means and transition probabilities |
 
-Note that `var_model` and `vecm` are the same gate with opposite
-expectations: a VAR needs stationarity present, a VECM needs it absent.
+`var_model` and `vecm` are the same gate with opposite expectations:
+
+| Tool | Stationarity must be |
+|---|---|
+| `var_model` | present |
+| `vecm` | absent |
 
 ### Event study (1)
 
@@ -92,8 +124,8 @@ expectations: a VAR needs stationarity present, a VECM needs it absent.
 
 ## The diagnostics engine
 
-Deterministic, and it runs **before** the Validator so that the Validator is
-handed facts rather than asked to infer them.
+**Deterministic, and it runs before the Validator.** The Validator is handed
+facts. It is not asked to infer them.
 
 ```mermaid
 flowchart LR
@@ -108,19 +140,27 @@ flowchart LR
     N & H & A & AR & M & S & SA --> V["Validator prompt,<br/>as numbers"]
 ```
 
-Every `Diagnostic` is tri-state. `passed = None` means "not judged", and it is
-never rendered as a failure. This is enforced from the type through to the UI,
-because the alternative is telling a user their model failed a check nobody
-ran.
+**Every `Diagnostic` is tri-state.**
+
+| `passed` | Means |
+|---|---|
+| `True` | passed |
+| `False` | failed |
+| `None` | not judged. Never rendered as a failure |
+
+This is enforced from the type through to the UI. The alternative is telling
+a user their model failed a check nobody ran.
 
 ---
 
 ## The 14 chart types
 
-Proposed deterministically from the shape of a result. A GARCH fit has a
-conditional volatility path and standardized residuals; an IRF has one series
-per impulse-response pair. Asking a model to rediscover that per run buys
-nothing and can get it wrong.
+**Charts are proposed deterministically from the shape of a result. No model
+picks them.**
+
+- A GARCH fit has a conditional volatility path and standardized residuals.
+- An IRF has one series per impulse-response pair.
+- Asking a model to rediscover that per run buys nothing and can get it wrong.
 
 | Type | Used for |
 |---|---|
@@ -152,19 +192,22 @@ Three constraints on the union that look like style rules and are not:
    through a meaningful zero and need a diverging scale with a neutral
    midpoint. A one-hue ramp hides the sign, which is the entire reading.
 
-**Diagnostics have no chart type and are rendered directly.** A pure
-hypothesis test's finding is a statistic and a p-value, which binds to nothing
-in the chart union. `propose_charts` returns nothing for `adf`, and the
-Diagnostics tab shows it instead. The old fallback emitted stat tiles from
-whatever scalars existed, which for `adf` meant a canvas led by
-"Nobs: 5,080.0000".
+**Diagnostics have no chart type and are rendered directly.**
+
+- A pure hypothesis test's finding is a statistic and a p-value. That binds to
+  nothing in the chart union.
+- `propose_charts` returns nothing for `adf`. The Diagnostics tab shows it.
+- The old fallback emitted stat tiles from whatever scalars existed. For `adf`
+  that meant a canvas led by "Nobs: 5,080.0000".
 
 ---
 
 ## The 10 agent roles
 
-Six from the design, plus four that appeared as uploads and the context channels
-landed. Two of the ten are deterministic and have no model assigned at all.
+**Ten roles. Two are deterministic and have no model assigned at all.**
+
+Six come from the design. Four appeared as uploads and the context channels
+landed.
 
 | Role | Model? | What it does |
 |---|---|---|
@@ -179,12 +222,16 @@ landed. Two of the ten are deterministic and have no model assigned at all.
 | **Researcher** | yes | Runs a bounded tool-calling loop over the project's allowlisted MCP tools |
 | **Column Mapper** | yes | Chooses among the roles an uploaded column could play, and only among candidates the profiler already scored as admissible. It is skipped when there is nothing to decide, and what it returns is a proposal a person must confirm |
 
-Eight of these appear in the trace vocabulary as `run_steps.agent`:
+**Eight of the ten appear in the trace vocabulary as `run_steps.agent`:**
 `planner`, `data_steward`, `econometrician`, `validator`, `narrator`,
-`quant_coder`, `query_writer`, `researcher`. Adding one is a CHECK-constraint
-migration, and it has caught us out: `ck_run_steps_agent_known` has existed
-since phase 4, so adding `quant_coder` to the Python tuple left the tests
-green while a fresh database rejected every sandbox step.
+`quant_coder`, `query_writer`, `researcher`.
+
+Adding one is a CHECK-constraint migration, and it has caught us out:
+
+1. `ck_run_steps_agent_known` has existed since phase 4.
+2. `quant_coder` was added to the Python tuple.
+3. The tests stayed green.
+4. A fresh database rejected every sandbox step.
 
 ---
 
@@ -198,15 +245,22 @@ green while a fresh database rejected every sandbox step.
 | **Google Gemini** | yes | httpx | |
 | **NVIDIA NIM** | yes | httpx | |
 
-Capability flags per model: tool calling, JSON mode, streaming, context
-window. **Ollama capabilities come from `/api/show`, not `/api/tags`**, which
-reports neither context length nor tool support. Guessing from the model name
-was wrong in both directions.
+**Capability flags per model:** tool calling, JSON mode, streaming, context
+window.
 
-Keys are encrypted at rest. Per-role assignment is a first-class feature: a
-frontier model for the Planner, a different vendor for the Validator to obtain
-genuine independence, and local Ollama for routine classification at zero
-cost.
+**Ollama capabilities come from `/api/show`, not `/api/tags`.** Tags reports
+neither context length nor tool support. Guessing from the model name was
+wrong in both directions.
+
+**Keys are encrypted at rest.**
+
+**Per-role assignment is a first-class feature.** A typical split:
+
+| Role | Assign it | What that buys |
+|---|---|---|
+| Planner | A frontier model | |
+| Validator | A different vendor | Genuine independence |
+| Routine classification | Local Ollama | Zero cost |
 
 ---
 
@@ -222,24 +276,32 @@ cost.
 | `none` | Refuses, with an explanation. **The default** | no |
 
 **Upload-first resolution.** `build_project_source` wraps the configured
-market source with the project's uploads: a symbol any of the project's
-datasets carries is served from there, and everything else falls through. That
-ordering exists so one run can mix a file with fetched tickers. A project with
-no uploads gets the market source back unwrapped, not a wrapper that always
-delegates.
+market source with the project's uploads.
 
-Stooq was dropped from the project. `pandas-datareader` 0.11.1 does not
-implement it, and its CSV endpoint now answers with a JavaScript
-proof-of-work browser challenge. An adapter whose job includes defeating that
-is not something to ship. FRED is the independent cross-check instead: no API
-key, a genuinely separate pipeline, and it agreed with yfinance to the cent on
-`SP500` against `^GSPC`.
+1. A symbol any of the project's datasets carries is served from the upload.
+2. Everything else falls through to the market source.
+3. A project with no uploads gets the market source back unwrapped, not a
+   wrapper that always delegates.
+
+That ordering exists so one run can mix a file with fetched tickers.
+
+**Stooq was dropped from the project.**
+
+- `pandas-datareader` 0.11.1 does not implement it.
+- Its CSV endpoint now answers with a JavaScript proof-of-work browser
+  challenge. An adapter whose job includes defeating that is not something to
+  ship.
+
+**FRED is the independent cross-check instead.** No API key, a genuinely
+separate pipeline, and it agreed with yfinance to the cent on `SP500` against
+`^GSPC`.
 
 ---
 
 ## The API
 
-Thirty-two endpoints across eleven routers.
+**Thirty-two endpoints across eleven routers.** The list is collapsed. Open it
+when you need a path.
 
 <details>
 <summary><b>Full endpoint list</b></summary>
@@ -300,10 +362,16 @@ Thirty-two endpoints across eleven routers.
 
 </details>
 
-Two response shapes worth knowing about. `RunRead` deliberately omits
-`outcome`; `RunDetail` includes it. A result's series live in there, so
-listing runs would drag every one of them along. Steps say what a run *did*;
-the outcome says what it *produced*.
+**Two response shapes to know:**
+
+| Shape | Carries `outcome` | Used for |
+|---|---|---|
+| `RunRead` | no, deliberately | Listing runs |
+| `RunDetail` | yes | One run |
+
+A result's series live in `outcome`, so listing runs with it would drag every
+series along. Steps say what a run *did*. The outcome says what it
+*produced*.
 
 ---
 
@@ -319,14 +387,20 @@ the outcome says what it *produced*.
 | PNG, SVG | From the live Plotly graph in the browser, so the image is the one you looked at |
 | PDF | The browser's print pipeline, driven by `styles/print.css` |
 
-The print stylesheet is a stylesheet and not a dependency in either stack. It
-forces light surfaces whatever theme you were reading in, drops the
-application chrome, keeps a chart card whole across a fold, and always prints
-the `Provenance` block, which is print-only and always present.
+**PDF is a stylesheet, not a dependency in either stack.** The print
+stylesheet:
 
-kaleido was ruled out rather than deferred. The backend holds no Plotly JSON,
-so server-side chart export would mean reimplementing all fourteen TypeScript
+- forces light surfaces, whatever theme you were reading in
+- drops the application chrome
+- keeps a chart card whole across a fold
+- always prints the `Provenance` block, which is print-only and always present
+
+**kaleido was ruled out, not deferred.** The backend holds no Plotly JSON. So
+server-side chart export would mean reimplementing all fourteen TypeScript
 renderers in Python, to export a picture nobody had looked at.
+
+**Next, 2 minutes:** open [User journeys](journeys.md) and read Journey 1 to
+see these pieces used in one forty-second run.
 
 ---
 

@@ -1,10 +1,22 @@
 # The central decision
 
+- **The point:** the model selects a tool, the tool computes. A gated,
+  clearly marked code escape hatch covers what the registry does not.
+- **Read time:** about 7 minutes
+- **Do first:** read [the probe](#the-probe) under D3. Five runs, one wrong
+  answer, and it settled the design.
+
 Everything else in this project is downstream of one question, asked on
 2026-07-24 and answered the same day.
 
 > **How does a language model produce econometrics you would stake a decision
 > on?**
+
+| # | Decision | In one line |
+|---|---|---|
+| D1 | LLMs never compute statistics | They select from a registry. The tools compute |
+| D2 | Registry first, with a gated code escape hatch | Versatile and still trustworthy |
+| D3 | The escape hatch is off by default, and its results are marked | A sandbox result must never look like a registry result |
 
 ---
 
@@ -14,10 +26,14 @@ Everything else in this project is downstream of one question, asked on
 
 ### Context
 
-You can put a language model in front of an econometrics problem in exactly
-two positions: as the thing that computes, or as the thing that decides what
-to compute. Almost everyone puts it in the first position, because that is
-what the demo looks like.
+**A language model can sit in front of an econometrics problem in exactly two
+positions:**
+
+1. as the thing that computes
+2. as the thing that decides what to compute
+
+Almost everyone puts it in the first position, because that is what the demo
+looks like.
 
 ### Decision
 
@@ -26,16 +42,15 @@ compute.**
 
 ### What it costs
 
-You lose the ability to answer questions the registry does not cover. That is
-a real cost and it is why [D2](#d2) exists.
-
-You also lose the illusion of unlimited capability, which is a marketing cost
-rather than an engineering one, and it is worth paying.
+| You lose | How much it matters |
+|---|---|
+| The ability to answer questions the registry does not cover | A real cost. It is why [D2](#d2) exists |
+| The illusion of unlimited capability | A marketing cost, not an engineering one. Worth paying |
 
 ### What it buys
 
-Everything else in this documentation. Once numbers can only come from tested
-functions:
+**Everything else in this documentation.** Once numbers can only come from
+tested functions:
 
 ```mermaid
 flowchart TB
@@ -68,44 +83,45 @@ None of those is a feature anyone added. They are consequences.
 
 ### Context
 
-A registry is bounded and the questions are not. Sooner or later someone asks
-for something none of the 37 tools does.
+**A registry is bounded and the questions are not.** Sooner or later someone
+asks for something none of the 37 tools does.
 
 ### Options
 
-Three were on the table, and the first two are the ones most products pick.
+**Three were on the table. The first two are the ones most products pick.**
 
-**Option A: tool registry only.**
-The model never writes code. Deterministic, fully traceable, and bounded by
-whatever the registry happens to contain.
-*Rejected: too narrow.* A workbench that cannot answer a question outside its
-list is a workbench people stop opening.
+| Option | What it is | Verdict |
+|---|---|---|
+| **A: tool registry only** | The model never writes code. Deterministic, fully traceable, bounded by whatever the registry contains | *Rejected: too narrow.* A workbench that cannot answer a question outside its list is a workbench people stop opening |
+| **B: code generation in a sandbox** | The model writes statsmodels and arch code and it runs. Unbounded | *Rejected: wrong default* for a tool whose entire value is trustworthy numbers |
+| **C: registry first, with a gated escape hatch** | The registry serves the canonical majority. The escape hatch covers the rest | **Chosen** |
 
-**Option B: code generation in a sandbox.**
-The model writes statsmodels and arch code and it runs. Unbounded.
-*Rejected: wrong default.* It brings hallucinated methodology,
-non-reproducible results, a real security surface, and nothing that can be
-unit-tested ahead of time. Wrong default for a tool whose entire value is
-trustworthy numbers.
+What option B brings with it:
 
-**Option C: registry first, with a gated escape hatch. Chosen.**
-The registry serves the canonical majority. When the planner finds no fitting
-tool, a Quant Coder writes code that runs in a locked-down subprocess, the
-Validator must sign off, and the result is marked as using an unvalidated
-method.
+- hallucinated methodology
+- non-reproducible results
+- a real security surface
+- nothing that can be unit-tested ahead of time
+
+How option C handles a question with no fitting tool:
+
+1. A Quant Coder writes code.
+2. The code runs in a locked-down subprocess.
+3. The Validator must sign off.
+4. The result is marked as using an unvalidated method.
 
 ### Decision
 
-C, and it is the only one satisfying both "highly versatile" and "numbers
-worth staking a decision on."
+**C. It is the only one satisfying both "highly versatile" and "numbers worth
+staking a decision on."**
 
-It is also the most security-sensitive component in the system, which is why
+It is also the most security-sensitive component in the system. That is why
 it was **built last**, once everything else was stable.
 
 ### Evidence
 
-The probe that settled it is described under [D3](#d3). It is also what turned
-the escape hatch from a feature into a feature-with-a-marking.
+The probe that settled it is described under [D3](#d3). It is also what
+turned the escape hatch from a feature into a feature-with-a-marking.
 
 ---
 
@@ -115,8 +131,8 @@ the escape hatch from a feature into a feature-with-a-marking.
 
 ### Context
 
-We built the sandbox and then asked the obvious question: is a sandboxed
-result trustworthy?
+**We built the sandbox and then asked the obvious question: is a sandboxed
+result trustworthy?**
 
 ### The probe
 
@@ -136,13 +152,14 @@ A Gini coefficient is bounded in [0, 1].
 
 **Every restriction held. The answer was still wrong.**
 
-A sandbox is a security control. It tells you code did not escape. It cannot
-tell you code was right, and no sandbox can, because correctness is not a
-property of execution.
+- A sandbox is a security control.
+- It tells you code did not escape.
+- It cannot tell you code was right. No sandbox can, because correctness is
+  not a property of execution.
 
 ### Decision
 
-Three gates, and each **refuses rather than degrades**:
+**Three gates. Each refuses. None degrades.**
 
 ```mermaid
 flowchart LR
@@ -160,7 +177,7 @@ flowchart LR
     style R3 fill:#f8d7da,stroke:#e34948,color:#14181d
 ```
 
-And **the marking is the deliverable.** A sandbox result must never look like a
+**The marking is the deliverable.** A sandbox result must never look like a
 registry result:
 
 | Where | What it says |
@@ -170,23 +187,28 @@ registry result:
 | The run banner | Alerts exactly as `synthetic_data` does |
 | The print-only provenance block | Says it in words |
 
-All four derived from the result itself. **A marker that travels separately
-from the thing it marks is a marker that can be lost.**
+All four are derived from the result itself. **A marker that travels
+separately from the thing it marks is a marker that can be lost.**
 
 ### The test that proves it, and the test that does not exist
 
-The live test asserts the code **runs and is marked**. It never asserts the
-arithmetic is right.
+| The live test | |
+|---|---|
+| Asserts | The code **runs and is marked** |
+| Never asserts | The arithmetic is right |
 
-Asserting that would claim a property this feature does not have, and it would
-fail one run in five.
+Asserting the arithmetic would claim a property this feature does not have.
+It would also fail one run in five.
 
 ### One more consequence
 
-`AnalysisPlan.code_steps` is default-empty, and **the Planner is only told the
-field exists when the capability is on**. Otherwise it reaches for the escape
-hatch on any hard question, and every such plan is refused *after* the model
-call has already been paid for.
+**The Planner is told `code_steps` exists only when the capability is on.**
+
+- `AnalysisPlan.code_steps` is default-empty.
+- Told about it always, the Planner reaches for the escape hatch on any hard
+  question.
+- Every such plan is then refused *after* the model call has already been paid
+  for.
 
 A capability a model cannot use is a capability it should not be able to see.
 
@@ -194,8 +216,8 @@ A capability a model cannot use is a capability it should not be able to see.
 
 ## The three layers of the sandbox, and why only two are security controls
 
-Worth recording here because it is the sort of thing that gets flattened into
-"we sandboxed it" and then misunderstood.
+**"We sandboxed it" flattens three layers into one. Only two of the three are
+security controls.**
 
 | Layer | Enforced by | Strength |
 |---|---|---|
@@ -203,39 +225,40 @@ Worth recording here because it is the sort of thing that gets flattened into
 | Forbidden operations | A PEP 578 audit hook | **This is the real boundary.** It fires from C and cannot be unregistered |
 | Resource caps | A Job Object on Windows, `setrlimit` on POSIX | The OS |
 
-`SMUGGLE` in `tests/sandbox/test_escapes.py` **defeats the allowlist
-deliberately**, so that every test under it proves the audit hook still holds
-after the weak layer has fallen.
+**`SMUGGLE` in `tests/sandbox/test_escapes.py` defeats the allowlist
+deliberately.** Every test under it proves the audit hook still holds after
+the weak layer has fallen.
 
-That is the correct way to test defence in depth: assume the outer layer is
-gone, and check the inner one still bites. Neutering the hook fails 12 of 28
-escape tests, which is how they were shown to be doing anything at all.
+That is the correct way to test defence in depth:
 
-Two facts that explain why the allowlist has to be where it is:
+1. Assume the outer layer is gone.
+2. Check the inner one still bites.
 
-**The `import` audit event cannot enforce an allowlist.** It is raised by
-`_find_and_load`, which never runs on a `sys.modules` cache hit, so
-`import socket` after pandas has loaded it fires nothing.
+Neutering the hook fails 12 of 28 escape tests. That is how the tests were
+shown to be doing anything at all.
 
-**Blocking `open` outright breaks `arch`**, which imports
-`pyarrow.pandas_compat` at *fit* time. So writes are denied and reads are
-permitted only under `sys.prefix` and `sys.base_prefix`, both of which exclude
-`storage/`.
+**Two facts explain why the allowlist has to be where it is:**
+
+1. **The `import` audit event cannot enforce an allowlist.** It is raised by
+   `_find_and_load`, which never runs on a `sys.modules` cache hit. So
+   `import socket`, after pandas has loaded it, fires nothing.
+2. **Blocking `open` outright breaks `arch`**, which imports
+   `pyarrow.pandas_compat` at *fit* time. So writes are denied, and reads are
+   permitted only under `sys.prefix` and `sys.base_prefix`. Both exclude
+   `storage/`.
 
 ---
 
 ## What would change our minds
 
-For **D1**: nothing available today. A model that could be shown to compute a
-GARCH persistence correctly 100% of the time would still leave you unable to
-reproduce it, because the model would not remember how.
+| Decision | What would change it |
+|---|---|
+| **D1** | Nothing available today. A model shown to compute a GARCH persistence correctly 100% of the time would still leave you unable to reproduce it, because the model would not remember how |
+| **D2** | The registry growing to cover essentially every question people actually ask. The escape hatch would then be dead weight and worth removing. A good problem, and we are not close to it |
+| **D3** | Nothing. The marking costs almost nothing, and the alternative is a number that looks tested and is not |
 
-For **D2**: if the registry grew to cover essentially every question people
-actually ask, the escape hatch would become dead weight and worth removing.
-That is a good problem and we are not close to it.
-
-For **D3**: nothing. The marking costs almost nothing and the alternative is a
-number that looks tested and is not.
+**Next, 2 minutes:** open [Trust mechanisms](trust-mechanisms.md) and read D4,
+the grounding gate.
 
 ---
 

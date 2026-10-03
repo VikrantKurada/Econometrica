@@ -1,7 +1,19 @@
 # Technical blueprints
 
-Reference drawings. Nothing here argues for anything; these are the diagrams
-you want open on a second monitor while you work.
+- **The point:** twelve reference drawings, B1 to B12. Nothing here argues for
+  anything.
+- **Read time:** about 7 minutes end to end. Do not read it end to end. Keep
+  it open on a second monitor.
+- **Do first:** pick the drawing for what you are working on from the list
+  below.
+
+| You are working on | Open |
+|---|---|
+| Imports and layering | B1 |
+| The database | B2 |
+| A run, its states, its events | B3, B4, B5, B11 |
+| Uploads, re-run, capabilities | B6, B7, B10 |
+| The sandbox, MCP, ports | B8, B9, B12 |
 
 - [B1. Module dependency map](#b1-module-dependency-map)
 - [B2. The data model](#b2-the-data-model)
@@ -20,10 +32,13 @@ you want open on a second monitor while you work.
 
 ## B1. Module dependency map
 
-The arrows are allowed directions. An arrow that does not appear here is a
-layering violation. Four of them are drawn in red because they are the ones
-somebody would plausibly add; two of those are caught by a test and two by the
-structure itself.
+**The arrows are the allowed directions. An arrow that does not appear here is
+a layering violation.**
+
+- Four forbidden edges are drawn in red. They are the ones somebody would
+  plausibly add.
+- Two of the four are caught by a test.
+- Two are caught by the structure itself.
 
 ```mermaid
 flowchart TB
@@ -85,12 +100,14 @@ flowchart TB
 | `data/` to `agents/` | `tests/data/test_layering.py`, including a **subprocess** check of both import orders | It is the lower layer, and importing upward is a cycle the moment the steward calls down |
 | `tools/` producing numbers | The grounding gate, with a test per channel | `tools/` is context, `econ/` is computation |
 
-The subprocess check is not paranoia. In-process, both modules are already in
-`sys.modules` by collection time, so an in-process test proves nothing.
+**The subprocess check is not paranoia.** In-process, both modules are already
+in `sys.modules` by collection time, so an in-process test proves nothing.
 
 ---
 
 ## B2. The data model
+
+**Ten tables. Everything hangs off `PROJECTS` except `SPANS`.**
 
 ```mermaid
 erDiagram
@@ -245,24 +262,29 @@ erDiagram
 
 ### Alembic's blind spot
 
-Autogenerate **does** emit CHECK constraints when it creates a table. The
-`runs` and `run_steps` revision carries all thirteen.
+**Tests are the only gate on CHECK constraints. `alembic check` verifies
+nothing about them.**
 
-What it cannot see is a constraint added to or changed on a table that already
-exists. That revision comes out empty and has to be hand-written.
-`alembic check` verifies neither case, so tests are the only gate.
+| Case | What autogenerate does |
+|---|---|
+| A CHECK on a table it **creates** | Emits it. The `runs` and `run_steps` revision carries all thirteen |
+| A CHECK added to or changed on a table that already **exists** | Sees nothing. The revision comes out empty and has to be hand-written |
 
-And asserting the constraint *names* is not enough.
-`ck_run_steps_agent_known` has been in the initial revision since phase 4, so
-adding `quant_coder` to `STEP_AGENTS` left that test green while a fresh
-database rejected every sandbox step. `tests/db/test_migrations.py` now
-asserts every *value* of each vocabulary reaches a migration too.
+**Asserting the constraint *names* is not enough.**
+
+1. `ck_run_steps_agent_known` has been in the initial revision since phase 4.
+2. `quant_coder` was added to `STEP_AGENTS`.
+3. The name test stayed green.
+4. A fresh database rejected every sandbox step.
+
+`tests/db/test_migrations.py` now asserts every *value* of each vocabulary
+reaches a migration too.
 
 ---
 
 ## B3. Run lifecycle
 
-The full sequence, from the click to the persisted row.
+**The full sequence, from the click to the persisted row.**
 
 ```mermaid
 sequenceDiagram
@@ -341,6 +363,8 @@ sequenceDiagram
 
 ## B4. Run state machine
 
+**A run ends `completed`, `blocked` or `failed`. Blocked is not an error.**
+
 ```mermaid
 stateDiagram-v2
     [*] --> running: POST /runs
@@ -370,6 +394,8 @@ stateDiagram-v2
 
 ## B5. Step state machine
 
+**A refused step is a result in its own right, not a failure.**
+
 ```mermaid
 stateDiagram-v2
     [*] --> pending
@@ -395,13 +421,15 @@ stateDiagram-v2
     end note
 ```
 
-For model calls the same status vocabulary applies, and a rejected attempt is
-a **step in its own right** with `attempt = 2` and a parent link, because it
+For model calls the same status vocabulary applies. A rejected attempt is a
+**step in its own right**, with `attempt = 2` and a parent link, because it
 was billed.
 
 ---
 
 ## B6. Upload lifecycle
+
+**Nothing is ingested until a person confirms the mapping.**
 
 ```mermaid
 stateDiagram-v2
@@ -438,6 +466,8 @@ stateDiagram-v2
 
 ## B7. Re-run and reproduction
 
+**Re-run executes the recorded plan and compares six things per step.**
+
 ```mermaid
 flowchart TB
     START(["POST /api/runs/{id}/rerun"]) --> LOAD["Load the run"]
@@ -462,22 +492,24 @@ flowchart TB
     style C409B fill:#f8d7da,stroke:#e34948,color:#14181d
 ```
 
-Two things about this that are load-bearing.
+**Two facts about re-run are load-bearing.**
 
-**It consults no model.** Re-planning would test whether a model repeats
-itself, which is a different question and not one the manifest makes any
-promise about. A test asserts the model call count is unchanged.
-
-**The fingerprints agreeing is necessary, not sufficient.** The numbers are
-the thing being reproduced, so they are compared directly with
-`all_numeric_values()`.
+1. **It consults no model.** Re-planning would test whether a model repeats
+   itself. That is a different question, and the manifest promises nothing
+   about it. A test asserts the model call count is unchanged.
+2. **The fingerprints agreeing is necessary, not sufficient.** The numbers are
+   the thing being reproduced, so they are compared directly with
+   `all_numeric_values()`.
 
 An empty run reproduces nothing. Saying `True` for it would be the most
-misleading answer available, so `reproduced` is `bool(steps) and all(...)`.
+misleading answer available. So `reproduced` is `bool(steps) and all(...)`.
 
 ---
 
 ## B8. The sandbox process
+
+**The parent owns the wall clock. The child does nothing until it is inside
+the job.**
 
 ```mermaid
 sequenceDiagram
@@ -516,6 +548,8 @@ sequenceDiagram
 
 ## B9. MCP research loop
 
+**Five conditions gate the loop. Any "no" skips the research phase.**
+
 ```mermaid
 flowchart TB
     START(["A question"]) --> GATE{"capability on?<br/>servers configured?<br/>allowlist non-empty?<br/>researcher role assigned?<br/>model can call tools?"}
@@ -545,6 +579,9 @@ flowchart TB
 ---
 
 ## B10. Capability resolution
+
+**A chat may override web search and MCP. Nothing overrides the sandbox
+toggle.**
 
 ```mermaid
 flowchart TB
@@ -576,20 +613,23 @@ flowchart TB
     RES --> BUILD["The router builds ONLY<br/>the collaborators these permit"]
 ```
 
-The sandbox is deliberately not chat-overridable. It is the most
+**The sandbox is deliberately not chat-overridable.** It is the most
 security-sensitive toggle in the system, so it stays at project scope.
 
-Note the `None` handling: project toggles are NOT NULL in the database, so
-`None` is only ever seen on an instance that has not been flushed yet.
-Falling back to the column default keeps the resolver's answer identical
-before and after a flush, rather than leaking `None` into a bool field.
+**The `None` handling:**
+
+- Project toggles are NOT NULL in the database.
+- So `None` is only ever seen on an instance that has not been flushed yet.
+- Falling back to the column default keeps the resolver's answer identical
+  before and after a flush. It does not leak `None` into a bool field.
 
 ---
 
 ## B11. Streaming event vocabulary
 
-Dotted names, not a discriminated union, because a client renders a timeline
-and a new phase must not break one that has not been updated.
+**Twelve events with dotted names, not a discriminated union.** A client
+renders a timeline, and a new phase must not break a client that has not been
+updated.
 
 | Event | Payload | Fired |
 |---|---|---|
@@ -612,6 +652,9 @@ run readable.
 ---
 
 ## B12. Deployment topology
+
+**One Windows machine: Postgres in Docker on 5433, the API on 8001, Vite on
+5173, Ollama on 11434.**
 
 ```mermaid
 flowchart TB
@@ -648,17 +691,23 @@ flowchart TB
 | 8101 | e2e backend, Yahoo prices | Shares one Postgres with 8100 |
 | 11434 | Ollama | |
 
-**Port 8000 is not safely ours.** A container holding the wildcard address on
-8000 answers `127.0.0.1:8000` traffic too, and it wins often enough that
-uvicorn's own successful bind proves nothing. Measured: 25 consecutive health
-polls returned 404 with `Server: SurrealDB` while uvicorn sat bound to
-`127.0.0.1:8000`, and the same URL answered 200 from uvicorn minutes later.
+**Port 8000 is not safely ours.**
 
-**Docker Desktop does not autostart** on this machine, so a fresh boot means
-no Postgres and roughly 40 test errors.
+- A container holding the wildcard address on 8000 answers `127.0.0.1:8000`
+  traffic too.
+- It wins often enough that uvicorn's own successful bind proves nothing.
+- Measured: 25 consecutive health polls returned 404 with `Server: SurrealDB`
+  while uvicorn sat bound to `127.0.0.1:8000`.
+- The same URL answered 200 from uvicorn minutes later.
+
+**Docker Desktop does not autostart** on this machine. A fresh boot means no
+Postgres and roughly 40 test errors.
 
 **Docker Model Runner is disabled** (`"EnableInference": false`). It was
 crash-looping Docker Desktop through an orphaned socket.
+
+**Next, 2 minutes:** open [integration patterns](integration-patterns.md) and
+read its checklist for adding the next integration.
 
 ---
 
