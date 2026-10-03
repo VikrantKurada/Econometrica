@@ -64,7 +64,7 @@ need to say so before the user finds out.
 
 ## The loop
 
-**A run reports its progress back to the canvas as it happens.**
+**A run reports its progress back to the canvas phase by phase.**
 
 ```mermaid
 sequenceDiagram
@@ -85,15 +85,18 @@ sequenceDiagram
     loop each planned step
         O->>T: run this tool with these params
         T-->>O: a ResultSet, or a refusal with a reason
+    end
+    loop each outcome, once the tools have finished
         O-->>C: step.finished
     end
+    O->>O: diagnostics, then chart proposals
     O-->>C: charts.finished
-    O->>O: diagnostics, then the Validator
+    O->>O: the Validator reviews
     O-->>C: validate.finished (approved or rejected)
     O->>O: narrate, then check every number
     O-->>C: narrate.finished (published, or withheld and why)
-    O->>DB: persist the run, its steps and its outcome
     O-->>C: run.finished
+    O->>DB: persist the run, its steps and its outcome
     C-->>U: charts, narrative, diagnostics, trace, cost
 ```
 

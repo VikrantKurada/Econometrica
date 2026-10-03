@@ -234,9 +234,10 @@ The plan runs. The GARCH step is refused:
 
 Sam clicks the Diagnostics tab.
 
-- The deterministic checks are all there.
-- Three are marked **not judged**, not failed, because no tool made a call on
-  them.
+- It lists the checks the run produced, each with its statistic and a verdict.
+- A check the engine skipped is not in the list at all.
+- A verdict has three states: passed, failed or **not judged**. A check that
+  could not be evaluated is marked not judged, not failed.
 - That distinction is enforced from the type through to the UI.
 - A learner told a check "failed" when nobody ran it learns something false.
 

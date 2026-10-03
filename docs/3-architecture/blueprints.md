@@ -2,7 +2,7 @@
 
 - **The point:** reference drawings, B1 to B12. Nothing here argues for
   anything.
-- **Read time:** about 7 minutes end to end. Do not read it end to end. Keep
+- **Read time:** about 8 minutes end to end. Do not read it end to end. Keep
   it open on a second monitor.
 - **Do first:** pick the drawing for what you are working on from the list
   below.
@@ -311,6 +311,9 @@ sequenceDiagram
     RT-->>FE: SSE stream opens
 
     OR-->>FE: run.started
+    opt Validator and Planner share a provider
+        OR-->>FE: run.warning
+    end
     OR->>CTX: research (MCP), retrieve (docs), search (web)
     CTX-->>OR: context, attributed
     OR->>PL: plan(question, context)
@@ -322,29 +325,39 @@ sequenceDiagram
     DS-->>OR: frame + DataQualityReport
     OR-->>FE: data.finished
 
-    loop each ordered step
-        OR->>EC: run step
-        EC->>EC: evaluate gates
-        alt gate refuses
-            EC-->>OR: refused, with the reason
-        else gate allows or is unjudged
-            EC-->>OR: ResultSet + Manifest
+    loop first pass, then one more per revision
+        OR->>EC: run(plan, frame)
+        loop each ordered step
+            EC->>EC: evaluate gates
+            alt gate refuses
+                EC->>EC: refused, with the reason
+            else gate allows or is unjudged
+                EC->>EC: ResultSet + Manifest
+            end
         end
-        OR-->>FE: step.finished
-    end
-
-    OR->>OR: run_diagnostics, propose_charts
-    OR-->>FE: charts.finished
-
-    opt tier has a Validator
-        OR->>VA: review(plan, execution, diagnostics)
-        VA-->>OR: verdict
-        OR-->>FE: validate.finished
-        opt rejected and revisions remain
-            OR-->>FE: plan.revising
-            OR->>PL: re-plan with the reasons
-            opt dataset changed
-                OR->>DS: re-resolve
+        EC-->>OR: ExecutionReport
+        loop each outcome, once the tools have finished
+            OR-->>FE: step.finished
+        end
+        opt plan has code steps and a Quant Coder is wired
+            loop each code step whose dependencies ran
+                OR->>OR: Quant Coder writes code,<br/>the sandbox runs it
+                OR-->>FE: step.finished
+            end
+        end
+        OR->>OR: run_diagnostics, propose_charts
+        OR-->>FE: charts.finished
+        opt tier is not single and a Validator is assigned
+            OR->>VA: review(plan, execution, diagnostics)
+            VA-->>OR: verdict
+            OR-->>FE: validate.finished
+            opt rejected and revisions remain
+                OR-->>FE: plan.revising
+                OR->>PL: re-plan with the reasons
+                opt dataset changed
+                    OR->>DS: re-resolve
+                    OR-->>FE: data.finished
+                end
             end
         end
     end
@@ -357,6 +370,10 @@ sequenceDiagram
     OR-->>FE: run.finished (the whole RunOutcome)
     RT->>TR: record_run
     TR->>DB: runs + run_steps + outcome
+    RT->>DB: commit
+    opt the write fails
+        RT-->>FE: run.untraced
+    end
 ```
 
 ---
@@ -370,7 +387,7 @@ stateDiagram-v2
     [*] --> running: POST /runs
 
     running --> completed: pipeline finished,<br/>narration published
-    running --> blocked: pipeline finished,<br/>narration withheld<br/>or every step refused
+    running --> blocked: pipeline finished,<br/>narration withheld
     running --> failed: an exception anywhere
 
     completed --> [*]
@@ -634,20 +651,29 @@ updated.
 | Event | Payload | Fired |
 |---|---|---|
 | `run.started` | the question | always, first |
-| `run.warning` | prose | zero or more, early. Includes the validator-independence warning |
-| `plan.finished` | the whole `AnalysisPlan` | once per plan, including revisions |
-| `plan.disagreement` | prose | consensus tier only, where planners differed |
+| `run.warning` | prose | at most once, before planning: the validator-independence warning |
+| `plan.finished` | the whole `AnalysisPlan` | at most once, after the first plan. A revision does not send it again |
+| `plan.disagreement` | prose | consensus tier with more than one planner, where they chose different tool sequences. The run route builds one planner, so the API does not send it today |
 | `data.finished` | `DataQualityReport` | once per resolve, so twice if a revision changed the spec |
-| `step.finished` | `StepOutcome` | once per plan step |
+| `step.finished` | `StepOutcome` | per execution pass: one per registry step, sent after the tools have run, then one per code step that was attempted. A revision repeats the pass |
 | `charts.finished` | the `ChartSpec` list | once per execution pass |
 | `validate.finished` | `ValidationVerdict` | once per review |
 | `plan.revising` | "revision N of M" | once per revision |
-| `narrate.finished` | `Narration` | once |
+| `narrate.finished` | `Narration` | at most once |
 | `run.failed` | the error | at most once |
-| `run.finished` | the whole `RunOutcome` | **always, last**, even after a failure |
+| `run.finished` | the whole `RunOutcome` | when the pipeline ends, **even after a failure**. Not sent if the stream is cancelled first, as when the client disconnects. Last, unless `run.untraced` follows |
+| `run.untraced` | prose, with the save error | at most once, after `run.finished`, when saving the run fails |
+
+Text in the Payload column travels in the event's `detail` field. The models
+and the chart list travel in `payload`.
 
 `run.finished` firing after `run.failed` is the contract that makes a partial
 run readable.
+
+**`run.untraced` is the one event that can follow `run.finished`.** The router
+sends it, not the orchestrator, when writing the run and its trace to the
+database fails. That write is rolled back, so the run was streamed but is not
+stored. The web app shows the message as an alert.
 
 ---
 

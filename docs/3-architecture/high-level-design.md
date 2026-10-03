@@ -143,8 +143,9 @@ flowchart TB
 **Ten roles. Two are deterministic and have no model at all.** That is the
 part people find surprising.
 
-The tenth, the Column Mapper, sits on the upload path, not in a run. So it is
-absent from the diagram below.
+Two of the ten are absent from the diagram below. The Column Mapper sits on
+the upload path, not in a run. The Visualizer is a role but not a stage of a
+run: the pipeline calls `propose_charts` directly.
 
 ```mermaid
 flowchart TB

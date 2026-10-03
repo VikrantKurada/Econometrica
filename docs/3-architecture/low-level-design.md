@@ -509,8 +509,8 @@ flag:
 
 | Flag kind | Examples |
 |---|---|
-| `risk` | `synthetic_data`, insufficient observations, a suspiciously late start |
-| `warning` | `mixed_risk_free`, gaps, calendar misalignment |
+| `risk` | `synthetic_data`, a suspiciously late start |
+| `warning` | `mixed_risk_free`, insufficient observations, thin factor coverage, calendar misalignment |
 | `info` | `mixed_sources`, naming every ticker under the source that served it |
 
 **A run asked for a risk-free rate with no rate source refuses. It does not

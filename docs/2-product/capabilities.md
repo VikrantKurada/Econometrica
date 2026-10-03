@@ -129,16 +129,20 @@ facts. It is not asked to infer them.
 
 ```mermaid
 flowchart LR
-    R["Fitted results"] --> D["DiagnosticsEngine"]
+    R["Residuals<br/>of a result"] --> D["Diagnostics engine<br/><i>run_diagnostics</i>"]
     D --> N["Normality<br/><i>Jarque-Bera</i>"]
-    D --> H["Heteroskedasticity<br/><i>Breusch-Pagan, White</i>"]
+    D -.-> H["Heteroskedasticity<br/><i>Breusch-Pagan, White</i><br/>needs a design matrix"]
     D --> A["Autocorrelation<br/><i>Durbin-Watson, Ljung-Box</i>"]
-    D --> AR["ARCH effects"]
-    D --> M["Multicollinearity<br/><i>VIF</i>"]
-    D --> S["Structural breaks<br/><i>CUSUM, Chow</i>"]
-    D --> SA["Sample adequacy<br/><i>effective observations</i>"]
-    N & H & A & AR & M & S & SA --> V["Validator prompt,<br/>as numbers"]
+    D --> AR["ARCH effects<br/><i>ARCH-LM</i>"]
+    D -.-> M["Multicollinearity<br/><i>VIF</i><br/>needs a design matrix"]
+    D --> S["Structural breaks<br/><i>CUSUM, single mean shift</i>"]
+    N & A & AR & S --> V["Validator prompt,<br/>as numbers"]
 ```
+
+**What a run reaches.** The engine runs on a result that carries a `residuals`
+series, and it is handed the residuals alone. So the checks that need a design
+matrix (Breusch-Pagan, White, VIF) are skipped. They are drawn dotted.
+A tool's own diagnostics go to the Validator in the same list.
 
 **Every `Diagnostic` is tri-state.**
 
@@ -214,9 +218,9 @@ landed.
 | **Planner** | yes | Turns intent, context and the tool catalogue into a typed `AnalysisPlan` |
 | **Data Steward** | **no** | Resolves tickers, aligns calendars, converts frequency, constructs returns, reports quality. Deterministic on purpose: each of those has exactly one right answer, and a manifest means nothing if the data under it depended on a model's mood |
 | **Econometrician** | **no** | Binds plan steps to registry tools, enforces gates, executes |
-| **Validator** | yes | Reviews the plan, the parameters, the diagnostics and the conclusions. Should run on a different vendor |
+| **Validator** | yes | Reviews the plan, each step's status, estimates and scalars, the code behind a generated result, the refusals, the unjudged checks and the diagnostics. It is not shown a result's tables or series. Should run on a different vendor |
 | **Narrator** | yes | Writes the interpretation, constrained to cite step ids |
-| **Visualizer** | yes | Emits declarative `ChartSpec` JSON from a closed vocabulary. Never writes JavaScript |
+| **Visualizer** | yes | Reorders, drops and retitles the charts `propose_charts` already chose. It cannot add one. Not a stage of a run: the pipeline calls `propose_charts` directly |
 | **Quant Coder** | yes | The escape hatch. The only agent that produces numbers, and its results are marked |
 | **Query Writer** | yes | Turns an analytical question into symbol-shaped search queries |
 | **Researcher** | yes | Runs a bounded tool-calling loop over the project's allowlisted MCP tools |
@@ -336,7 +340,7 @@ when you need a path.
 - `POST /api/runs/{id}/rerun`
 
 **Exports**
-- `GET /api/runs/{id}/export?format=json|md|csv|xlsx|zip`
+- `GET /api/runs/{id}/export?format=json|markdown|csv|xlsx|zip`
 
 **Providers**
 - `GET /api/providers`

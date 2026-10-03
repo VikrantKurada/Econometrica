@@ -102,7 +102,6 @@ flowchart LR
     M6 --> L4
     M7 --> L4
     M8 --> L5
-    M1 --> L6
 ```
 
 **Read it right to left and it is more useful:**

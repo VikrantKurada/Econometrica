@@ -62,7 +62,7 @@ flowchart TB
         S["capabilities · datasets · ingest · mapping<br/>documents · rag · exports · keystore · tracing"]
     end
     subgraph AG["Agents · knows nothing about projects, chats or the database"]
-        A["planner · data steward · econometrician · validator<br/>narrator · visualizer · quant coder · query writer · researcher"]
+        A["planner · data steward · econometrician · validator<br/>narrator · visualizer · quant coder · query writer · researcher · column mapper"]
     end
     subgraph CORE["Core · pure computation and typed adapters"]
         E["econ/ registry, gates, diagnostics"]
